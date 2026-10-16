@@ -96,7 +96,7 @@
             if (event.target.status !== 200) {
                 // The device answers 401/500 when the upload was refused or the update failed;
                 // it does not reboot, so don't report success.
-                _('status').textContent = "Update failed: " + (event.target.responseText || ("HTTP " + event.target.status));
+                _('status').textContent = event.target.responseText || ("Update failed (HTTP " + event.target.status + ")");
                 alertToast("error", "Firmware update failed!");
                 return;
             }
