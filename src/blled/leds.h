@@ -34,12 +34,16 @@ COLOR hex2rgb(String hex, short ww_value = 0, short cw_value = 0)
 {
     COLOR color;
     long hexcolor;
-    strcpy(color.RGBhex, hex.c_str());
+    strlcpy(color.RGBhex, hex.c_str(), sizeof(color.RGBhex)); // "#RRGGBB" fits; longer input is cut
     if (hex.charAt(0) == '#')
     {
         hex.remove(0, 1);
     }
-    while (hex.length() != 6)
+    if (hex.length() > 6)
+    {
+        hex.remove(6); // the padding loop below never ended for longer strings
+    }
+    while (hex.length() < 6)
     {
         hex += "0";
     }
@@ -57,19 +61,14 @@ void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm
 {
     StateLock lock;
 
-    float brightness = (float)printerConfig.brightness / 100.0;
+    float brightness = (float)constrain(printerConfig.brightness, 0, 100) / 100.0;
 
-    /*     int brightenedRed = round(targetRed * brightness);
-        int brightenedGreen = round(targetGreen * brightness);
-        int brightenedBlue = round(targetBlue * brightness);
-        int brightenedWarm = round(targetWarm * brightness);
-        int brightenedCold = round(targetCold * brightness); */
     //round implizit downward
-    int brightenedRed = (int)(targetRed * brightness);
-    int brightenedGreen = (int)(targetGreen * brightness);
-    int brightenedBlue = (int)(targetBlue * brightness);
-    int brightenedWarm = (int)(targetWarm * brightness);
-    int brightenedCold = (int)(targetCold * brightness);
+    int brightenedRed = (int)(constrain(targetRed, 0, 255) * brightness);
+    int brightenedGreen = (int)(constrain(targetGreen, 0, 255) * brightness);
+    int brightenedBlue = (int)(constrain(targetBlue, 0, 255) * brightness);
+    int brightenedWarm = (int)(constrain(targetWarm, 0, 255) * brightness);
+    int brightenedCold = (int)(constrain(targetCold, 0, 255) * brightness);
 
     if (brightenedRed == currentRed && brightenedGreen == currentGreen && brightenedBlue == currentBlue && brightenedWarm == currentWarm && brightenedCold == currentCold)
     {
@@ -92,40 +91,29 @@ void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm
         };
         return;
     }
-    float stepTime = (float)duration / 255.0;
-    int redStep = (brightenedRed - currentRed) / 255;
-    int greenStep = (brightenedGreen - currentGreen) / 255;
-    int blueStep = (brightenedBlue - currentBlue) / 255;
-    int warmStep = (brightenedWarm - currentWarm) / 255;
-    int coldStep = (brightenedCold - currentCold) / 255;
 
-    for (int i = 0; i < 256; i++)
+    // Interpolate from the start colour. (The old per-step increment was
+    // (target - current) / 255 in integer maths, i.e. 0 for any change under 255, so the
+    // LEDs waited ~0.25 s and then jumped instead of fading.)
+    const int steps = 50;
+    int stepDelay = duration / steps;
+    int startRed = currentRed, startGreen = currentGreen, startBlue = currentBlue, startWarm = currentWarm, startCold = currentCold;
+
+    for (int i = 1; i <= steps; i++)
     {
-        currentRed += redStep;
-        currentGreen += greenStep;
-        currentBlue += blueStep;
-        currentWarm += warmStep;
-        currentCold += coldStep;
+        currentRed = startRed + (brightenedRed - startRed) * i / steps;
+        currentGreen = startGreen + (brightenedGreen - startGreen) * i / steps;
+        currentBlue = startBlue + (brightenedBlue - startBlue) * i / steps;
+        currentWarm = startWarm + (brightenedWarm - startWarm) * i / steps;
+        currentCold = startCold + (brightenedCold - startCold) * i / steps;
 
         ledcWrite(redChannel, currentRed);
         ledcWrite(greenChannel, currentGreen);
         ledcWrite(blueChannel, currentBlue);
         ledcWrite(warmChannel, currentWarm);
         ledcWrite(coldChannel, currentCold);
-        delay(stepTime);
+        delay(stepDelay);
     }
-
-    currentRed = brightenedRed;
-    currentGreen = brightenedGreen;
-    currentBlue = brightenedBlue;
-    currentWarm = brightenedWarm;
-    currentCold = brightenedCold;
-
-    ledcWrite(redChannel, currentRed);
-    ledcWrite(greenChannel, currentGreen);
-    ledcWrite(blueChannel, currentBlue);
-    ledcWrite(warmChannel, currentWarm);
-    ledcWrite(coldChannel, currentCold);
 }
 
 // Helper functions to allow changes colors by using a string or integer hex code
@@ -198,13 +186,14 @@ void RGBCycle()
         hue = 0.0;
     }
 
-    currentRed = cos(hue * 3.14 / 180.0) * 255;
-    currentGreen = cos((hue + 120.0) * 3.14 / 180.0) * 255;
-    currentBlue = cos((hue + 240.0) * 3.14 / 180.0) * 255;
+    // cos() is -1..1: shift to 0..1 (negative values used to reach the PWM as huge
+    // unsigned duties), and apply the brightness limit like every other colour.
+    float brightness = (float)constrain(printerConfig.brightness, 0, 100) / 100.0;
+    currentRed = (cos(hue * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
+    currentGreen = (cos((hue + 120.0) * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
+    currentBlue = (cos((hue + 240.0) * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
     currentWarm = 0;
     currentCold = 0;
-
-    // Need to add code so it adjusts to set brightness level
 
     ledcWrite(redChannel, currentRed);
     ledcWrite(greenChannel, currentGreen);

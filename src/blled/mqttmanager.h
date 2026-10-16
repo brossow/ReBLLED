@@ -166,6 +166,7 @@ void mqttTask(void *parameter)
         if (WiFi.status() != WL_CONNECTED || WiFi.getMode() != WIFI_MODE_STA)
         {
             printerVariables.online = false;
+            pendingChamberLight = -1; // as before: no MQTT, request dropped
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
         }
@@ -373,9 +374,12 @@ else // Door closed
         //LogSerial.println(F("[MQTT] Door closed – Chamber light OFF"));
     }
 
-    if (!printerConfig.inactivityEnabled)
+    bool printing = printerVariables.gcodeState == "RUNNING" || printerVariables.gcodeState == "PAUSE" ||
+                    printerVariables.gcodeState == "PREPARE";
+    if (!printerConfig.inactivityEnabled && !printing)
     {
-        // Turn off LED bar immediately
+        // Turn off LED bar immediately (never mid-print: the chamber light matters for the
+        // camera / AI detection)
         printerVariables.printerledstate = false;
         printerConfig.replicate_update = false;
         printerVariables.stage = 999;
@@ -631,8 +635,13 @@ else // Door closed
                     else
                     {
                         LogSerial.println(F("NULL"));
-                        printerVariables.overridestage = 999;
                     }
+                }
+                if (printerVariables.parsedHMSlevel.length() == 0)
+                {
+                    // HMS cleared. (This reset used to sit inside the debug-logging branch,
+                    // so with debug logging off an HMS colour stayed until the next print.)
+                    printerVariables.overridestage = 999;
                 }
                 Changed = true;
             }
