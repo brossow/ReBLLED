@@ -32,7 +32,7 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 ## Reliability
 
 - [ ] **Power-cut recovery:** unplug the router (or turn off the 2.4 GHz WiFi), power-cycle the controller, wait until the `BLLED_AP` hotspot appears (LEDs stay orange), then bring the network back. Within ~1–2 minutes it should restart and reconnect without anyone touching it. While it's still in AP mode, joining `BLLED_AP` should open the setup page (captive portal), and its network list should load (it may take up to ~15 s while a reconnect attempt finishes).
-- [ ] **No freezes:** with RGB cycle mode on, the colour moves smoothly with no ~5 s pauses.
+- [ ] **No freezes:** `python3 tools/ws_timing.py <device-ip> 60` reports ~60 messages and no gaps over 2 s (2.3.0: ~31 messages, a ~6 s gap every ~10 s). With RGB cycle mode on, the colour moves smoothly with no pauses.
 - [ ] **MQTT back-off:** temporarily enter a wrong access code. Web Serial shows `next attempt in 3 s`, then 6, 12, 24, 30 s (not continuous retries). Put the right code back; it reconnects.
 - [ ] Printer list (WiFi setup page → printer search) still finds the printer.
 
