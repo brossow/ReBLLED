@@ -1,3 +1,19 @@
+## About this fork
+
+Private fork of [DutchDevelop/BLLEDController](https://github.com/DutchDevelop/BLLEDController), based on release 2.3.0 (`Release_V_2.3.0`), with security and reliability fixes. Versions are tagged `2.3.0-br.N`. Licence unchanged (see [LICENSE](LICENSE): CC BY-NC-SA based, non-commercial, share-alike).
+
+What changed compared with 2.3.0:
+
+- **Login actually protects the device.** When a WebUI username/password is set, every settings, upload, scan and log endpoint requires it (in 2.3.0, `/config.json`, `/submitWiFi`, `/update` and `/configrestore` did not). Stored secrets (WiFi password, printer access code, WebUI password) are never sent back to the browser: on the WiFi setup page, leave those fields blank to keep the saved value, and clear the username to remove the login.
+- **Recovers after a power cut.** If the saved WiFi isn't reachable at boot, the device keeps the `BLLED_AP` setup hotspot up but retries your network every 60 seconds and restarts into normal mode once it's back (2.3.0 stayed in AP mode until power-cycled).
+- **No more 5-second freezes.** Printer discovery no longer blocks the main loop for ~5.5 s every 10 s.
+- **Gentler on the printer.** MQTT reconnects back off from 3 to 30 seconds instead of retrying continuously.
+- **LED fixes.** Colour changes actually fade; RGB cycle respects the brightness limit; an HMS error colour clears when the error does (even with debug logging off); with the inactivity timeout disabled, closing the door no longer turns the lights off mid-print.
+- **Robustness.** A malformed restored config or colour value can no longer crash or hang the device at boot; restored backups are validated before they replace the config; the firmware update page reports failures.
+- **Reproducible builds.** Platform and library versions are pinned in `platformio.ini`.
+
+Build with `pio run -e esp32dev`; the OTA file is written to `.firmware/BLLC_V<version>.bin.ota` (upload it on the device's Firmware Update page). See [TESTING.md](TESTING.md) for the on-device checklist.
+
 ## BL Led Controller
 
 The BL Led Controller is an ESP32 based device that connects to your Bambulab X1,X1C,P1P Or P1S and controls the LED strip based on the state of the printer.
