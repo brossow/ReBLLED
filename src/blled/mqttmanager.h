@@ -150,7 +150,7 @@ void connectMqtt()
             // Back off (3 s, 6 s, 12 s ... 30 s) instead of retrying the TLS handshake and
             // login continuously, e.g. after the access code changed on the printer.
             mqttRetryDelay = (mqttRetryDelay == 0) ? MQTT_RETRY_MIN_MS : min(mqttRetryDelay * 2, MQTT_RETRY_MAX_MS);
-            Serial.printf("[MQTT] next attempt in %lu s\n", mqttRetryDelay / 1000);
+            LogSerial.printf("[MQTT] next attempt in %lu s\n", mqttRetryDelay / 1000); // also in Web Serial
         }
     }
 
