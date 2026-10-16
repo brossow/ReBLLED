@@ -13,7 +13,7 @@ What changed compared with 2.3.0:
 - **Thread safety.** LED/printer state and the Web Serial log are protected against concurrent access from the loop, MQTT and web-server tasks; only the MQTT task talks to the printer.
 - **Reproducible builds.** Platform and library versions are pinned in `platformio.ini`.
 
-Build with `pio run -e esp32dev`; the OTA file is written to `.firmware/BLLC_V<version>.bin.ota` (upload it on the device's Firmware Update page). See [TESTING.md](TESTING.md) for the on-device checklist. To try the setup pages in a browser without the hardware, run `python3 tools/mock_device.py src/www 8765` and open http://localhost:8765.
+Build with `pio run -e esp32dev`; the OTA file is written to `.firmware/BLLC_V<version>.bin.ota` (upload it on the device's Firmware Update page). See [TESTING.md](TESTING.md) for the on-device checklist. To try the setup pages in a browser without the hardware, run `python3 tools/mock_device.py src/www 8765` and open http://localhost:8765. To check a running device for main-loop freezes, run `python3 tools/ws_timing.py <device-ip> 60`.
 
 ## BL Led Controller
 
