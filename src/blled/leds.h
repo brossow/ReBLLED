@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include "mqttparsingutility.h"
+#include "statelock.h"
 void controlChamberLight(bool on); // Forward declaration
 
 const int redPin = 19;
@@ -54,6 +55,7 @@ COLOR hex2rgb(String hex, short ww_value = 0, short cw_value = 0)
 
 void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm, int targetCold, int duration = 500)
 {
+    StateLock lock;
 
     float brightness = (float)printerConfig.brightness / 100.0;
 
@@ -282,6 +284,7 @@ void printLogs(String Desc, short r, short g, short b, short ww, short cw)
 }
 void updateleds()
 {
+    StateLock lock;
     // Prevent replicate OFF immediately after door event
     if ((millis() - printerVariables.lastdoorOpenms) < 1000 || (millis() - printerVariables.lastdoorClosems) < 1000)
     {
@@ -739,8 +742,9 @@ void setupLeds()
     ledcAttachPin(coldPin, coldChannel);
 }
 
-void ledsloop()
+void ledsloopLocked()
 {
+    StateLock lock;
     RGBCycle();
     if ((millis() - lastUpdatems) > 30000 && (printerConfig.maintMode || printerConfig.testcolorEnabled || printerConfig.discoMode || printerConfig.debugwifi))
     {
@@ -811,7 +815,12 @@ if (printerVariables.chamberLightLocked &&
     if (printerConfig.debugingchange)
         LogSerial.println(F("[LED] Timeout – Chamber light OFF and lock released"));
 }
-    delay(10);
+}
+
+void ledsloop()
+{
+    ledsloopLocked();
+    delay(10); // outside the lock
 }
 
 #endif

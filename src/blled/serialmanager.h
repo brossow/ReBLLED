@@ -26,12 +26,13 @@ void serialLoop(){
             Serial.println(doc["printercode"].as<String>());
             Serial.println(doc["printerserial"].as<String>());
 
-            strcpy(globalVariables.SSID, doc["ssid"]);
-            strcpy(globalVariables.APPW, doc["pass"]);
+            // Bounded copies (strcpy overflowed on long values and crashed on missing keys).
+            strlcpy(globalVariables.SSID, doc["ssid"] | "", sizeof(globalVariables.SSID));
+            strlcpy(globalVariables.APPW, doc["pass"] | "", sizeof(globalVariables.APPW));
 
-            strcpy(printerConfig.printerIP, doc["printerip"]);
-            strcpy(printerConfig.accessCode, doc["printercode"]);
-            strcpy(printerConfig.serialNumber, doc["printerserial"]);
+            strlcpy(printerConfig.printerIP, doc["printerip"] | "", sizeof(printerConfig.printerIP));
+            strlcpy(printerConfig.accessCode, doc["printercode"] | "", sizeof(printerConfig.accessCode));
+            strlcpy(printerConfig.serialNumber, doc["printerserial"] | "", sizeof(printerConfig.serialNumber));
 
             saveFileSystem();
             Serial.println(F("Restarting Device"));

@@ -14,6 +14,34 @@ unsigned long restartRequestTime = 0;
 
 
 int wifi_reconnect_count = 0;
+unsigned long lastWifiReconnectAttempt = 0;
+
+// Set when saved WiFi credentials exist but the network wasn't reachable at boot (e.g. the
+// router was still starting after a power cut). The AP stays up for setup, and the saved
+// network is retried in the background; once it connects we restart into normal mode.
+bool apFallbackRetry = false;
+unsigned long lastApFallbackAttempt = 0;
+const unsigned long apFallbackInterval = 60000;
+
+void apFallbackLoop()
+{
+    if (!apFallbackRetry)
+        return;
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        Serial.println(F("[WiFiManager] Saved network is back - restarting into normal mode"));
+        delay(500);
+        ESP.restart();
+    }
+    if (millis() - lastApFallbackAttempt > apFallbackInterval)
+    {
+        lastApFallbackAttempt = millis();
+        Serial.println(F("[WiFiManager] AP mode: retrying saved network in the background"));
+        WiFi.mode(WIFI_AP_STA); // keep the setup AP running while trying
+        WiFi.disconnect();      // STA only; abandons a still-pending attempt
+        WiFi.begin(globalVariables.SSID, globalVariables.APPW);
+    }
+}
 
 void defaultcolors()
 {
@@ -80,6 +108,8 @@ void setup()
         Serial.println(F("[WiFiManager] Not connected → AP Mode"));
         startAPMode();
         setupWebserver();
+        apFallbackRetry = true;
+        lastApFallbackAttempt = millis();
         return;
     }
     else
@@ -109,13 +139,21 @@ void setup()
 void loop()
 {
     serialLoop();
+    if (WiFi.getMode() & WIFI_AP)
+    {
+        // Captive-portal DNS; must also run in setup (AP) mode, where 'started' is false.
+        dnsServer.processNextRequest();
+    }
+    apFallbackLoop();
     if (globalVariables.started)
     {
         websocketLoop();
         ledsloop();
 
-        if (WiFi.status() != WL_CONNECTED)
+        // Paced so a dropped connection doesn't hammer disconnect/reconnect every loop pass.
+        if (WiFi.status() != WL_CONNECTED && millis() - lastWifiReconnectAttempt > 10000)
         {
+            lastWifiReconnectAttempt = millis();
             LogSerial.print(F("Wifi connection dropped.  "));
             LogSerial.print(F("Wifi Status: "));
             LogSerial.println(wl_status_to_string(WiFi.status()));
@@ -129,18 +167,18 @@ void loop()
             }
             else
             {
-                // Not connecting after 10 simple disconnect / reconnects
+                // Not connecting after 2 simple disconnect / reconnects
                 // Do something more drastic in case needing to switch to new AP
                 scanNetwork();
                 connectToWifi();
                 wifi_reconnect_count = 0;
             }
         }
-        if (WiFi.getMode() == WIFI_AP)
+        if (WiFi.status() == WL_CONNECTED)
         {
-            dnsServer.processNextRequest();
+            wifi_reconnect_count = 0;
         }
-        if(WiFi.status() == WL_CONNECTED && WiFi.getMode() != WIFI_AP)
+        if(WiFi.status() == WL_CONNECTED && !(WiFi.getMode() & WIFI_AP))
         {
             bblSearchPrinters();
         }

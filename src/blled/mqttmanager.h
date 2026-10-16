@@ -23,12 +23,20 @@ String clientId = "BLLED-";
 
 AutoGrowBufferStream stream;
 
-unsigned long mqttattempt = (millis() - 3000);
+#define MQTT_RETRY_MIN_MS 3000UL
+#define MQTT_RETRY_MAX_MS 30000UL
+unsigned long mqttattempt = 0;
+unsigned long mqttRetryDelay = 0; // first attempt immediately
 unsigned long lastMQTTupdate = millis();
 
 TaskHandle_t mqttTaskHandle = NULL;
 bool mqttTaskRunning = false;
 volatile bool mqttConnectInProgress = false;
+
+// Chamber light requests can come from any task (loop, web server, MQTT callback), but
+// PubSubClient/WiFiClientSecure aren't thread-safe, so only the MQTT task publishes.
+volatile int8_t pendingChamberLight = -1; // -1 none, 0 off, 1 on
+void publishChamberLight(bool on);
 
 // With a Default BLLED
 // Expected information when viewing MQTT status messages
@@ -113,9 +121,10 @@ void connectMqtt()
         return;
     }
 
-    if (!mqttClient.connected() && (millis() - mqttattempt) >= 3000)
+    if (!mqttClient.connected() && (millis() - mqttattempt) >= mqttRetryDelay)
     {
         // tweenToColor(10, 10, 10, 10, 10);
+        mqttattempt = millis();
         Serial.println(F("Connecting to mqtt..."));
 
         if (mqttClient.connect(clientId.c_str(), "bblp", printerConfig.accessCode))
@@ -125,6 +134,7 @@ void connectMqtt()
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
             printerVariables.disconnectMQTTms = 0;
+            mqttRetryDelay = MQTT_RETRY_MIN_MS;
         }
         else
         {
@@ -136,8 +146,11 @@ void connectMqtt()
             if (mqttClient.state() == 5)
             {
                 tweenToColor(127, 0, 0, 0, 0);
-                mqttattempt = millis() - 3000;
             }
+            // Back off (3 s, 6 s, 12 s ... 30 s) instead of retrying the TLS handshake and
+            // login continuously, e.g. after the access code changed on the printer.
+            mqttRetryDelay = (mqttRetryDelay == 0) ? MQTT_RETRY_MIN_MS : min(mqttRetryDelay * 2, MQTT_RETRY_MAX_MS);
+            Serial.printf("[MQTT] next attempt in %lu s\n", mqttRetryDelay / 1000);
         }
     }
 
@@ -160,6 +173,11 @@ void mqttTask(void *parameter)
         if (!mqttClient.connected())
         {
             printerVariables.online = false;
+            if (pendingChamberLight != -1)
+            {
+                pendingChamberLight = -1;
+                LogSerial.println(F("[MQTT] Skipped chamber_light control – MQTT not connected"));
+            }
 
             if (printerVariables.disconnectMQTTms == 0)
             {
@@ -175,6 +193,12 @@ void mqttTask(void *parameter)
         {
             printerVariables.disconnectMQTTms = 0;
             mqttClient.loop();
+            int8_t chamberLight = pendingChamberLight;
+            if (chamberLight != -1 && mqttClient.connected())
+            {
+                pendingChamberLight = -1;
+                publishChamberLight(chamberLight == 1);
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -187,6 +211,7 @@ void mqttTask(void *parameter)
 
 void ParseCallback(char *topic, byte *payload, unsigned int length)
 {
+    StateLock lock;
     JsonDocument messageobject;
     JsonDocument filter;
     // Rather than showing the entire message to Serial - grabbing only the pertinent bits for BLLED.
@@ -648,12 +673,12 @@ void controlChamberLight(bool on)
     if (!printerConfig.controlChamberLight)
         return;
     printerVariables.printerledstate = on; // <-- Set state flag to avoid replicate overwrite
-    if (!mqttClient.connected())
-    {
-        LogSerial.println(F("[MQTT] Skipped chamber_light control – MQTT not connected"));
-        return;
-    }
+    pendingChamberLight = on ? 1 : 0;
+}
 
+// MQTT task only.
+void publishChamberLight(bool on)
+{
     JsonDocument doc;
     JsonObject system = doc["system"].to<JsonObject>();
     system["command"] = "ledctrl";

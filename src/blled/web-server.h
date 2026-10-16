@@ -221,6 +221,7 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     {
         return request->requestAuthentication();
     }
+    StateLock lock; // the loop and MQTT tasks read these settings
 
     auto getSafeParamValue = [](AsyncWebServerRequest *req, const char *name, const char *fallback = "") -> String
     {
