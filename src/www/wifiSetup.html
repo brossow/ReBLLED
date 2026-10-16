@@ -151,9 +151,10 @@
                 if (attempt === 0) alertToast("info", "Retrieving network scan, please wait...");
                 const res = await fetch("/wifiScan");
                 const data = await res.json();
-                if (data.scanning) {
-                    // Scan runs in the background on the device; poll until it's done.
-                    if (attempt < 20) setTimeout(() => loadNetworks(attempt + 1), 1000);
+                if (data.scanning || data.retry) {
+                    // Scan runs in the background on the device; poll until it's done. (retry:
+                    // the radio was busy, e.g. reconnecting to the saved network - try again.)
+                    if (attempt < 40) setTimeout(() => loadNetworks(attempt + 1), 1000);
                     else document.getElementById("networks").innerText = "Network scan timed out.";
                     return;
                 }
@@ -201,6 +202,12 @@
             const webUser = document.getElementById("webUser").value;
             const webPass = document.getElementById("webPass").value;
 
+            if (ssid !== savedSSID && !pass) {
+                // The saved password belongs to the saved network.
+                alertToast("error", "Enter the WiFi password for the new network.");
+                return;
+            }
+
             try {
                 const res = await fetch("/submitWiFi", {
                     method: "POST",
@@ -212,18 +219,20 @@
                 if (res.ok) {
                     alertToast("success", "Settings saved. Restarting...");
                 } else {
-                    alertToast("error", "Save failed: " + res.status);
+                    alertToast("error", "Save failed: " + ((await res.text()) || res.status));
                 }
             } catch (err) {
                 alertToast("info", "Device is likely restarting.");
             }
         });
 
+        let savedSSID = "";
         async function loadPrinterConfig() {
             try {
                 const res = await fetch("/config.json");
                 const config = await res.json();
                 document.getElementById("ssid").value = config.ssid || "";
+                savedSSID = config.ssid || "";
                 // Stored secrets are never sent to the browser; leave the field blank to keep them.
                 if (config.hasPass) {
                     document.getElementById("password").placeholder = "(saved - leave blank to keep)";

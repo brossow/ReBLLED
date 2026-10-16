@@ -18,10 +18,22 @@ unsigned long lastWifiReconnectAttempt = 0;
 
 // Set when saved WiFi credentials exist but the network wasn't reachable at boot (e.g. the
 // router was still starting after a power cut). The AP stays up for setup, and the saved
-// network is retried in the background; once it connects we restart into normal mode.
+// network is tried for a short window once a minute; once it connects we restart into
+// normal mode. Outside those windows the STA is idle, so the setup page's WiFi scan works
+// (the ESP32 can't scan while a connection attempt is running).
 bool apFallbackRetry = false;
+bool apFallbackAttemptActive = false;
 unsigned long lastApFallbackAttempt = 0;
 const unsigned long apFallbackInterval = 60000;
+const unsigned long apFallbackAttemptWindow = 15000;
+
+void startApFallbackRetry()
+{
+    // The core's auto-reconnect would otherwise retry back-to-back forever.
+    WiFi.setAutoReconnect(false);
+    apFallbackRetry = true;
+    lastApFallbackAttempt = millis();
+}
 
 void apFallbackLoop()
 {
@@ -33,12 +45,18 @@ void apFallbackLoop()
         delay(500);
         ESP.restart();
     }
-    if (millis() - lastApFallbackAttempt > apFallbackInterval)
+    if (apFallbackAttemptActive && millis() - lastApFallbackAttempt > apFallbackAttemptWindow)
+    {
+        apFallbackAttemptActive = false;
+        WiFi.disconnect(); // STA only; the AP keeps running
+    }
+    if (!apFallbackAttemptActive && millis() - lastApFallbackAttempt > apFallbackInterval &&
+        WiFi.scanComplete() != WIFI_SCAN_RUNNING)
     {
         lastApFallbackAttempt = millis();
-        Serial.println(F("[WiFiManager] AP mode: retrying saved network in the background"));
+        apFallbackAttemptActive = true;
+        Serial.println(F("[WiFiManager] AP mode: trying saved network"));
         WiFi.mode(WIFI_AP_STA); // keep the setup AP running while trying
-        WiFi.disconnect();      // STA only; abandons a still-pending attempt
         WiFi.begin(globalVariables.SSID, globalVariables.APPW);
     }
 }
@@ -108,8 +126,7 @@ void setup()
         Serial.println(F("[WiFiManager] Not connected → AP Mode"));
         startAPMode();
         setupWebserver();
-        apFallbackRetry = true;
-        lastApFallbackAttempt = millis();
+        startApFallbackRetry();
         return;
     }
     else

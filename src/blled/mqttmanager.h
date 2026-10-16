@@ -194,11 +194,12 @@ void mqttTask(void *parameter)
         {
             printerVariables.disconnectMQTTms = 0;
             mqttClient.loop();
-            int8_t chamberLight = pendingChamberLight;
-            if (chamberLight != -1 && mqttClient.connected())
+            if (pendingChamberLight != -1 && mqttClient.connected())
             {
-                pendingChamberLight = -1;
-                publishChamberLight(chamberLight == 1);
+                // Atomic take, so a request queued between the read and the clear isn't lost.
+                int8_t chamberLight = __atomic_exchange_n(&pendingChamberLight, (int8_t)-1, __ATOMIC_SEQ_CST);
+                if (chamberLight != -1)
+                    publishChamberLight(chamberLight == 1);
             }
         }
 

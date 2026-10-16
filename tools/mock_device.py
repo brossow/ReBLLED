@@ -25,7 +25,9 @@ class H(http.server.BaseHTTPRequestHandler):
                 "webUser": "", "hasWebPass": False, "isAPMode": False}))
         if p == "/wifiScan":
             state["scan_calls"] += 1
-            if state["scan_calls"] <= 2:
+            if state["scan_calls"] == 1:  # radio busy (e.g. WiFi reconnect attempt)
+                return self._send(503, '{"retry":true}')
+            if state["scan_calls"] <= 3:
                 return self._send(202, '{"scanning":true}')
             return self._send(200, json.dumps({"networks": [
                 {"ssid": "HomeNet", "bssid": "02:00:00:00:00:01", "rssi": -48, "enc": True},

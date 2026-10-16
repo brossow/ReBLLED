@@ -24,13 +24,14 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 - [ ] After logging in, `/config.json` shows `hasPass`, `hasAccessCode`, `hasWebPass` and **no** password/access code values.
 - [ ] WiFi setup page: password and access-code fields are empty with a "(saved - leave blank to keep)" placeholder. Saving without touching them keeps the device connected and the printer working.
 - [ ] The network list loads after a short "scanning" wait, and network names display as plain text.
-- [ ] Web Serial log page asks for the login and still shows live log lines.
+- [ ] Web Serial log page asks for the login and still shows live log lines, in **both Chrome and Safari**. (The log stream is a WebSocket; browsers can't prompt for a login on one, so they must reuse the page's login on their own. If Safari connects but shows no lines, that's this.)
+- [ ] Changing to a different WiFi network with the password left blank is refused with "Enter the WiFi password for the new network."
 - [ ] Optional: from a terminal, an upload without a login is refused (returns 401) and the device does **not** restart:
       `curl -s -o /dev/null -w "%{http_code}\n" -F "file=@/dev/null" http://<device-ip>/update`
 
 ## Reliability
 
-- [ ] **Power-cut recovery:** unplug the router (or turn off the 2.4 GHz WiFi), power-cycle the controller, wait until the `BLLED_AP` hotspot appears (LEDs stay orange), then bring the network back. Within ~1–2 minutes it should restart and reconnect without anyone touching it.
+- [ ] **Power-cut recovery:** unplug the router (or turn off the 2.4 GHz WiFi), power-cycle the controller, wait until the `BLLED_AP` hotspot appears (LEDs stay orange), then bring the network back. Within ~1–2 minutes it should restart and reconnect without anyone touching it. While it's still in AP mode, joining `BLLED_AP` should open the setup page (captive portal), and its network list should load (it may take up to ~15 s while a reconnect attempt finishes).
 - [ ] **No freezes:** with RGB cycle mode on, the colour moves smoothly with no ~5 s pauses.
 - [ ] **MQTT back-off:** temporarily enter a wrong access code. Web Serial shows `next attempt in 3 s`, then 6, 12, 24, 30 s (not continuous retries). Put the right code back; it reconnects.
 - [ ] Printer list (WiFi setup page → printer search) still finds the printer.
@@ -38,13 +39,15 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 ## LEDs
 
 - [ ] Colour changes fade over about half a second instead of jumping.
-- [ ] RGB cycle respects the brightness slider (try 20% vs 100%).
+- [ ] RGB cycle shows saturated colours and respects the brightness slider (try 20% vs 100%).
 - [ ] A print start, finish (green) and door interaction behave as before.
 - [ ] With **Control chamber light** on and **inactivity timeout** off: closing the door mid-print does **not** turn the LEDs or the chamber light off.
 - [ ] If an HMS error turns the LEDs red, they return to normal when the error clears, with both debug-logging options off.
 - [ ] Inactivity timeout still turns the lights off when idle.
 
 ## If something goes wrong
+
+- Forgot the WebUI password: run the USB setup again (the web flasher's WiFi setup step). Setup over USB clears the WebUI login.
 
 - Device boots but misbehaves: upload the official `BLLC_V2.3.0.bin.ota` on the Firmware Update page. The config format is unchanged.
 - Device doesn't come back: flash `BLLC_V2.3.0.bin` over USB with the [web flasher](https://dutchdevelop.github.io/blledsetup/), then restore the config backup.

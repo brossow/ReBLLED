@@ -186,12 +186,13 @@ void RGBCycle()
         hue = 0.0;
     }
 
-    // cos() is -1..1: shift to 0..1 (negative values used to reach the PWM as huge
-    // unsigned duties), and apply the brightness limit like every other colour.
+    // cos() is -1..1: clip the negative half to 0 (negative values used to reach the PWM
+    // as huge unsigned duties) so colours stay saturated, and apply the brightness limit
+    // like every other colour.
     float brightness = (float)constrain(printerConfig.brightness, 0, 100) / 100.0;
-    currentRed = (cos(hue * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
-    currentGreen = (cos((hue + 120.0) * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
-    currentBlue = (cos((hue + 240.0) * PI / 180.0) + 1.0) / 2.0 * 255 * brightness;
+    currentRed = max(0.0, cos(hue * PI / 180.0)) * 255 * brightness;
+    currentGreen = max(0.0, cos((hue + 120.0) * PI / 180.0)) * 255 * brightness;
+    currentBlue = max(0.0, cos((hue + 240.0) * PI / 180.0)) * 255 * brightness;
     currentWarm = 0;
     currentCold = 0;
 

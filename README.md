@@ -4,15 +4,16 @@ Private fork of [DutchDevelop/BLLEDController](https://github.com/DutchDevelop/B
 
 What changed compared with 2.3.0:
 
-- **Login actually protects the device.** When a WebUI username/password is set, every settings, upload, scan and log endpoint requires it (in 2.3.0, `/config.json`, `/submitWiFi`, `/update` and `/configrestore` did not). Stored secrets (WiFi password, printer access code, WebUI password) are never sent back to the browser: on the WiFi setup page, leave those fields blank to keep the saved value, and clear the username to remove the login.
-- **Recovers after a power cut.** If the saved WiFi isn't reachable at boot, the device keeps the `BLLED_AP` setup hotspot up but retries your network every 60 seconds and restarts into normal mode once it's back (2.3.0 stayed in AP mode until power-cycled).
+- **Login actually protects the device.** When a WebUI username/password is set, every settings, upload, scan and log endpoint requires it (in 2.3.0, `/config.json`, `/submitWiFi`, `/update` and `/configrestore` did not). Stored secrets (WiFi password, printer access code, WebUI password) are never sent back to the browser: on the WiFi setup page, leave those fields blank to keep the saved value, and clear the username to remove the login. Forgot the password? Running the USB setup again (web flasher) clears the login.
+- **Recovers after a power cut.** If the saved WiFi isn't reachable at boot, the device keeps the `BLLED_AP` setup hotspot up (now with a working captive portal) but tries your network for 15 seconds every minute and restarts into normal mode once it's back (2.3.0 stayed in AP mode until power-cycled).
 - **No more 5-second freezes.** Printer discovery no longer blocks the main loop for ~5.5 s every 10 s.
 - **Gentler on the printer.** MQTT reconnects back off from 3 to 30 seconds instead of retrying continuously.
 - **LED fixes.** Colour changes actually fade; RGB cycle respects the brightness limit; an HMS error colour clears when the error does (even with debug logging off); with the inactivity timeout disabled, closing the door no longer turns the lights off mid-print.
 - **Robustness.** A malformed restored config or colour value can no longer crash or hang the device at boot; restored backups are validated before they replace the config; the firmware update page reports failures.
+- **Thread safety.** LED/printer state and the Web Serial log are protected against concurrent access from the loop, MQTT and web-server tasks; only the MQTT task talks to the printer.
 - **Reproducible builds.** Platform and library versions are pinned in `platformio.ini`.
 
-Build with `pio run -e esp32dev`; the OTA file is written to `.firmware/BLLC_V<version>.bin.ota` (upload it on the device's Firmware Update page). See [TESTING.md](TESTING.md) for the on-device checklist.
+Build with `pio run -e esp32dev`; the OTA file is written to `.firmware/BLLC_V<version>.bin.ota` (upload it on the device's Firmware Update page). See [TESTING.md](TESTING.md) for the on-device checklist. To try the setup pages in a browser without the hardware, run `python3 tools/mock_device.py src/www 8765` and open http://localhost:8765.
 
 ## BL Led Controller
 

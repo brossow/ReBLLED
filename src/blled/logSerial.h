@@ -3,12 +3,22 @@
 
 #include <Arduino.h>
 #include <MycilaWebSerial.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 class AsyncWebServer;
 
 class LogSerialClass : public Stream {
 private:
 WebSerial webSerial;
+// MycilaWebSerial has no locking and appends to a shared buffer; the loop, MQTT and web
+// server tasks all log, so writes are serialized here. Held only for the write itself.
+SemaphoreHandle_t writeMutex = NULL;
+void lock() {
+  if (writeMutex == NULL) writeMutex = xSemaphoreCreateRecursiveMutex(); // first log is in setup()
+  xSemaphoreTakeRecursive(writeMutex, portMAX_DELAY);
+}
+void unlock() { xSemaphoreGiveRecursive(writeMutex); }
 public:
   void begin(unsigned long baud = 115200) {
     Serial.begin(baud);
@@ -43,14 +53,18 @@ public:
   void flush() override { Serial.flush(); }
 
   size_t write(uint8_t b) override {
+    lock();
     Serial.write(b);
     webSerial.write(&b, 1);
+    unlock();
     return 1;
   }
 
   size_t write(const uint8_t* buffer, size_t size) override {
+    lock();
     Serial.write(buffer, size);
     webSerial.write(buffer, size);
+    unlock();
     return size;
   }
 

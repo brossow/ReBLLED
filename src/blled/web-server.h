@@ -336,7 +336,13 @@ void handleWiFiScan(AsyncWebServerRequest *request)
     int16_t n = WiFi.scanComplete();
     if (n == WIFI_SCAN_FAILED)
     {
-        WiFi.scanNetworks(true);
+        // Returns WIFI_SCAN_FAILED if the radio is busy (e.g. a WiFi connection attempt in
+        // progress); tell the page to try again rather than claiming a scan is running.
+        if (WiFi.scanNetworks(true) == WIFI_SCAN_FAILED)
+        {
+            request->send(503, "application/json", "{\"retry\":true}");
+            return;
+        }
         n = WIFI_SCAN_RUNNING;
     }
     if (n == WIFI_SCAN_RUNNING)
@@ -392,6 +398,12 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
     String ssid = param("ssid");
     String pass = param("pass");
     String bssid = param("bssid");
+    if (ssid.length() > 0 && ssid != globalVariables.SSID && pass.length() == 0)
+    {
+        // The stored password belongs to the old network; don't silently reuse it.
+        request->send(400, "text/plain", "Enter the WiFi password for the new network.");
+        return;
+    }
     if (ssid.length() > 0)
     {
         LogSerial.print(F("[WiFiSetup] SSID: "));

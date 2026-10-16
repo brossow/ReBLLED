@@ -34,6 +34,11 @@ void serialLoop(){
             strlcpy(printerConfig.accessCode, doc["printercode"] | "", sizeof(printerConfig.accessCode));
             strlcpy(printerConfig.serialNumber, doc["printerserial"] | "", sizeof(printerConfig.serialNumber));
 
+            // Setup over USB (physical access) also clears the WebUI login, so a forgotten
+            // password can be recovered without erasing the flash.
+            securityVariables.HTTPUser[0] = '\0';
+            securityVariables.HTTPPass[0] = '\0';
+
             saveFileSystem();
             Serial.println(F("Restarting Device"));
             delay(1000);
