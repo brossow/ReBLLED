@@ -16,6 +16,8 @@ AsyncWebSocket ws("/ws");
 #include "../www/www.h"
 
 unsigned long lastWsPush = 0;
+volatile bool configUploadOk = false;
+volatile bool otaOk = false;
 const unsigned long wsPushInterval = 1000; // alle 1000ms
 
 bool isAuthorized(AsyncWebServerRequest *request)
@@ -95,7 +97,6 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["wifiStrength"] = WiFi.RSSI();
     doc["host"] = globalVariables.Host;
     doc["ip"] = printerConfig.printerIP;
-    doc["code"] = printerConfig.accessCode;
     doc["id"] = printerConfig.serialNumber;
     doc["apMAC"] = printerConfig.BSSID;
     doc["brightness"] = printerConfig.brightness;
@@ -185,15 +186,17 @@ void handlePrinterConfigJson(AsyncWebServerRequest *request)
     {
         return request->requestAuthentication();
     }
+    // Secrets (WiFi password, access code, WebUI password) are never sent back to the
+    // browser - only whether one is stored. Blank fields on submit keep the stored value.
     JsonDocument doc;
     doc["ssid"] = globalVariables.SSID;
-    doc["pass"] = globalVariables.APPW;
+    doc["hasPass"] = strlen(globalVariables.APPW) > 0;
     doc["host"] = globalVariables.Host;
     doc["printerIP"] = printerConfig.printerIP;
     doc["printerSerial"] = printerConfig.serialNumber;
-    doc["accessCode"] = printerConfig.accessCode;
+    doc["hasAccessCode"] = strlen(printerConfig.accessCode) > 0;
     doc["webUser"] = securityVariables.HTTPUser;
-    doc["webPass"] = securityVariables.HTTPPass;
+    doc["hasWebPass"] = strlen(securityVariables.HTTPPass) > 0;
     doc["isAPMode"] = (WiFi.getMode() & WIFI_AP);
 
     String json;
@@ -323,9 +326,26 @@ void sendJsonToAll(JsonDocument &doc)
 
 void handleWiFiScan(AsyncWebServerRequest *request)
 {
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+    // Asynchronous scan: a blocking WiFi.scanNetworks() here stalls the AsyncTCP task
+    // for several seconds. The page polls until results are ready.
+    int16_t n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_FAILED)
+    {
+        WiFi.scanNetworks(true);
+        n = WIFI_SCAN_RUNNING;
+    }
+    if (n == WIFI_SCAN_RUNNING)
+    {
+        request->send(202, "application/json", "{\"scanning\":true}");
+        return;
+    }
+
     JsonDocument doc;
     JsonArray networks = doc["networks"].to<JsonArray>();
-    int n = WiFi.scanNetworks();
     for (int i = 0; i < n; ++i)
     {
         JsonObject net = networks.add<JsonObject>();
@@ -334,6 +354,7 @@ void handleWiFiScan(AsyncWebServerRequest *request)
         net["rssi"] = WiFi.RSSI(i);
         net["enc"] = (WiFi.encryptionType(i) == WIFI_AUTH_OPEN) ? false : true;
     }
+    WiFi.scanDelete(); // next request starts a fresh scan
 
     String json;
     serializeJson(doc, json);
@@ -342,6 +363,10 @@ void handleWiFiScan(AsyncWebServerRequest *request)
 
 void handleWiFiSetupPage(AsyncWebServerRequest *request)
 {
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
     AsyncWebServerResponse *response = request->beginResponse(200, wifiSetup_html_gz_mime, wifiSetup_html_gz, wifiSetup_html_gz_len);
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
@@ -349,51 +374,44 @@ void handleWiFiSetupPage(AsyncWebServerRequest *request)
 
 void handleSubmitWiFi(AsyncWebServerRequest *request)
 {
-    // Check for SSID + PASS optional handling
-    bool hasSSID = request->hasParam("ssid", true);
-    bool hasPASS = request->hasParam("pass", true);
-
-    if (hasSSID && hasPASS)
+    if (!isAuthorized(request))
     {
-        String ssid = request->getParam("ssid", true)->value();
-        String pass = request->getParam("pass", true)->value();
-        String bssid = request->hasParam("bssid", true) ? request->getParam("bssid", true)->value() : "";
-        if (bssid.length() > 0)
-            strlcpy(printerConfig.BSSID, bssid.c_str(), sizeof(printerConfig.BSSID));
-
-        ssid.trim();
-        pass.trim();
-
-        if (ssid.length() > 0 && pass.length() > 0)
-        {
-            LogSerial.println(F("[WiFiSetup] Updating WiFi credentials:"));
-            LogSerial.print(F("SSID: "));
-            LogSerial.println(ssid);
-            LogSerial.print(F("Password: "));
-            LogSerial.println(pass);
-
-            strlcpy(globalVariables.SSID, ssid.c_str(), sizeof(globalVariables.SSID));
-            strlcpy(globalVariables.APPW, pass.c_str(), sizeof(globalVariables.APPW));
-        }
-        else
-        {
-            LogSerial.println(F("[WiFiSetup] Empty SSID or PASS received → ignoring WiFi update."));
-        }
-    }
-    else
-    {
-        LogSerial.println(F("[WiFiSetup] No SSID or PASS provided → keeping existing WiFi credentials."));
+        return request->requestAuthentication();
     }
 
-    globalVariables.Host = request->hasParam("host", true) ? request->getParam("host", true)->value() : "";
+    auto param = [request](const char *name) -> String
+    {
+        String value = request->hasParam(name, true) ? request->getParam(name, true)->value() : "";
+        value.trim();
+        return value;
+    };
 
-    String printerIP = request->hasParam("printerIP", true) ? request->getParam("printerIP", true)->value() : "";
-    String printerSerial = request->hasParam("printerSerial", true) ? request->getParam("printerSerial", true)->value() : "";
-    String accessCode = request->hasParam("accessCode", true) ? request->getParam("accessCode", true)->value() : "";
-    String webUser = request->hasParam("webUser", true) ? request->getParam("webUser", true)->value() : "";
-    String webPass = request->hasParam("webPass", true) ? request->getParam("webPass", true)->value() : "";
+    // Blank fields keep the stored value, because /config.json no longer sends secrets
+    // back to the page.
+    String ssid = param("ssid");
+    String pass = param("pass");
+    String bssid = param("bssid");
+    if (ssid.length() > 0)
+    {
+        LogSerial.print(F("[WiFiSetup] SSID: "));
+        LogSerial.println(ssid);
+        strlcpy(globalVariables.SSID, ssid.c_str(), sizeof(globalVariables.SSID));
+    }
+    if (pass.length() > 0)
+    {
+        LogSerial.println(F("[WiFiSetup] WiFi password updated"));
+        strlcpy(globalVariables.APPW, pass.c_str(), sizeof(globalVariables.APPW));
+    }
+    if (bssid.length() > 0)
+        strlcpy(printerConfig.BSSID, bssid.c_str(), sizeof(printerConfig.BSSID));
 
+    String host = param("host");
+    if (host.length() > 0)
+        globalVariables.Host = host;
 
+    String printerIP = param("printerIP");
+    String printerSerial = param("printerSerial");
+    String accessCode = param("accessCode");
     if (printerIP.length() > 0)
         strlcpy(printerConfig.printerIP, printerIP.c_str(), sizeof(printerConfig.printerIP));
     if (printerSerial.length() > 0)
@@ -401,8 +419,15 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
     if (accessCode.length() > 0)
         strlcpy(printerConfig.accessCode, accessCode.c_str(), sizeof(printerConfig.accessCode));
 
+    // WebUI login: an empty username turns protection off; an empty password keeps the
+    // stored one.
+    String webUser = param("webUser");
+    String webPass = param("webPass");
     strlcpy(securityVariables.HTTPUser, webUser.c_str(), sizeof(securityVariables.HTTPUser));
-    strlcpy(securityVariables.HTTPPass, webPass.c_str(), sizeof(securityVariables.HTTPPass));
+    if (webUser.length() == 0)
+        securityVariables.HTTPPass[0] = '\0';
+    else if (webPass.length() > 0)
+        strlcpy(securityVariables.HTTPPass, webPass.c_str(), sizeof(securityVariables.HTTPPass));
 
     saveFileSystem();
 
@@ -489,6 +514,10 @@ void handleWebSerialPage(AsyncWebServerRequest *request)
 
 void handlePrinterList(AsyncWebServerRequest *request)
 {
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
@@ -514,29 +543,6 @@ void handleFactoryReset(AsyncWebServerRequest *request)
     deleteFileSystem(); // delete LittleFS config
     request->send(200, "text/plain", "Factory reset complete. Restarting...");
 
-    shouldRestart = true;
-    restartRequestTime = millis();
-}
-
-void handleUploadConfigFileData(AsyncWebServerRequest *request, const String &filename,
-                                size_t index, uint8_t *data, size_t len, bool final)
-{
-    static File uploadFile;
-
-    if (!index)
-    {
-        LogSerial.println(F("[ConfigUpload] Start"));
-        uploadFile = LittleFS.open(configPath, "w");
-    }
-    if (uploadFile)
-    {
-        uploadFile.write(data, len);
-    }
-    if (final)
-    {
-        uploadFile.close();
-        LogSerial.println(F("[ConfigUpload] Finished"));
-    }
     shouldRestart = true;
     restartRequestTime = millis();
 }
@@ -580,7 +586,7 @@ void setupWebserver()
 
     webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                  {
-    if (WiFi.getMode() == WIFI_AP) {
+    if (WiFi.getMode() & WIFI_AP) {
         LogSerial.println(F("[WebServer] Captive Portal activ – redirect to /wifi"));
         request->redirect("/wifi");
     } else {
@@ -602,41 +608,88 @@ void setupWebserver()
     webServer.on("/webserial", HTTP_GET, handleWebSerialPage);
     webServer.on("/printerList", HTTP_GET, handlePrinterList);
     webServer.on("/factoryreset", HTTP_GET, handleFactoryReset);
+    // Uploads: the upload callback runs before the completion handler, so the login has
+    // to be checked there too or the data is written before anyone is authenticated.
     webServer.on("/configrestore", HTTP_POST, [](AsyncWebServerRequest *request)
                  {
         if (!isAuthorized(request)) {
             return request->requestAuthentication();
+        }
+        if (!configUploadOk) {
+            request->send(400, "text/plain", "Config file rejected (not valid BLLED JSON). Nothing was changed.");
+            return;
         }
         request->send(200, "text/plain", "Config uploaded. Restarting...");
         shouldRestart = true;
         restartRequestTime = millis(); }, [](AsyncWebServerRequest *request, const String &filename, size_t index, uint8_t *data, size_t len, bool final)
                  {
         static File uploadFile;
+        static bool uploadAuthorized = false;
 
         if (!index) {
+            configUploadOk = false;
+            uploadAuthorized = isAuthorized(request);
+            if (!uploadAuthorized) {
+                LogSerial.println(F("[ConfigUpload] Rejected: not authorized"));
+                return;
+            }
             LogSerial.printf("[ConfigUpload] Start: %s\n", filename.c_str());
-            uploadFile = LittleFS.open(configPath, "w");
+            // Write to a temporary file; it only replaces the real config once it parses.
+            uploadFile = LittleFS.open(configUploadPath, "w");
+        }
+        if (!uploadAuthorized) {
+            return;
         }
         if (uploadFile) {
             uploadFile.write(data, len);
         }
         if (final) {
-            uploadFile.close();
-            LogSerial.println(F("[ConfigUpload] Finished"));
+            if (uploadFile) {
+                uploadFile.close();
+            }
+            configUploadOk = isValidConfigFile(configUploadPath);
+            if (configUploadOk) {
+                LittleFS.remove(configPath);
+                configUploadOk = LittleFS.rename(configUploadPath, configPath);
+            } else {
+                LittleFS.remove(configUploadPath);
+            }
+            LogSerial.println(configUploadOk ? F("[ConfigUpload] Finished") : F("[ConfigUpload] Invalid file - discarded"));
         } });
 
     webServer.on("/update", HTTP_POST, [](AsyncWebServerRequest *request)
                  {
+        if (!isAuthorized(request)) {
+            return request->requestAuthentication();
+        }
+        if (!otaOk) {
+            request->send(500, "text/plain", "Update failed - see the Web Serial log. The current firmware is still installed.");
+            return;
+        }
         request->send(200, "text/plain", "OK");
         LogSerial.println(F("OTA Upload done. Marking for restart."));
         shouldRestart = true;
         restartRequestTime = millis(); }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
                  {
+        static bool otaAuthorized = false;
+
         if (!index) {
+            otaOk = false;
+            otaAuthorized = isAuthorized(request);
+            if (!otaAuthorized) {
+                LogSerial.println(F("[OTA] Rejected: not authorized"));
+                return;
+            }
             LogSerial.printf("[OTA] Start: %s\n", filename.c_str());
+            if (Update.isRunning()) {
+                Update.abort(); // left over from an interrupted upload
+            }
             if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
                 Update.printError(LogSerial);
             }
+        }
+        if (!otaAuthorized || Update.hasError()) {
+            return;
         }
 
         if (Update.write(data, len) != len) {
@@ -645,12 +698,15 @@ void setupWebserver()
 
         if (final) {
             if (Update.end(true)) {
+                otaOk = true;
                 LogSerial.printf("[OTA] Success (%u bytes). Awaiting reboot...\n", index + len);
             } else {
                 Update.printError(LogSerial);
             }
         } });
 
+    // The log can contain the printer IP/serial; protect it like the other pages.
+    LogSerial.setAuthentication(securityVariables.HTTPUser, securityVariables.HTTPPass);
     LogSerial.begin(&webServer);
 
     ws.onEvent(onWsEvent);

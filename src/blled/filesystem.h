@@ -9,6 +9,20 @@
 #include "types.h"
 
 const char *configPath = "/blledconfig.json";
+const char *configUploadPath = "/blledconfig.upload.json";
+
+// A restored backup must at least be a JSON object with the WiFi SSID in it; anything
+// else is rejected before it can replace the working config.
+bool isValidConfigFile(const char *path)
+{
+    File f = LittleFS.open(path, "r");
+    if (!f)
+        return false;
+    JsonDocument json;
+    DeserializationError err = deserializeJson(json, f);
+    f.close();
+    return !err && json.is<JsonObject>() && json["ssid"].is<const char *>();
+}
 
 char *generateRandomString(int length)
 {
@@ -163,26 +177,24 @@ void loadFileSystem()
         saveFileSystem();
         return;
     }
-    size_t size = configFile.size();
-    std::unique_ptr<char[]> buf(new char[size]);
-    configFile.readBytes(buf.get(), size);
-
     JsonDocument json;
-    auto deserializeError = deserializeJson(json, buf.get());
+    auto deserializeError = deserializeJson(json, configFile);
 
     if (!deserializeError)
     {
-        strcpy(globalVariables.SSID, json["ssid"]);
-        strcpy(globalVariables.APPW, json["appw"]);
+        // strlcpy + "| \"\"": a missing key or an over-long value must not crash or
+        // overflow at boot (that would be a boot loop needing a USB reflash).
+        strlcpy(globalVariables.SSID, json["ssid"] | "", sizeof(globalVariables.SSID));
+        strlcpy(globalVariables.APPW, json["appw"] | "", sizeof(globalVariables.APPW));
         const char *hostValue = json["host"] | "BLLED";
-        globalVariables.Host = hostValue;
+        globalVariables.Host = strlen(hostValue) > 0 ? hostValue : "BLLED";
 
         strlcpy(securityVariables.HTTPUser, json["HTTPUser"] | "", sizeof(securityVariables.HTTPUser));
         strlcpy(securityVariables.HTTPPass, json["HTTPPass"] | "", sizeof(securityVariables.HTTPPass));
-        strcpy(printerConfig.printerIP, json["printerIp"]);
-        strcpy(printerConfig.accessCode, json["accessCode"]);
-        strcpy(printerConfig.serialNumber, json["serialNumber"]);
-        strcpy(printerConfig.BSSID, json["bssi"]);
+        strlcpy(printerConfig.printerIP, json["printerIp"] | "", sizeof(printerConfig.printerIP));
+        strlcpy(printerConfig.accessCode, json["accessCode"] | "", sizeof(printerConfig.accessCode));
+        strlcpy(printerConfig.serialNumber, json["serialNumber"] | "", sizeof(printerConfig.serialNumber));
+        strlcpy(printerConfig.BSSID, json["bssi"] | "", sizeof(printerConfig.BSSID));
         printerConfig.brightness = json["brightness"];
         // LED Behaviour (Choose One)
         printerConfig.maintMode = json["maintMode"];
