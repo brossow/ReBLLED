@@ -35,8 +35,12 @@ fi
 AUTH=""
 if USER_NAME=$(security find-generic-password -s blled-webui 2>/dev/null | sed -n 's/.*"acct"<blob>="\(.*\)"/\1/p') && [ -n "$USER_NAME" ]; then
   PASS=$(security find-generic-password -s blled-webui -w)
-  AUTH="user = \"${USER_NAME}:${PASS}\""
-  unset PASS
+  # curl config strings treat \ and " as escapes inside quotes
+  CRED="${USER_NAME}:${PASS}"
+  CRED="${CRED//\\/\\\\}"
+  CRED="${CRED//\"/\\\"}"
+  AUTH="user = \"${CRED}\""
+  unset PASS CRED
   echo "Using the WebUI login for '${USER_NAME}' from the Keychain."
 else
   echo "No 'blled-webui' Keychain item: uploading without a login."
