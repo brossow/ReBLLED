@@ -1,0 +1,56 @@
+# Setup page and behaviour redesign (draft)
+
+Status: **prototype for review** (`prototype/setup-v2.html`). Nothing here is in the firmware yet.
+
+## Principles
+
+1. **The door never changes what the lights do.** Opening the door means "I'm here": it wakes
+   the lights (restarts the idle timer) and acknowledges a finished print. Nothing else. To
+   turn the strip off on purpose there's a visible control.
+2. **Every behaviour is a setting, described in plain words where you'd look for it.** No
+   gestures, no settings that silently rewrite other settings, no settings that do nothing.
+3. **One save model:** every change applies at once and saves itself ("Saved" confirms it).
+   There's no Save button to forget.
+4. **The page explains itself:** a status line says what the printer is doing and why the
+   strip looks the way it does.
+5. **Accessible:** every control has a label, choices are real radio groups or lists, focus is
+   visible, colour is never the only signal, contrast meets WCAG AA, and it works on a phone.
+
+## Settings model (v2)
+
+| Area | Setting | Values | Replaces |
+|---|---|---|---|
+| Lights | `mode` | `follow` (follow the printer), `on` (always on), `off`, `test` (colour test), `cycle` (RGB cycle), `wifi` (Wi-Fi strength) | five mutually exclusive switches |
+| Lights | `brightness` | 0–100 % | same |
+| Looks | per state: `printing`, `idle`, `preparing`, `attention`, `error`, `finished` | colour (`warm`, `neutral`, `cool`, `off`, or a custom RGB) + rhythm (`steady`, `pulse`, `slow`, `blink`) | ~15 RGB+WW+CW triplets, statusAnimations |
+| Looks (advanced) | per-stage overrides under *preparing* (nozzle cleaning, bed levelling, extrusion calibration, bed scan, first-layer inspection, lidar calibration) and per-error overrides under *error* (filament runout, front cover, nozzle temp, bed temp, serious HMS, fatal HMS) | colour, or "same as group" | the per-stage/per-error triplets |
+| Follow the printer | `followChamberLight` | on/off: the strip is off whenever the printer's own light is off | "Replicate State" |
+| Timing | `idleOffMinutes` | 0 (never) or minutes; never during a print | inactivity timeout (+ its door-close coupling, removed) |
+| Timing | `finishEnds` + `finishMinutes` | `door`, `timer`, `either` | finish exit |
+| Timing | `offlineOffSeconds` | seconds before the strip turns off when the printer is unreachable (was a fixed 30 s) | hidden constant |
+| Printer's light | `lightOnAtPrintStart`, `lightOnWhenDoorOpens`, `lightOffWhenIdle`, `lightOffWhenFinishTimerEnds` | on/off each | the single "Control Chamber Light" switch |
+| Printer | `model` | X1C, X1E, P1S, P1P, A1, A1 mini, X2D (untested), H2D (untested) | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
+| Advanced | `hmsIgnore`, `debug`, `mqttLog` | | same |
+
+The firmware migrates a v1 config to v2 on first boot. Every v1 value has a v2 home; the dead
+settings are dropped.
+
+## Behaviour rules
+
+- **Priority** (highest first): Lights mode `off`/`on`/`test`/`cycle`/`wifi` → printer
+  unreachable → error → needs attention → finished (until it ends) → preparing → printing →
+  idle → idle-off.
+- **Door open or close:** restarts the idle timer, relights the strip if idle-off, and
+  acknowledges *finished* when the finish ends on the door. That's all.
+- **Start-up and connection colours** (shown before the printer is reachable) are listed in
+  Help, not hidden: white = starting, red = loading settings, orange = joining Wi-Fi,
+  pink = no Wi-Fi configured (setup hotspot `BLLED_AP` is on), blue = Wi-Fi connected,
+  cyan = connecting to the printer, dim red = printer rejected the access code.
+- **The status line** always states a reason, e.g. "Off: idle for 10 min, open the door to
+  wake", "Green, slow pulse: print finished, waiting for the door".
+
+## Open questions for review
+
+- Autosave every change, or live preview plus an explicit Save?
+- Should `off` stay off until changed, or until the next print starts?
+- Model list: which models matter beyond the X1C and the coming X2D?
