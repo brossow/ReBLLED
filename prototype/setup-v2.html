@@ -1,0 +1,576 @@
+<title>X1C Lights Setup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one calm column of settings under a sticky "what the strip is doing" bar.
+   System fonts on purpose: the real page is served by the controller, offline. */
+:root {
+  --bg: #f3f5f6;          /* cool paper, slightly blue-grey */
+  --panel: #ffffff;
+  --fg: #1b2226;
+  --muted: #55626b;       /* 6.1:1 on --bg */
+  --line: #d5dce0;
+  --accent: #0b6b66;      /* deep teal: links, focus, selected */
+  --accent-fg: #ffffff;
+  --accent-soft: #e2f1ef;
+  --sim: #fff7e6;         /* prototype-only panel */
+  --sim-line: #e8c98a;
+  --strip-off: #2a3034;
+  --ok: #1d6b34; --warn: #8a5300; --err: #a1261b;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111517; --panel: #1a2023; --fg: #e5eaed; --muted: #a2afb6; --line: #2f383d;
+  --accent: #5cc8bd; --accent-fg: #062b28; --accent-soft: #163331;
+  --sim: #2a2414; --sim-line: #6d5a2c; --strip-off: #0b0d0e;
+  --ok: #7fd197; --warn: #f0b860; --err: #ff8a7a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111517; --panel: #1a2023; --fg: #e5eaed; --muted: #a2afb6; --line: #2f383d;
+  --accent: #5cc8bd; --accent-fg: #062b28; --accent-soft: #163331;
+  --sim: #2a2414; --sim-line: #6d5a2c; --strip-off: #0b0d0e;
+  --ok: #7fd197; --warn: #f0b860; --err: #ff8a7a; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font); margin: 0; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 0 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-size: 1.15rem; margin: 0; letter-spacing: .01em; }
+h2 { font-size: 1.2rem; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 1rem; margin: 0; }
+p { margin: 0; }
+.hint { color: var(--muted); font-size: .9rem; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- sticky status bar ---- */
+.statusbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  padding-block: 12px; border-bottom: 1px solid var(--line); }
+.statusbar .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.conn { font-size: .85rem; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.conn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.conn.down::before { background: var(--err); }
+.strip { height: 18px; border-radius: 9px; margin: 10px 0 8px; background: var(--strip-off);
+  transition: background-color .5s, box-shadow .5s, filter .3s; }
+.strip.lit { box-shadow: 0 0 18px 2px var(--glow, transparent); }
+.strip.pulse { animation: pulse 1.5s ease-in-out infinite; }
+.strip.slow { animation: pulse 4s ease-in-out infinite; }
+.strip.blink { animation: blink 1s steps(1, end) infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+@keyframes blink { 60% { opacity: .08; } }
+@media (prefers-reduced-motion: reduce) { .strip.pulse, .strip.slow, .strip.blink { animation: none; } }
+#statusText { font-weight: 600; }
+#statusReason { color: var(--muted); font-size: .92rem; }
+
+/* ---- prototype panel ---- */
+.sim { margin-top: 16px; background: var(--sim); border: 1px dashed var(--sim-line); border-radius: var(--r); padding: 12px 14px; }
+.sim summary { cursor: pointer; font-weight: 600; }
+.sim .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 14px; margin-top: 10px; align-items: end; }
+.sim .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---- sections ---- */
+section { margin-top: 28px; display: grid; gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 12px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+label { cursor: pointer; }
+.choice { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+.choice .t { font-weight: 600; }
+.choice .d { grid-column: 2; color: var(--muted); font-size: .9rem; }
+.choice:has(input:disabled) { opacity: .55; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.field { display: grid; gap: 4px; }
+.inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+select, input[type=number], input[type=text], textarea { font: inherit; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+input[type=number] { width: 6em; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=color] { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+button { font: inherit; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.danger { color: var(--err); border-color: var(--err); }
+.check { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+.check input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+.check .d { grid-column: 2; color: var(--muted); font-size: .9rem; }
+
+/* state looks: one row per printer state */
+.looks { display: grid; gap: 0; }
+.look { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.look:first-child { border-top: 0; padding-top: 0; }
+.swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--strip-off); }
+.look .name { font-weight: 600; }
+.look .controls { grid-column: 2 / 4; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.look .when { grid-column: 2 / 4; color: var(--muted); font-size: .9rem; }
+details.more > summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details.more[open] > summary { margin-bottom: 8px; }
+.sub { display: grid; gap: 8px; padding-left: 4px; }
+.sub .inline label { min-width: 12em; }
+
+.legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 22px 9em minmax(0, 1fr); gap: 10px; align-items: center; }
+.legend b { font-weight: 600; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; border: 1px solid var(--err); border-radius: 8px; }
+code { font-family: var(--mono); font-size: .9em; }
+
+/* autosave confirmation */
+.toast { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: .9rem;
+  opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.show { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+
+<div class="statusbar">
+  <div class="wrap" style="padding-block:0">
+    <div class="row">
+      <h1>X1C lights</h1>
+      <span class="conn" id="conn">Printer connected</span>
+    </div>
+    <div class="strip" id="strip" role="img" aria-labelledby="statusText"></div>
+    <div aria-live="polite">
+      <p id="statusText">Warm white, steady</p>
+      <p id="statusReason">Printer idle. Turns off after 10 min without activity.</p>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <details class="sim" open>
+    <summary>Prototype: simulate the printer</summary>
+    <p class="hint" style="margin-top:6px">This page is a mock-up. It simulates the controller and the printer, so nothing reaches your real device. Use these controls to see how the strip and the status line respond.</p>
+    <div class="grid">
+      <div class="field">
+        <label for="simState">Printer is…</label>
+        <select id="simState">
+          <option value="idle">Idle</option>
+          <option value="prep-nozzle">Preparing: cleaning the nozzle</option>
+          <option value="prep-level">Preparing: levelling the bed</option>
+          <option value="prep-scan">Preparing: scanning the bed</option>
+          <option value="printing">Printing</option>
+          <option value="paused">Paused</option>
+          <option value="err-runout">Error: filament runout</option>
+          <option value="err-hms">Error: serious HMS (HMS_0300_1200_0002_0001)</option>
+          <option value="finished">Print finished</option>
+          <option value="offline">Unreachable (off or no network)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="simLight">Printer's own light</label>
+        <select id="simLight"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+      <div class="btns">
+        <button type="button" id="simDoor">Open and close the door</button>
+        <button type="button" id="simSkip">Skip ahead 10 min</button>
+      </div>
+    </div>
+    <p class="hint" id="simLog" aria-live="polite" style="margin-top:8px"></p>
+  </details>
+
+  <section aria-labelledby="h-lights">
+    <div><h2 id="h-lights">Lights</h2><p class="hint">What the strip does overall. Changes apply and save immediately.</p></div>
+    <div class="card">
+      <fieldset>
+        <legend>Mode</legend>
+        <div class="modes">
+          <label class="choice"><input type="radio" name="mode" id="mode-follow" value="follow" checked><span class="t">Follow the printer</span><span class="d">Colours show what the printer is doing. The normal setting.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-on" value="on"><span class="t">Always on</span><span class="d">Printing colour, all the time. For maintenance.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-off" value="off"><span class="t">Off</span><span class="d">Stays off until you choose another mode.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-test" value="test"><span class="t">Colour test</span><span class="d">One colour of your choice, to check the wiring.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-cycle" value="cycle"><span class="t">Colour cycle</span><span class="d">Slowly cycles through all colours.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-wifi" value="wifi"><span class="t">Wi-Fi strength</span><span class="d">Green is strong, red is weak. For placing the controller.</span></label>
+        </div>
+      </fieldset>
+      <div class="inline" id="testColorRow" hidden>
+        <label for="testColor">Test colour</label><input type="color" id="testColor" value="#ff0000">
+      </div>
+      <div class="field">
+        <label for="brightness">Brightness: <span id="brightnessOut">100</span>%</label>
+        <input type="range" id="brightness" min="0" max="100" value="100">
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-looks">
+    <div><h2 id="h-looks">How each printer state looks</h2><p class="hint">Used when the mode is "Follow the printer". Rhythms mean you don't have to tell colours apart.</p></div>
+    <div class="card">
+      <div class="looks" id="looks"></div>
+      <label class="check"><input type="checkbox" id="followLight" checked><span>Turn the strip off when the printer's own light is off</span><span class="d">The strip mirrors the printer's chamber light. Errors and finished prints still show.</span></label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-timing">
+    <div><h2 id="h-timing">Timing</h2></div>
+    <div class="card">
+      <div class="inline">
+        <label for="idleOff">Turn the strip off after no activity for</label>
+        <select id="idleOff"><option value="0">Never</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
+      </div>
+      <p class="hint" style="margin-top:-6px">Never during a print. Opening the door, a new print or any printer event counts as activity.</p>
+      <fieldset id="finishSet">
+        <legend>The finished colour ends</legend>
+        <label class="choice"><input type="radio" name="finishEnds" value="door" checked><span class="t">When the door opens</span><span class="d" id="finishDoorNote">So it stays until you've seen it.</span></label>
+        <label class="choice"><input type="radio" name="finishEnds" value="timer"><span class="t">After a set time</span></label>
+        <label class="choice"><input type="radio" name="finishEnds" value="either"><span class="t">Whichever comes first</span></label>
+        <div class="inline" id="finishMinRow" hidden><label for="finishMin">Minutes</label><input type="number" id="finishMin" min="1" max="999" value="10"></div>
+        <p class="hint" id="finishFallback" hidden>This model has no door sensor, so the finished colour ends after the set time instead. Your choice is kept for a model that has one.</p>
+      </fieldset>
+      <div class="inline">
+        <label for="offlineSec">Turn the strip off when the printer is unreachable for</label>
+        <select id="offlineSec"><option value="30" selected>30 s</option><option value="60">1 min</option><option value="300">5 min</option><option value="0">Never</option></select>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-plight">
+    <div><h2 id="h-plight">The printer's own light</h2><p class="hint">The controller can switch the printer's chamber light too. Each of these is separate.</p></div>
+    <div class="card">
+      <label class="check"><input type="checkbox" id="lightPrintStart"><span>Turn it on when a print starts</span><span class="d">The camera and AI print monitoring need light.</span></label>
+      <label class="check"><input type="checkbox" id="lightDoor"><span>Turn it on when the door opens</span><span class="d">Off again once the door is closed and the strip goes idle.</span></label>
+      <label class="check"><input type="checkbox" id="lightIdle"><span>Turn it off when the strip goes idle</span></label>
+      <label class="check"><input type="checkbox" id="lightFinishTimer"><span>Turn it off when the finished colour ends on its timer</span></label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-printer">
+    <div><h2 id="h-printer">Your printer</h2></div>
+    <div class="card">
+      <div class="inline"><label for="model">Model</label>
+        <select id="model">
+          <option value="X1C" selected>X1 Carbon</option><option value="X1E">X1E</option><option value="P1S">P1S</option><option value="P1P">P1P</option>
+          <option value="A1">A1</option><option value="A1M">A1 mini</option><option value="X2D">X2D (untested)</option><option value="H2D">H2D (untested)</option>
+        </select></div>
+      <p class="hint" id="modelNote"></p>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-door">
+    <div><h2 id="h-door">What the door does</h2></div>
+    <div class="card">
+      <p>Opening or closing the door wakes the strip and restarts the idle timer. If the finished colour ends "when the door opens", it ends. That's all: the door never changes your settings.</p>
+      <p class="hint">Replaces the old "open and close quickly to toggle the lights" gesture. To turn the strip off, choose the Off mode above.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-help">
+    <div><h2 id="h-help">Colours you may see while it starts</h2><p class="hint">Shown before the printer is reachable.</p></div>
+    <div class="card">
+      <ul class="legend" id="legend"></ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-adv">
+    <div><h2 id="h-adv">Advanced</h2></div>
+    <div class="card">
+      <div class="field"><label for="hmsIgnore">HMS codes to ignore (one per line)</label>
+        <textarea id="hmsIgnore" rows="3" placeholder="HMS_0300_1200_0002_0001"></textarea>
+        <p class="hint">Errors with these codes won't change the strip.</p></div>
+      <label class="check"><input type="checkbox" id="debugLog"><span>Detailed log</span><span class="d">Writes every LED decision to the log page.</span></label>
+      <label class="check"><input type="checkbox" id="mqttLog"><span>Log printer messages</span><span class="d">Writes each message from the printer to the log page. Very busy.</span></label>
+      <div id="resetArea"><button type="button" class="danger" id="resetBtn">Erase all settings…</button></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-more">
+    <div><h2 id="h-more">More</h2></div>
+    <nav class="nav" aria-label="Other pages">
+      <button type="button" disabled>Wi-Fi and printer connection</button>
+      <button type="button" disabled>Firmware update</button>
+      <button type="button" disabled>Back up and restore</button>
+      <button type="button" disabled>Log</button>
+    </nav>
+    <p class="hint">Links to the device's other pages (not part of this prototype).</p>
+  </section>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  // ---------- colours ----------
+  const WHITES = { warm: ["Warm white", "#ffd8a6"], neutral: ["Neutral white", "#fff1dc"], cool: ["Cool white", "#e3eeff"] };
+  const RHYTHMS = { steady: "Steady", pulse: "Pulse", slow: "Slow pulse", blink: "Blink" };
+  const NAMED = [["#ff0000","Red"],["#00ff00","Green"],["#0000ff","Blue"],["#ffa500","Orange"],["#ff00ff","Pink"],["#00ffff","Cyan"],["#ffff00","Yellow"],["#ffffff","White"],["#800000","Dim red"]];
+  function colourName(c) {
+    if (c.kind === "off") return "Off";
+    if (WHITES[c.kind]) return WHITES[c.kind][0];
+    const hit = NAMED.find(n => n[0] === c.hex.toLowerCase());
+    return hit ? hit[1] : describeHex(c.hex);
+  }
+  // "Dim blue", "Light orange"... for custom colours people pick
+  function describeHex(hex) {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max === 0) return "Off";
+    if (max - min < 24) return max > 200 ? "White" : "Dim white";
+    let h = 0; const d = max - min;
+    if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    const names = [[15,"red"],[45,"orange"],[70,"yellow"],[160,"green"],[200,"cyan"],[260,"blue"],[290,"purple"],[340,"pink"],[360,"red"]];
+    const name = names.find(x => h < x[0])[1];
+    const prefix = max < 140 ? "Dim " : (min > 150 ? "Light " : "");
+    if (prefix === "Light " && name === "red") return "Pink";
+    return prefix ? prefix + name : name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  function colourCss(c) { return c.kind === "off" ? null : (WHITES[c.kind] ? WHITES[c.kind][1] : c.hex); }
+
+  // ---------- settings (the v2 model) ----------
+  const S = {
+    mode: "follow", brightness: 100, testColor: "#ff0000", followLight: true,
+    looks: {
+      printing:  { label: "Printing", when: "While a print is running.", colour: { kind: "neutral" }, rhythm: "steady" },
+      idle:      { label: "Idle", when: "Printer on, not printing.", colour: { kind: "neutral" }, rhythm: "steady" },
+      preparing: { label: "Preparing", when: "Nozzle cleaning, bed levelling and scans before a print. Off by default so the lidar isn't disturbed.", colour: { kind: "off" }, rhythm: "steady", lidarOnly: true,
+                   sub: { nozzle: ["Cleaning the nozzle", null], level: ["Levelling the bed", { kind: "custom", hex: "#000055" }], extrude: ["Calibrating extrusion", null], scan: ["Scanning the bed", null], firstlayer: ["Inspecting the first layer", null] } },
+      attention: { label: "Needs attention", when: "Paused, first-layer problem or nozzle clog.", colour: { kind: "custom", hex: "#0000ff" }, rhythm: "pulse" },
+      error:     { label: "Error", when: "Filament runout, front cover off, temperature fault, serious or fatal HMS.", colour: { kind: "custom", hex: "#ff0000" }, rhythm: "blink",
+                   sub: { runout: ["Filament runout", null], cover: ["Front cover off", null], nozzleTemp: ["Nozzle temperature", null], bedTemp: ["Bed temperature", null], hms: ["Serious or fatal HMS", null] } },
+      finished:  { label: "Finished", when: "Print done, until the finish ends (see Timing).", colour: { kind: "custom", hex: "#00ff00" }, rhythm: "slow" },
+    },
+    idleOff: 10, finishEnds: "door", finishMin: 10, offlineSec: 30,
+    lightPrintStart: false, lightDoor: false, lightIdle: false, lightFinishTimer: false,
+    model: "X1C",
+  };
+  const MODELS = {
+    X1C: { door: true, lidar: true, note: "Has a door sensor and lidar." },
+    X1E: { door: true, lidar: true, note: "Has a door sensor and lidar." },
+    P1S: { door: false, lidar: false, note: "No door sensor or lidar: door options and preparing colours don't apply." },
+    P1P: { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
+    A1:  { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
+    A1M: { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
+    X2D: { door: true, lidar: false, note: "Untested with this controller. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
+    H2D: { door: true, lidar: false, note: "Untested with this controller. Assumed: door sensor, no lidar." },
+  };
+
+  // ---------- simulated printer ----------
+  const sim = { state: "idle", light: "on", idleMin: 0, finishMin: 0, finishDone: false, previewUntil: 0, preview: null };
+
+  // ---------- decide what the strip shows, and why ----------
+  function stateColour(key, subKey) {
+    const L = S.looks[key];
+    const sub = subKey && L.sub && L.sub[subKey] && L.sub[subKey][1];
+    return sub || L.colour;
+  }
+  function decide() {
+    const m = MODELS[S.model];
+    if (sim.preview) return sim.preview;
+    switch (S.mode) {
+      case "off": return look(null, "steady", "Off", "Lights mode is Off. Choose another mode to turn them on.");
+      case "on": return look(S.looks.printing.colour, "steady", null, "Lights mode is Always on.");
+      case "test": return look({ kind: "custom", hex: S.testColor }, "steady", null, "Lights mode is Colour test.");
+      case "cycle": return { css: "cycle", rhythm: "steady", text: "Cycling through colours", reason: "Lights mode is Colour cycle." };
+      case "wifi": return look({ kind: "custom", hex: "#00ff00" }, "steady", "Green: strong Wi-Fi", "Lights mode is Wi-Fi strength (signal −47 dBm).");
+    }
+    const st = sim.state;
+    if (st === "offline") return S.offlineSec ? look(null, "steady", "Off", `The printer has been unreachable for over ${fmtSec(S.offlineSec)}.`)
+                                               : look(S.looks.idle.colour, S.looks.idle.rhythm, null, "The printer is unreachable; set to stay on.");
+    if (st.startsWith("err-")) { const k = st === "err-runout" ? "runout" : "hms"; const what = st === "err-runout" ? "filament runout" : "serious HMS error HMS_0300_1200_0002_0001";
+      return look(stateColour("error", k), S.looks.error.rhythm, null, `Error: ${what}.`); }
+    if (st === "paused") return look(stateColour("attention"), S.looks.attention.rhythm, null, "The print is paused.");
+    if (st === "finished" && !sim.finishDone) {
+      const end = !m.door && S.finishEnds === "door" ? "timer" : S.finishEnds;
+      const why = end === "door" ? "Ends when the door opens." : end === "timer" ? `Ends in ${Math.max(0, S.finishMin - sim.finishMin)} min.` : `Ends when the door opens or in ${Math.max(0, S.finishMin - sim.finishMin)} min, whichever comes first.`;
+      return look(stateColour("finished"), S.looks.finished.rhythm, null, "Print finished. " + why);
+    }
+    if (st.startsWith("prep-")) {
+      const k = { "prep-nozzle": "nozzle", "prep-level": "level", "prep-scan": "scan" }[st];
+      const name = S.looks.preparing.sub[k][0].toLowerCase();
+      if (!m.lidar) return look(S.looks.printing.colour, S.looks.printing.rhythm, null, `Preparing (${name}). This model has no lidar, so the printing colour is used.`);
+      const c = stateColour("preparing", k);
+      return look(c, S.looks.preparing.rhythm, null, `Preparing: ${name}.` + (c.kind === "off" ? " Off so the lidar isn't disturbed." : ""));
+    }
+    const printing = st === "printing";
+    if (S.followLight && sim.light === "off") return look(null, "steady", "Off", "Following the printer's own light, which is off.");
+    if (!printing && S.idleOff && sim.idleMin >= S.idleOff) return look(null, "steady", "Off", `No activity for ${S.idleOff} min. Open the door or start a print to wake it.`);
+    if (printing) return look(S.looks.printing.colour, S.looks.printing.rhythm, null, "Printing.");
+    return look(S.looks.idle.colour, S.looks.idle.rhythm, null, "Printer idle." + (S.idleOff ? ` Turns off after ${S.idleOff} min without activity (${Math.max(0, S.idleOff - sim.idleMin)} min left).` : " Stays on."));
+  }
+  function look(colour, rhythm, text, reason) {
+    const css = colour ? colourCss(colour) : null;
+    const name = colour ? colourName(colour) : "Off";
+    const r = css ? (rhythm === "steady" ? "steady" : RHYTHMS[rhythm].toLowerCase()) : "";
+    return { css, rhythm: css ? rhythm : "steady", text: text || (css ? `${name}, ${r}` : "Off"), reason };
+  }
+  function fmtSec(s) { return s >= 60 ? (s / 60) + " min" : s + " s"; }
+
+  // ---------- render ----------
+  const $ = id => document.getElementById(id);
+  let cycleTimer = null, hue = 0;
+  function render() {
+    const d = decide();
+    const strip = $("strip");
+    strip.className = "strip";
+    clearInterval(cycleTimer);
+    if (d.css === "cycle") {
+      strip.classList.add("lit");
+      cycleTimer = setInterval(() => { hue = (hue + 2) % 360; const c = `hsl(${hue} 100% 50%)`; strip.style.background = c; strip.style.setProperty("--glow", c); }, 80);
+    } else if (d.css) {
+      strip.style.background = d.css; strip.style.setProperty("--glow", d.css); strip.classList.add("lit");
+      if (d.rhythm !== "steady") strip.classList.add(d.rhythm === "slow" ? "slow" : d.rhythm);
+    } else { strip.style.background = ""; strip.style.removeProperty("--glow"); }
+    strip.style.filter = d.css ? `brightness(${0.25 + 0.75 * S.brightness / 100})` : ""; // combines with the rhythm's opacity animation
+    $("statusText").textContent = d.text;
+    $("statusReason").textContent = d.reason;
+    const off = sim.state === "offline";
+    $("conn").textContent = off ? "Printer unreachable" : "Printer connected";
+    $("conn").classList.toggle("down", off);
+  }
+
+  // ---------- autosave ----------
+  let toastTimer;
+  function saved(what) {
+    const t = $("toast"); t.textContent = "Saved: " + what; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+    render();
+  }
+
+  // ---------- build the "looks" rows ----------
+  function colourControl(id, colour, label, allowSame) {
+    const wrap = document.createElement("span"); wrap.className = "inline";
+    const sel = document.createElement("select"); sel.id = id; sel.setAttribute("aria-label", label);
+    const opts = (allowSame ? [["same", "Same as group"]] : []).concat([["warm","Warm white"],["neutral","Neutral white"],["cool","Cool white"],["custom","Custom colour"],["off","Off"]]);
+    for (const [v, t] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); }
+    const pick = document.createElement("input"); pick.type = "color"; pick.id = id + "-hex"; pick.setAttribute("aria-label", label + ": custom colour");
+    sel.value = colour ? colour.kind : "same"; pick.value = colour && colour.hex ? colour.hex : "#ffffff"; pick.hidden = sel.value !== "custom";
+    wrap.append(sel, pick);
+    return { wrap, sel, pick };
+  }
+  function buildLooks() {
+    const host = $("looks"); host.textContent = "";
+    for (const [key, L] of Object.entries(S.looks)) {
+      if (L.lidarOnly && !MODELS[S.model].lidar) continue;
+      const row = document.createElement("div"); row.className = "look";
+      const sw = document.createElement("span"); sw.className = "swatch"; sw.setAttribute("aria-hidden", "true");
+      const css = colourCss(L.colour); if (css) sw.style.background = css;
+      const name = document.createElement("h3"); name.className = "name"; name.textContent = L.label; name.id = "look-" + key;
+      const prev = document.createElement("button"); prev.type = "button"; prev.textContent = "Preview"; prev.setAttribute("aria-describedby", name.id);
+      const controls = document.createElement("div"); controls.className = "controls";
+      const cc = colourControl("look-" + key + "-colour", L.colour, L.label + " colour", false);
+      const rs = document.createElement("select"); rs.id = "look-" + key + "-rhythm"; rs.setAttribute("aria-label", L.label + " rhythm");
+      for (const [v, t] of Object.entries(RHYTHMS)) { const o = document.createElement("option"); o.value = v; o.textContent = t; rs.appendChild(o); }
+      rs.value = L.rhythm;
+      controls.append(cc.wrap, rs);
+      const when = document.createElement("p"); when.className = "when"; when.textContent = L.when;
+      row.append(sw, name, prev, controls, when);
+      cc.sel.addEventListener("change", () => { cc.pick.hidden = cc.sel.value !== "custom"; L.colour = cc.sel.value === "custom" ? { kind: "custom", hex: cc.pick.value } : { kind: cc.sel.value };
+        const c = colourCss(L.colour); sw.style.background = c || ""; saved(L.label + " colour"); });
+      cc.pick.addEventListener("input", () => { L.colour = { kind: "custom", hex: cc.pick.value }; sw.style.background = cc.pick.value; render(); });
+      cc.pick.addEventListener("change", () => saved(L.label + " colour"));
+      rs.addEventListener("change", () => { L.rhythm = rs.value; saved(L.label + " rhythm"); });
+      prev.addEventListener("click", () => {
+        sim.preview = look(L.colour, L.rhythm, null, `Previewing "${L.label}" for 5 seconds.`);
+        render(); clearTimeout(prev._t); prev._t = setTimeout(() => { sim.preview = null; render(); }, 5000);
+      });
+      if (L.sub) {
+        const det = document.createElement("details"); det.className = "more"; det.style.gridColumn = "2 / 4";
+        const sum = document.createElement("summary"); sum.textContent = "Set colours for each " + (key === "error" ? "kind of error" : "step"); det.appendChild(sum);
+        const sub = document.createElement("div"); sub.className = "sub";
+        for (const [sk, [label, colour]] of Object.entries(L.sub)) {
+          const line = document.createElement("div"); line.className = "inline";
+          const lab = document.createElement("label"); lab.textContent = label; lab.htmlFor = `sub-${key}-${sk}`;
+          const sc = colourControl(`sub-${key}-${sk}`, colour, label, true);
+          sc.sel.addEventListener("change", () => { sc.pick.hidden = sc.sel.value !== "custom";
+            L.sub[sk][1] = sc.sel.value === "same" ? null : sc.sel.value === "custom" ? { kind: "custom", hex: sc.pick.value } : { kind: sc.sel.value }; saved(label + " colour"); });
+          sc.pick.addEventListener("change", () => { L.sub[sk][1] = { kind: "custom", hex: sc.pick.value }; saved(label + " colour"); });
+          line.append(lab, sc.wrap); sub.appendChild(line);
+        }
+        det.appendChild(sub); row.appendChild(det);
+      }
+      host.appendChild(row);
+    }
+  }
+
+  // ---------- legend ----------
+  const LEGEND = [["#ffffff","White","Starting up."],["#ff0000","Red","Loading settings."],["#ffa500","Orange","Joining Wi-Fi (also shown while scanning for the strongest access point)."],
+    ["#ff00ff","Pink","No Wi-Fi configured. Join the BLLED_AP hotspot to set it up."],["#0000ff","Blue","Wi-Fi connected."],["#00ffff","Cyan","Connecting to the printer."],["#800000","Dim red","The printer rejected the access code. Check it in the connection settings."]];
+  for (const [hex, name, what] of LEGEND) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="swatch" aria-hidden="true" style="background:${hex}"></span><b></b><span></span>`;
+    li.querySelector("b").textContent = name; li.querySelector("span:last-child").textContent = what;
+    $("legend").appendChild(li);
+  }
+
+  // ---------- wire up settings ----------
+  document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener("change", () => {
+    S.mode = r.value; $("testColorRow").hidden = S.mode !== "test"; saved("Mode: " + r.closest("label").querySelector(".t").textContent); }));
+  $("testColor").addEventListener("input", () => { S.testColor = $("testColor").value; render(); });
+  $("testColor").addEventListener("change", () => saved("Test colour"));
+  $("brightness").addEventListener("input", () => { S.brightness = +$("brightness").value; $("brightnessOut").textContent = S.brightness; render(); });
+  $("brightness").addEventListener("change", () => saved("Brightness " + S.brightness + "%"));
+  $("followLight").addEventListener("change", () => { S.followLight = $("followLight").checked; saved("Follow the printer's light"); });
+  $("idleOff").addEventListener("change", () => { S.idleOff = +$("idleOff").value; saved("Idle timeout"); });
+  document.querySelectorAll('input[name=finishEnds]').forEach(r => r.addEventListener("change", () => {
+    S.finishEnds = r.value; applyModel(); saved("Finished colour ending"); }));
+  $("finishMin").addEventListener("change", () => { S.finishMin = Math.max(1, +$("finishMin").value || 10); saved("Finish minutes"); });
+  $("offlineSec").addEventListener("change", () => { S.offlineSec = +$("offlineSec").value; saved("Unreachable timeout"); });
+  for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).addEventListener("change", () => { S[id] = $(id).checked; saved($(id).nextElementSibling.textContent); });
+  $("model").addEventListener("change", () => { S.model = $("model").value; applyModel(); buildLooks(); saved("Model"); });
+  $("hmsIgnore").addEventListener("change", () => saved("HMS codes to ignore"));
+  $("debugLog").addEventListener("change", () => saved("Detailed log"));
+  $("mqttLog").addEventListener("change", () => saved("Printer message log"));
+  function showResetButton() {
+    const area = $("resetArea"); area.textContent = "";
+    const b = document.createElement("button"); b.type = "button"; b.className = "danger"; b.id = "resetBtn"; b.textContent = "Erase all settings…";
+    b.addEventListener("click", askReset); area.appendChild(b); return b;
+  }
+  function askReset() {
+    const area = $("resetArea"); area.textContent = "";
+    const box = document.createElement("div"); box.className = "confirm"; box.setAttribute("role", "group"); box.setAttribute("aria-label", "Confirm erase");
+    const p = document.createElement("p"); p.textContent = "Erase every setting, including Wi-Fi and the printer connection, and restart in setup mode?";
+    const yes = document.createElement("button"); yes.type = "button"; yes.className = "danger"; yes.textContent = "Erase and restart";
+    const no = document.createElement("button"); no.type = "button"; no.textContent = "Cancel";
+    box.append(p, yes, no); area.appendChild(box); no.focus();
+    no.addEventListener("click", () => showResetButton().focus());
+    yes.addEventListener("click", () => { p.textContent = "Prototype: nothing was erased. On the device this would restart into setup mode."; yes.remove(); no.textContent = "OK"; no.focus(); });
+  }
+  $("resetBtn").addEventListener("click", askReset);
+  function applyModel() {
+    const m = MODELS[S.model];
+    $("modelNote").textContent = m.note;
+    const doorRadio = document.querySelector('input[name=finishEnds][value=door]');
+    const eitherRadio = document.querySelector('input[name=finishEnds][value=either]');
+    doorRadio.disabled = eitherRadio.disabled = !m.door; $("lightDoor").disabled = !m.door;
+    $("finishDoorNote").textContent = m.door ? "So it stays until you've seen it." : "Not available: this model has no door sensor.";
+    // Keep the saved choice; just explain that this model can't do it (the timer is used meanwhile).
+    const needsDoor = S.finishEnds !== "timer";
+    $("finishFallback").hidden = m.door || !needsDoor;
+    $("finishMinRow").hidden = S.finishEnds === "door" && m.door;
+  }
+
+  // ---------- simulation controls ----------
+  function logSim(t) { $("simLog").textContent = t; }
+  $("simState").addEventListener("change", () => { const prev = sim.state; sim.state = $("simState").value; sim.idleMin = 0;
+    if (sim.state === "finished") { sim.finishMin = 0; sim.finishDone = false; }
+    if (sim.state === "printing" && S.lightPrintStart && sim.light === "off") { sim.light = "on"; $("simLight").value = "on"; logSim("Print started: the controller turned the printer's light on."); } else logSim("");
+    render(); });
+  $("simLight").addEventListener("change", () => { sim.light = $("simLight").value; sim.idleMin = 0; render(); });
+  $("simDoor").addEventListener("click", () => {
+    const notes = ["Door opened and closed: idle timer restarted."];
+    sim.idleMin = 0;
+    if (MODELS[S.model].door) {
+      if (sim.state === "finished" && !sim.finishDone && S.finishEnds !== "timer") { sim.finishDone = true; notes.push("Finished colour acknowledged."); }
+      if (S.lightDoor && sim.light === "off") { sim.light = "on"; $("simLight").value = "on"; notes.push("The controller turned the printer's light on."); }
+    } else notes.push("(This model has no door sensor, so the controller wouldn't see it.)");
+    logSim(notes.join(" ")); render();
+  });
+  $("simSkip").addEventListener("click", () => {
+    const notes = ["10 minutes later."];
+    sim.idleMin += 10; sim.finishMin += 10;
+    if (sim.state === "finished" && !sim.finishDone && S.finishEnds !== "door" && sim.finishMin >= S.finishMin) {
+      sim.finishDone = true; notes.push("The finish timer ended.");
+      if (S.lightFinishTimer && sim.light === "on") { sim.light = "off"; $("simLight").value = "off"; notes.push("The controller turned the printer's light off."); }
+    }
+    const idleNow = sim.state !== "printing" && S.idleOff && sim.idleMin >= S.idleOff;
+    if (idleNow && S.lightIdle && sim.light === "on") { sim.light = "off"; $("simLight").value = "off"; notes.push("Idle: the controller turned the printer's light off."); }
+    logSim(notes.join(" ")); render();
+  });
+
+  applyModel(); buildLooks(); render();
+})();
+</script>
