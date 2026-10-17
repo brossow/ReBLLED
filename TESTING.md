@@ -47,7 +47,7 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 
 ## Added in br.2
 
-- [ ] **Door quick-tap:** with the strip on, open and close the door within ~4 s: the strip goes **off and stays off**. Tap again: it comes **back on** and stays on (no switch-off a moment later). A normal, slower open still turns it on.
+- [ ] **Door quick-tap:** with the strip on, open and close the door within ~4 s: the strip goes **off and stays off**. Tap again: it comes **back on** and stays on (no switch-off a moment later). A normal, slower open still turns it on. While the "finished" colour shows, any door use (quick or slow) means "seen it": back to white, never off.
 - [ ] **Door window setting:** set "Door Quick Open/Close Toggles LEDs" to 0 and save: a quick tap no longer toggles.
 - [ ] **Finish ending:** after a print, try each of *door*, *timer* and *whichever comes first* (a short timer, like 1 minute, makes this quick).
 - [ ] **Rhythms:** finished = slow green pulse; a pause = blue pulse; an error = red blink (an easy one: pause the print, or pull the filament for a runout). Turning "Blink Errors, Pulse Pause / Finish" off makes them steady.

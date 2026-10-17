@@ -110,6 +110,37 @@ void test_blink_keeps_its_rhythm_through_frequent_updates() {
   TEST_ASSERT_EQUAL(255, r.hi);
 }
 
+// Review finding: a pulse/blink giving way to a STEADY state of the same colour left the
+// PWM at whatever level the last animation frame wrote.
+void test_effect_to_steady_same_colour_restores_full_level() {
+  printerConfig.pauseRGB = printerConfig.runningColor;   // same colour for pause and printing
+  printerVariables.gcodeState = "RUNNING"; printerVariables.stage = 0;
+  mqttChange();
+  printerVariables.gcodeState = "PAUSE"; printerVariables.stage = 16;
+  mqttChange();
+  watch(warmChannel, 700);                                // stop mid-pulse
+  printerVariables.gcodeState = "RUNNING"; printerVariables.stage = 0;
+  mqttChange();
+  Range r = watch(warmChannel, 1000);
+  TEST_ASSERT_EQUAL(255, r.lo);
+  TEST_ASSERT_EQUAL(255, r.hi);
+}
+
+void test_blink_to_steady_same_colour_not_left_dark() {
+  printerConfig.hmsSeriousRGB = hex2rgb("#00FF00");
+  printerConfig.finishColor = hex2rgb("#00FF00");
+  printerVariables.parsedHMSlevel = "Serious";
+  mqttChange();
+  watch(greenChannel, 700);                               // ends in the blink's off half
+  printerVariables.parsedHMSlevel = "";
+  printerVariables.gcodeState = "FINISH";
+  printerVariables.finished = true; printerVariables.waitingForDoor = true;
+  printerConfig.finish_check = true; printerConfig.finishStartms = millis();
+  printerConfig.statusAnimations = false;                 // finish shown steady
+  mqttChange();
+  TEST_ASSERT_EQUAL(255, fake::duty[greenChannel]);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_error_blinks_on_and_off);
@@ -121,5 +152,7 @@ int main() {
   RUN_TEST(test_blink_respects_brightness);
   RUN_TEST(test_brightness_change_keeps_the_effect);
   RUN_TEST(test_blink_keeps_its_rhythm_through_frequent_updates);
+  RUN_TEST(test_effect_to_steady_same_colour_restores_full_level);
+  RUN_TEST(test_blink_to_steady_same_colour_not_left_dark);
   return UNITY_END();
 }

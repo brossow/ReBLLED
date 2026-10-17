@@ -4,13 +4,13 @@ Private fork of [DutchDevelop/BLLEDController](https://github.com/DutchDevelop/B
 
 What changed in `2.3.0-br.2` (on top of br.1):
 
-- **Door quick open-and-close toggles the LEDs reliably.** In 2.3.0 a toggle-off was undone within the same printer message, and opening the door relit the strip before the toggle decided, so it could only ever end "off". It now flips the state from before the door opened, and the window is a setting (default 4 s, 0 = off; 2.3.0 used a fixed 2 s, hard to hit because door state arrives in ~1 s printer reports).
+- **Door quick open-and-close toggles the LEDs reliably.** In 2.3.0 a toggle-off was undone within the same printer message, and opening the door relit the strip before the toggle decided, so it could only ever end "off". It now flips the state from before the door opened (except while the "finished" colour shows: then door use just acknowledges it), and the window is a setting (default 4 s, 0 = off; 2.3.0 used a fixed 2 s, hard to hit because door state arrives in ~1 s printer reports).
 - **Finish colour ends on the door, a timer, or whichever comes first.** Timer mode no longer treats the first minutes after any boot as a finished print.
 - **States readable without colour.** Errors blink (1 per second, well under the photosensitivity threshold), pause / first-layer / clog pulse, finished pulses slowly; printing and idle stay steady. Can be turned off.
 - **Brightness applies live** while dragging the slider and saves when released.
 - **Clearer setup page.** The LED modes are one labelled radio group (choosing test colour or RGB cycle used to silently switch off "replicate printer light"); the finish ending is a three-way choice; the text beside every switch is clickable and announced by screen readers; switches show keyboard focus.
 - **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
-- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 49 tests drive printer states and real-shaped MQTT messages and check what the LEDs would do.
+- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 53 tests drive printer states and real-shaped MQTT messages and check what the LEDs would do.
 
 What changed in `2.3.0-br.1` compared with 2.3.0:
 

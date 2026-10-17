@@ -181,6 +181,27 @@ void test_ignored_command_messages_change_nothing() {
   TEST_ASSERT_EQUAL(0, fake::writes);
 }
 
+void test_quick_tap_during_finish_acknowledges_instead_of_toggling() {
+  printerConfig.finishExit = true; printerConfig.finishExitTimer = false;
+  finishPrint();                                  // green
+  doorOpen(); advance(1500); doorClose();
+  TEST_ASSERT_FALSE(ledsOff());                   // no toggle-off flicker before ledsloop runs
+  ledsloop();
+  TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));   // back to white, not off
+}
+
+void test_tap_queued_in_maintenance_mode_does_not_fire_later() {
+  printerConfig.maintMode = true;
+  mqttChange();
+  doorOpen(); advance(1000); doorClose();         // toggle can't run in maintenance mode
+  advance(5000);
+  printerConfig.maintMode = false;
+  mqttChange();                                   // back to replicate/idle
+  TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));   // no surprise flip to off
+  doorOpen();                                     // the next door open clears anything stale
+  TEST_ASSERT_FALSE(printerVariables.doorSwitchTriggered);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_door_bit_23_opens_and_closes);
@@ -199,5 +220,7 @@ int main() {
   RUN_TEST(test_chamber_light_report_drives_replicate);
   RUN_TEST(test_chamber_light_publish_is_queued_for_the_mqtt_task);
   RUN_TEST(test_ignored_command_messages_change_nothing);
+  RUN_TEST(test_quick_tap_during_finish_acknowledges_instead_of_toggling);
+  RUN_TEST(test_tap_queued_in_maintenance_mode_does_not_fire_later);
   return UNITY_END();
 }

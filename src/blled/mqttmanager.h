@@ -345,6 +345,7 @@ if (!messageobject["print"]["home_flag"].isNull())
         {
             printerVariables.lastdoorOpenms = millis();
             printerVariables.ledsOnBeforeDoor = (currentRed | currentGreen | currentBlue | currentWarm | currentCold) != 0;
+            printerVariables.doorSwitchTriggered = false; // drop a toggle left pending (e.g. tapped in maintenance mode)
 
             // If light is off, turn it on and lock it
             if (printerConfig.controlChamberLight && !printerVariables.printerledstate)
@@ -395,8 +396,11 @@ else // Door closed
     printerConfig.inactivityStartms = millis();
     printerConfig.isIdleOFFActive = false;
 
-    // Quick open-and-close: toggle the LEDs (see updateleds)
-    if (printerConfig.doorToggleWindowMs > 0 && (millis() - printerVariables.lastdoorOpenms) < printerConfig.doorToggleWindowMs)
+    // Quick open-and-close: toggle the LEDs (see updateleds). Not while the finish colour
+    // is waiting for the door: then any door use means "seen it" (ledsloop ends the finish).
+    bool finishWaitingForDoor = printerVariables.waitingForDoor && printerConfig.finishindication && finishExitByDoor();
+    if (printerConfig.doorToggleWindowMs > 0 && !finishWaitingForDoor &&
+        (millis() - printerVariables.lastdoorOpenms) < printerConfig.doorToggleWindowMs)
     {
         printerVariables.doorSwitchTriggered = true;
         doorToggled = true;
@@ -651,8 +655,14 @@ else // Door closed
             }
         }
 
-        // Skipped after a door toggle: it resets the idle timer and re-runs updateleds(),
-        // which switched toggled-off LEDs straight back on.
+        // After a door toggle, only flag the update: resetting the idle timer and re-running
+        // updateleds() switched toggled-off LEDs straight back on.
+        if (Changed == true && doorToggled)
+        {
+            printerConfig.maintMode_update = true;
+            printerConfig.discoMode_update = true;
+            printerConfig.testcolor_update = true;
+        }
         if (Changed == true && !doorToggled)
         {
             printerConfig.inactivityStartms = millis(); // restart idle timer

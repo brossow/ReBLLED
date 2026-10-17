@@ -296,8 +296,10 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     printerConfig.finishExit = (finishMode != "timer");
     printerConfig.finishExitTimer = (finishMode != "door");
     printerConfig.statusAnimations = request->hasParam("statusAnimations", true);
-    if (request->hasParam("doorToggleSecs", true))
-        printerConfig.doorToggleWindowMs = (unsigned long)constrain(getSafeParamInt(request, "doorToggleSecs"), 0, 30) * 1000UL;
+    String doorSecs = getSafeParamValue(request, "doorToggleSecs");
+    doorSecs.trim();
+    if (doorSecs.length() > 0) // blank box: keep the current value rather than reading it as 0 (off)
+        printerConfig.doorToggleWindowMs = (unsigned long)constrain(doorSecs.toInt(), 0, 30) * 1000UL;
     printerConfig.finishTimeOut = getSafeParamInt(request, "finishTimerMins") * 60000;
     printerConfig.inactivityEnabled = request->hasParam("inactivityEnabled", true);
     printerConfig.inactivityTimeOut = getSafeParamInt(request, "inactivityMins") * 60000;

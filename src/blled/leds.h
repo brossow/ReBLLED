@@ -68,12 +68,17 @@ int updateledsDepth = 0;              // >0 while updateleds() is choosing a col
 bool ledsSetThisUpdate = false;       // updateleds() called tweenToColor()
 LedEffect nextEffect = EFFECT_SOLID;  // what the chosen branch wants
 
+void writeCurrentColor(); // below, after the PWM channel globals are in use
+
 void setEffect(LedEffect e)
 {
     if (e != currentEffect)
     {
         currentEffect = e;
         effectStartms = millis(); // restart the rhythm only when the status changes
+        // The last animation frame may have left the PWM dimmed or dark; if the new status
+        // has the same colour, tweenToColor() skipped writing it ("already at color").
+        writeCurrentColor();
     }
 }
 
@@ -228,6 +233,15 @@ void setBrightness(int percent)
     tweenToColor(lastTargetRed, lastTargetGreen, lastTargetBlue, lastTargetWarm, lastTargetCold, 0);
     currentEffect = keep; // a brightness change must not stop a blink/pulse
     effectStartms = keepStart;
+}
+
+void writeCurrentColor()
+{
+    ledcWrite(redChannel, currentRed);
+    ledcWrite(greenChannel, currentGreen);
+    ledcWrite(blueChannel, currentBlue);
+    ledcWrite(warmChannel, currentWarm);
+    ledcWrite(coldChannel, currentCold);
 }
 
 // Called from ledsloop(): scales the current colour by the effect's level.
@@ -485,6 +499,7 @@ void updateleds()
     if (printerConfig.testcolorEnabled || printerConfig.maintMode || printerConfig.debugwifi || printerConfig.discoMode)
     {
         // Skip trying to set a color as it's in one of the override states
+        printerVariables.doorSwitchTriggered = false; // a door toggle doesn't apply here, and mustn't fire later
         return;
     }
 
