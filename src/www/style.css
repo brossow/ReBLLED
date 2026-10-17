@@ -325,3 +325,8 @@ form {
   width: 50px;
   display: inline-block;
 }
+/* Keyboard focus: the real inputs sit hidden behind the slider graphic */
+.switch input:focus-visible + .slider {
+    outline: 3px solid #1a73e8;
+    outline-offset: 2px;
+}

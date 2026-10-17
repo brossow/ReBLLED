@@ -116,6 +116,8 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["finishWW"] = printerConfig.finishColor.ww;
     doc["finishCW"] = printerConfig.finishColor.cw;
     doc["finishExit"] = printerConfig.finishExit;
+    doc["finishExitTimer"] = printerConfig.finishExitTimer;
+    doc["doorToggleSecs"] = printerConfig.doorToggleWindowMs / 1000;
     doc["finishTimerMins"] = (int)(printerConfig.finishTimeOut / 60000);
     doc["inactivityEnabled"] = printerConfig.inactivityEnabled;
     doc["inactivityMins"] = (int)(printerConfig.inactivityTimeOut / 60000);
@@ -264,18 +266,36 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
         }
     
 
-    printerConfig.brightness = getSafeParamInt(request, "brightnessslider");
+    printerConfig.brightness = constrain(getSafeParamInt(request, "brightnessslider", printerConfig.brightness), 0, 100);
     printerConfig.rescanWiFiNetwork = request->hasParam("rescanWiFiNetwork", true);
-    printerConfig.maintMode = request->hasParam("maintMode", true);
-    printerConfig.discoMode = request->hasParam("discoMode", true);
-    printerConfig.replicatestate = request->hasParam("replicateLedState", true);
+    // LED mode is one choice (radio group "ledMode"). Older page: one checkbox per mode.
+    String ledMode = getSafeParamValue(request, "ledMode");
+    if (ledMode.length() > 0)
+    {
+        printerConfig.maintMode = ledMode == "maint";
+        printerConfig.discoMode = ledMode == "disco";
+        printerConfig.replicatestate = ledMode == "replicate";
+        printerConfig.testcolorEnabled = ledMode == "test";
+        printerConfig.debugwifi = ledMode == "wifi";
+    }
+    else
+    {
+        printerConfig.maintMode = request->hasParam("maintMode", true);
+        printerConfig.discoMode = request->hasParam("discoMode", true);
+        printerConfig.replicatestate = request->hasParam("replicateLedState", true);
+        printerConfig.testcolorEnabled = request->hasParam("showtestcolor", true);
+        printerConfig.debugwifi = request->hasParam("debugwifi", true);
+    }
     printerConfig.runningColor = hex2rgb(getSafeParamValue(request, "runningRGB").c_str(), getSafeParamInt(request, "runningWW"), getSafeParamInt(request, "runningCW"));
-    printerConfig.testcolorEnabled = request->hasParam("showtestcolor", true);
     printerConfig.testColor = hex2rgb(getSafeParamValue(request, "testRGB").c_str(), getSafeParamInt(request, "testWW"), getSafeParamInt(request, "testCW"));
-    printerConfig.debugwifi = request->hasParam("debugwifi", true);
     printerConfig.finishindication = request->hasParam("finishIndication", true);
     printerConfig.finishColor = hex2rgb(getSafeParamValue(request, "finishColor").c_str(), getSafeParamInt(request, "finishWW"), getSafeParamInt(request, "finishCW"));
-    printerConfig.finishExit = !request->hasParam("finishEndTimer", true);
+    // finishExitMode: door | timer | either. (Older page: a finishEndTimer checkbox.)
+    String finishMode = getSafeParamValue(request, "finishExitMode", request->hasParam("finishEndTimer", true) ? "timer" : "door");
+    printerConfig.finishExit = (finishMode != "timer");
+    printerConfig.finishExitTimer = (finishMode != "door");
+    if (request->hasParam("doorToggleSecs", true))
+        printerConfig.doorToggleWindowMs = (unsigned long)constrain(getSafeParamInt(request, "doorToggleSecs"), 0, 30) * 1000UL;
     printerConfig.finishTimeOut = getSafeParamInt(request, "finishTimerMins") * 60000;
     printerConfig.inactivityEnabled = request->hasParam("inactivityEnabled", true);
     printerConfig.inactivityTimeOut = getSafeParamInt(request, "inactivityMins") * 60000;
@@ -315,6 +335,28 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
     printerConfig.discoMode_update = true;
     printerConfig.testcolor_update = true;
     updateleds();
+    request->send(200, "text/plain", "OK");
+}
+
+// Brightness slider: applied live while dragging (save=0), saved when released (save=1).
+void handleSetBrightness(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request))
+    {
+        return request->requestAuthentication();
+    }
+    if (!request->hasParam("value", true))
+    {
+        request->send(400, "text/plain", "missing value");
+        return;
+    }
+    int value = request->getParam("value", true)->value().toInt();
+    {
+        StateLock lock;
+        setBrightness(value);
+        if (request->hasParam("save", true) && request->getParam("save", true)->value() == "1")
+            saveFileSystem();
+    }
     request->send(200, "text/plain", "OK");
 }
 
@@ -608,6 +650,7 @@ void setupWebserver()
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
     webServer.on("/getConfig", HTTP_GET, handleGetConfig);
     webServer.on("/submitConfig", HTTP_POST, handleSubmitConfig);
+    webServer.on("/setBrightness", HTTP_POST, handleSetBrightness);
     webServer.on("/blled.svg", HTTP_GET, handleGetIcon);
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
     webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);

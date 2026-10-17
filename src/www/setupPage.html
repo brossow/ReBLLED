@@ -95,33 +95,34 @@
                 <details class="collapse" open>
                     <summary>LED Behaviour</summary>
                     <div>
-                        <!-- maintaince Mode -->
+                        <!-- LED mode: exactly one of these (a radio group) -->
                         </br>
+                        <div role="radiogroup" aria-label="LED mode">
                         <div class="toggle-switch">
                             <label class="switch">
-                                <input type="checkbox" id="maintMode" name='maintMode' class="LEDBehavior"
-                                    onchange='selectOnlyOne(this);showhideOptions();'>
+                                <input type="radio" id="maintMode" name="ledMode" value="maint" class="LEDBehavior"
+                                    aria-labelledby="maintMode-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Maintenance Mode (Always On)</span>
+                            <span id="maintMode-label">Maintenance Mode (Always On)</span>
                         </div>
                         <!-- RGB Cycle -->
                         <div class="toggle-switch">
                             <label class="switch">
-                                <input type="checkbox" id='discoMode' name='discoMode' class="LEDBehavior"
-                                    onchange='selectOnlyOne(this);showhideOptions();'>
+                                <input type="radio" id="discoMode" name="ledMode" value="disco" class="LEDBehavior"
+                                    aria-labelledby="discoMode-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span>RGB Color Cycle Mode (Always On)</span>
+                            <span id="discoMode-label">RGB Color Cycle Mode (Always On)</span>
                         </div>
                         <!-- Replicate State -->
                         <div class="toggle-switch">
                             <label class="switch">
-                                <input type="checkbox" id="replicateLedState" name="replicateLedState"
-                                    class="LEDBehavior" onchange='selectOnlyOne(this);showhideOptions();'>
+                                <input type="radio" id="replicateLedState" name="ledMode" value="replicate" class="LEDBehavior"
+                                    aria-labelledby="replicateLedState-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Replicate State</span>
+                            <span id="replicateLedState-label">Replicate State</span>
                             <div id="runningcolorchoice" class="input-inline-group" style="margin-left: auto;">
                                 <input type="color" id="runningRGB" name="runningRGB" value="#000000">
                                 <label for="runningWW">WW</label>
@@ -135,11 +136,11 @@
                         <!-- Colortest -->
                         <div class="toggle-switch">
                             <label class="switch">
-                                <input type="checkbox" id="showtestcolor" name="showtestcolor" class="LEDBehavior"
-                                    onchange='selectOnlyOne(this);showhideOptions();'>
+                                <input type="radio" id="showtestcolor" name="ledMode" value="test" class="LEDBehavior"
+                                    aria-labelledby="showtestcolor-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Color Test (Always On)</span>
+                            <span id="showtestcolor-label">Color Test (Always On)</span>
                             <div id="testcolorchoice" class="input-inline-group" style="margin-left: auto;">
                                 <input type="color" id="testRGB" name="testRGB" value="#3F3CFB">
                                 <label for="testWW">WW</label>
@@ -151,11 +152,12 @@
                         <!-- Wifi Strength -->
                         <div class="toggle-switch">
                             <label class="switch">
-                                <input type="checkbox" id='debugwifi' name='debugwifi' class="LEDBehavior"
-                                    onchange='selectOnlyOne(this);showhideOptions();'>
+                                <input type="radio" id="debugwifi" name="ledMode" value="wifi" class="LEDBehavior"
+                                    aria-labelledby="debugwifi-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Show Wifi Strength via LEDs</span>
+                            <span id="debugwifi-label">Show Wifi Strength via LEDs</span>
+                        </div>
                         </div>
                         <!-- splitt line -->
                         <div class="detailSplitter">LED Actions</div>
@@ -178,30 +180,44 @@
                                     step="1">
                             </div>
                         </div>
-                        <!-- Finish Exit selector -->
-                        <div id="finishendchoice" style='display:none'>
+                        <!-- Finish Exit selector: door / timer / whichever comes first -->
+                        <div id="finishendchoice" style='display:none' role="radiogroup" aria-label="End the finish colour">
                             <div class="toggle-switch">
                                 <label class="switch">
-                                    <input type="checkbox" id='finishEndDoor' name='finishEndDoor' class='finishOption'
-                                        onchange='setFinishExit(this);setFinishChoice();'>>
+                                    <input type="radio" id='finishEndDoor' name='finishExitMode' value='door' class='finishOption'
+                                        aria-labelledby="finishEndDoor-label" onchange='setFinishChoice();'>
                                     <span class="slider"></span>
                                 </label>
-                                <span>Exit Finish after Door Action Open / Close</span>
+                                <span id="finishEndDoor-label">End Finish on Door Open / Close</span>
                             </div>
-                            <div id="finishtimeroption">
-                                <div class="toggle-switch">
-                                    <label class="switch">
-                                        <input type="checkbox" id='finishEndTimer' name='finishEndTimer'
-                                            class='finishOption' onchange='setFinishExit(this);setFinishChoice();'>
-                                        <span class="slider"></span>
-                                    </label>
-                                    <span>Exit Finish after</span>
-                                    <div class="input-inline-group" style="margin-left: auto;">
-                                        <label for="finishTimerMins">Min.</label>
-                                        <input type="text" id="finishTimerMins" name="finishTimerMins" value='1'
-                                            maxlength='3' size='3'>
-                                    </div>
-                                </div>
+                            <div class="toggle-switch">
+                                <label class="switch">
+                                    <input type="radio" id='finishEndTimer' name='finishExitMode' value='timer' class='finishOption'
+                                        aria-labelledby="finishEndTimer-label" onchange='setFinishChoice();'>
+                                    <span class="slider"></span>
+                                </label>
+                                <span id="finishEndTimer-label">End Finish after a Timer</span>
+                            </div>
+                            <div class="toggle-switch">
+                                <label class="switch">
+                                    <input type="radio" id='finishEndEither' name='finishExitMode' value='either' class='finishOption'
+                                        aria-labelledby="finishEndEither-label" onchange='setFinishChoice();'>
+                                    <span class="slider"></span>
+                                </label>
+                                <span id="finishEndEither-label">Whichever Comes First (Door or Timer)</span>
+                            </div>
+                            <div id="finishtimeroption" class="input-inline-group">
+                                <label for="finishTimerMins">Finish timer (minutes)</label>
+                                <input type="number" id="finishTimerMins" name="finishTimerMins" value='10'
+                                    min='0' max='999' step='1'>
+                            </div>
+                        </div>
+                        <!-- Quick door open-and-close toggles the LEDs -->
+                        <div class="toggle-switch">
+                            <span>Door Quick Open/Close Toggles LEDs</span>
+                            <div class="input-inline-group" style="margin-left: auto;">
+                                <label for="doorToggleSecs">within (s, 0 = off)</label>
+                                <input type="number" id="doorToggleSecs" name="doorToggleSecs" value='4' min='0' max='30' step='1'>
                             </div>
                         </div>
                         <!-- Inactivity Timeout -->
@@ -639,38 +655,12 @@
             }
         }
 
-        function setFinishExit(id) {
-            var myCheckbox = document.getElementsByClassName("finishOption");
-            if (id.checked) {
-                Array.prototype.forEach.call(myCheckbox, function (el) {
-                    el.checked = false;
-                });
-                id.checked = true;
-            } else {
-                Array.prototype.forEach.call(myCheckbox, function (el) {
-                    el.checked = true;
-                });
-                id.checked = false;
-            }
-        }
         function setFinishChoice() {
-            if (document.getElementById('finishEndDoor').checked) {
-                //document.getElementById("finishdooroption").style.display = '';
-                document.getElementById("finishtimeroption").style.display = 'none';
-
-            } else {
-                document.getElementById("finishtimeroption").style.display = '';
-                //document.getElementById("finishdooroption").style.display = 'none';
-            }
+            // The timer minutes only matter for "timer" and "either"
+            document.getElementById("finishtimeroption").style.display =
+                document.getElementById('finishEndDoor').checked ? 'none' : '';
         }
-        //LED Behavious
-        function selectOnlyOne(id) {
-            var myCheckbox = document.getElementsByClassName("LEDBehavior")
-            Array.prototype.forEach.call(myCheckbox, function (el) {
-                el.checked = false;
-            });
-            id.checked = true;
-        }
+        //LED Behaviour (a radio group, so the browser keeps exactly one selected)
         function showhideOptions() {
             if (document.getElementById('showtestcolor').checked) {
                 document.getElementById("testcolorchoice").style.display = '';
@@ -721,12 +711,11 @@
                 document.getElementById("stage9CW").value = 255;
                 document.getElementById("stage10CW").value = 255;
                 if (document.getElementById('finishIndication').checked) {
-                    if (document.getElementById('finishEndDoor').checked) {
-                        document.getElementById('finishEndDoor').checked = false;
+                    // P1 printers have no door sensor: a door-based ending would never come
+                    if (!document.getElementById('finishEndTimer').checked) {
                         document.getElementById('finishEndTimer').checked = true;
-                        //document.getElementById("finishdooroption").style.display = 'none';
-                        document.getElementById("finishtimeroption").style.display = '';
                     }
+                    setFinishChoice();
                 }
             } else {
                 document.getElementById("doorSwitch").checked = true;
@@ -752,9 +741,7 @@
 
                 if (document.getElementById('finishIndication').checked) {
                     document.getElementById('finishEndDoor').checked = true;
-                    document.getElementById('finishEndTimer').checked = false;
-                    document.getElementById("finishdooroption").style.display = '';
-                    //document.getElementById("finishtimeroption").style.display = 'none';
+                    setFinishChoice();
                 }
             }
         }
@@ -800,13 +787,12 @@
                             document.getElementById('finishWW').value = getSafeNumber(configData.finishWW, 0);
                             document.getElementById('finishCW').value = getSafeNumber(configData.finishCW, 0);
 
-                            if (configData.finishExit) {
-                                document.getElementById('finishEndDoor').checked = true;
-                                setFinishExit(document.getElementById('finishEndDoor'));
-                            } else {
-                                document.getElementById('finishEndTimer').checked = true;
-                                setFinishExit(document.getElementById('finishEndTimer'));
-                            }
+                            var finishDoor = configData.finishExit !== false;
+                            var finishTimer = !!configData.finishExitTimer;
+                            var finishMode = finishDoor && finishTimer ? 'finishEndEither' : (finishTimer ? 'finishEndTimer' : 'finishEndDoor');
+                            document.getElementById(finishMode).checked = true;
+                            setFinishChoice();
+                            document.getElementById('doorToggleSecs').value = getSafeNumber(configData.doorToggleSecs, 4);
 
                             document.getElementById('finishTimerMins').value = getSafeNumber(configData.finishTimerMins, 10);
                             document.getElementById('inactivityEnabled').checked = configData.inactivityEnabled || false;
@@ -863,8 +849,23 @@
             xhr.send();
         }
         window.onload = function () {
+            // Brightness applies live while dragging and is saved when released.
+            var brightnessTimer = null;
+            function sendBrightness(value, save) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/setBrightness', true);
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.send('value=' + encodeURIComponent(value) + (save ? '&save=1' : ''));
+            }
             document.getElementById("brightnessslider").addEventListener("input", function (e) {
                 document.getElementById("brightnesssliderDisplay").textContent = "Brightness: " + e.target.value + "%";
+                clearTimeout(brightnessTimer);
+                var v = e.target.value;
+                brightnessTimer = setTimeout(function () { sendBrightness(v, false); }, 120);
+            });
+            document.getElementById("brightnessslider").addEventListener("change", function (e) {
+                clearTimeout(brightnessTimer);
+                sendBrightness(e.target.value, true);
             });
             updateIdle();
             updateConfig();

@@ -57,9 +57,14 @@ COLOR hex2rgb(String hex, short ww_value = 0, short cw_value = 0)
     return color;
 }
 
+// Last requested colour before brightness scaling, so a brightness change can re-apply it.
+int lastTargetRed = 0, lastTargetGreen = 0, lastTargetBlue = 0, lastTargetWarm = 0, lastTargetCold = 0;
+
 void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm, int targetCold, int duration = 500)
 {
     StateLock lock;
+    lastTargetRed = targetRed; lastTargetGreen = targetGreen; lastTargetBlue = targetBlue;
+    lastTargetWarm = targetWarm; lastTargetCold = targetCold;
 
     float brightness = (float)constrain(printerConfig.brightness, 0, 100) / 100.0;
 
@@ -95,7 +100,7 @@ void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm
     // Interpolate from the start colour. (The old per-step increment was
     // (target - current) / 255 in integer maths, i.e. 0 for any change under 255, so the
     // LEDs waited ~0.25 s and then jumped instead of fading.)
-    const int steps = 50;
+    const int steps = duration > 0 ? 50 : 1;
     int stepDelay = duration / steps;
     int startRed = currentRed, startGreen = currentGreen, startBlue = currentBlue, startWarm = currentWarm, startCold = currentCold;
 
@@ -149,6 +154,14 @@ void tweenToColor(int hexValue, short ww_value = 0, short cw_value = 0)
     targetcolor.cw = cw_value;
     tweenToColor(targetcolor.r, targetcolor.g, targetcolor.b, targetcolor.ww, targetcolor.cw);
 }
+// Live brightness change (setup page slider): re-apply the current colour at once.
+void setBrightness(int percent)
+{
+    StateLock lock;
+    printerConfig.brightness = constrain(percent, 0, 100);
+    tweenToColor(lastTargetRed, lastTargetGreen, lastTargetBlue, lastTargetWarm, lastTargetCold, 0);
+}
+
 float hue = 0.0;
 
 void RGBCycle()
@@ -272,6 +285,22 @@ void printLogs(String Desc, short r, short g, short b, short ww, short cw)
     tempColor.cw = cw;
     printLogs(Desc, tempColor);
 }
+// Door / timer endings for the "print finished" colour. Both enabled = whichever comes
+// first; neither = door (otherwise it would never end).
+bool finishExitByDoor() { return printerConfig.finishExit || !printerConfig.finishExitTimer; }
+bool finishExitByTimer() { return printerConfig.finishExitTimer; }
+
+// Is the "print finished" colour still meant to be showing?
+bool finishIndicationActive()
+{
+    bool active = true;
+    if (finishExitByDoor())
+        active = active && printerVariables.waitingForDoor;
+    if (finishExitByTimer())
+        active = active && printerConfig.finish_check && (millis() - printerConfig.finishStartms) < (unsigned long)printerConfig.finishTimeOut;
+    return active;
+}
+
 void updateleds()
 {
     StateLock lock;
@@ -410,12 +439,13 @@ void updateleds()
         } */
     if (printerVariables.doorSwitchTriggered == true)
     {
-        bool ledsAreOff = (currentWarm == 0 && currentCold == 0);
+        // Decide from the state before the door opened: opening it already relit the LEDs.
+        bool ledsAreOff = !printerVariables.ledsOnBeforeDoor;
         bool chamberLightIsOff = (printerVariables.printerledstate == false);
 
         if (printerConfig.debugingchange)
         {
-            LogSerial.print(F("Door closed twice within 2 seconds - "));
+            LogSerial.printf("Door opened and closed within %lu s - ", printerConfig.doorToggleWindowMs / 1000);
 
             if (ledsAreOff)
                 LogSerial.print(F("Turning LEDs ON"));
@@ -441,6 +471,7 @@ void updateleds()
         {
             tweenToColor(0, 0, 0, 255, 255); // WHITE
             printerConfig.isIdleOFFActive = false;
+            printerConfig.inactivityStartms = millis(); // else the idle timeout switches them straight off
 
             if (printerConfig.controlChamberLight && chamberLightIsOff)
             {
@@ -617,7 +648,7 @@ void updateleds()
     }
 
     // Idle Timeout (Has to be enabled)
-    if ((printerVariables.stage == -1 || printerVariables.stage == 255) && !((printerConfig.finishExit && printerVariables.waitingForDoor) || (printerConfig.finishExit == false && ((millis() - printerConfig.finishStartms) < printerConfig.finishTimeOut))) && (millis() - printerConfig.inactivityStartms) > printerConfig.inactivityTimeOut && printerConfig.isIdleOFFActive == false && printerConfig.inactivityEnabled)
+    if ((printerVariables.stage == -1 || printerVariables.stage == 255) && !finishIndicationActive() && (millis() - printerConfig.inactivityStartms) > printerConfig.inactivityTimeOut && printerConfig.isIdleOFFActive == false && printerConfig.inactivityEnabled)
     {
         tweenToColor(0, 0, 0, 0, 0); // OFF
         controlChamberLight(false);  // Turn off chamber light via MQTT
@@ -650,7 +681,7 @@ void updateleds()
     }
 
     // for IDLE - P1 uses 255, X1 uses -1
-    if ((printerVariables.stage == -1 || printerVariables.stage == 255) && !((printerConfig.finishExit && printerVariables.waitingForDoor) || (printerConfig.finishExit == false && ((millis() - printerConfig.finishStartms) < printerConfig.finishTimeOut))) && (millis() - printerConfig.inactivityStartms < printerConfig.inactivityTimeOut))
+    if ((printerVariables.stage == -1 || printerVariables.stage == 255) && !finishIndicationActive() && (millis() - printerConfig.inactivityStartms < printerConfig.inactivityTimeOut))
     {
         tweenToColor(printerConfig.runningColor); // Customisable - Default is WHITE
         printLogs("Stage -1/255, IDLE", printerConfig.runningColor);
@@ -700,7 +731,7 @@ void updateleds()
     }
 
     // replicate printer behaviour ON
-    if (printerConfig.replicatestate && printerConfig.replicate_update && printerVariables.printerledstate && !((printerConfig.finishExit && printerVariables.waitingForDoor) || (printerConfig.finishExit == false && ((millis() - printerConfig.finishStartms) < printerConfig.finishTimeOut))))
+    if (printerConfig.replicatestate && printerConfig.replicate_update && printerVariables.printerledstate && !finishIndicationActive())
     {
         tweenToColor(printerConfig.runningColor); // Customisable - Default is WHITE
         printLogs("LED Replication ON", printerConfig.runningColor);
@@ -754,25 +785,27 @@ void ledsloopLocked()
 
     // Turn off GREEN if... finished and Door OPENED or CLOSED in last 5 secs AND user wants Finish Indication enabled
     // Can't use Boolean finished as printer defaults back to IDLE via MQTT
-    if ((printerVariables.waitingForDoor && printerConfig.finishindication && printerConfig.finishExit && ((millis() - printerVariables.lastdoorClosems) < 6000 || (millis() - printerVariables.lastdoorOpenms) < 6000)))
+    if ((printerVariables.waitingForDoor && printerConfig.finishindication && finishExitByDoor() && ((millis() - printerVariables.lastdoorClosems) < 6000 || (millis() - printerVariables.lastdoorOpenms) < 6000)))
     {
         if (printerConfig.debuging || printerConfig.debugingchange)
         {
             LogSerial.println(F("Updating from finishloop after Door interaction - Starting IDLE timer"));
         }
         printerVariables.waitingForDoor = false;
+        printerConfig.finish_check = false; // finished by the door: the timer must not fire later
         printerConfig.inactivityStartms = millis();
         printerConfig.isIdleOFFActive = false;
         updateleds();
     }
 
-    if ((printerConfig.finish_check && printerConfig.finishindication && printerConfig.finishExit == false && ((millis() - printerConfig.finishStartms) > printerConfig.finishTimeOut)))
+    if ((printerConfig.finish_check && printerConfig.finishindication && finishExitByTimer() && ((millis() - printerConfig.finishStartms) > (unsigned long)printerConfig.finishTimeOut)))
     {
         if (printerConfig.debuging || printerConfig.debugingchange)
         {
             LogSerial.println(F("Updating from finishloop after Finish timer expired - Starting IDLE timer"));
         }
         printerConfig.finish_check = false;
+        printerVariables.waitingForDoor = false; // "whichever comes first": the door no longer matters
         printerConfig.inactivityStartms = millis();
         printerConfig.isIdleOFFActive = false;
         updateleds();

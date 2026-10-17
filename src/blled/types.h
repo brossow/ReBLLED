@@ -41,6 +41,7 @@ extern "C"
         bool waitingForDoor = false;            // Are we waiting for the door to be actuated?
         unsigned long lastdoorClosems = 0;      // Last time door was opened
         unsigned long lastdoorOpenms = 0;       // Last time door was closed
+        bool ledsOnBeforeDoor = false;          // LED state when the door was last opened (quick-tap toggles from this)
         bool chamberLightLocked = false;  // blocks replicate while true
         bool ledWasForcedByDoor = false;
     } PrinterVariables;
@@ -89,11 +90,13 @@ extern "C"
         // Options
         bool finishindication = true;   //Enable / Disable
         COLOR finishColor;              //Set Finish Color
-        bool finishExit = true;         //True = use Door / False = use Timer
+        bool finishExit = true;         //End the finish colour on a door action
+        bool finishExitTimer = false;   //End the finish colour after finishTimeOut (both = whichever comes first)
         bool finish_check = false;    //When updateleds() is run, should the TEST LEDS be set?
         unsigned long finishStartms = 0;    // Time the finish countdown is measured from
         int finishTimeOut = 600000;     //300000 = 5 mins
         bool controlChamberLight = false;                //control chamber light
+        unsigned long doorToggleWindowMs = 4000; //Door opened and closed within this = toggle LEDs (0 = off)
 
         //Inactivity Timout
         bool inactivityEnabled = true;

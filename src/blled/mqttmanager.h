@@ -243,6 +243,7 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
         }
 
         bool Changed = false;
+        bool doorToggled = false; // a quick open-and-close already set the LEDs this message
 
         if (!messageobject["print"]["command"].isNull())
         {
@@ -343,6 +344,7 @@ if (!messageobject["print"]["home_flag"].isNull())
         if (doorState)
         {
             printerVariables.lastdoorOpenms = millis();
+            printerVariables.ledsOnBeforeDoor = (currentRed | currentGreen | currentBlue | currentWarm | currentCold) != 0;
 
             // If light is off, turn it on and lock it
             if (printerConfig.controlChamberLight && !printerVariables.printerledstate)
@@ -393,10 +395,11 @@ else // Door closed
     printerConfig.inactivityStartms = millis();
     printerConfig.isIdleOFFActive = false;
 
-    // Double-close detection
-    if ((millis() - printerVariables.lastdoorOpenms) < 2000)
+    // Quick open-and-close: toggle the LEDs (see updateleds)
+    if (printerConfig.doorToggleWindowMs > 0 && (millis() - printerVariables.lastdoorOpenms) < printerConfig.doorToggleWindowMs)
     {
         printerVariables.doorSwitchTriggered = true;
+        doorToggled = true;
     }
 
     Changed = true;
@@ -648,7 +651,9 @@ else // Door closed
             }
         }
 
-        if (Changed == true)
+        // Skipped after a door toggle: it resets the idle timer and re-runs updateleds(),
+        // which switched toggled-off LEDs straight back on.
+        if (Changed == true && !doorToggled)
         {
             printerConfig.inactivityStartms = millis(); // restart idle timer
             printerConfig.isIdleOFFActive = false;

@@ -76,6 +76,8 @@ void saveFileSystem()
     json["finishWW"] = printerConfig.finishColor.ww;
     json["finishCW"] = printerConfig.finishColor.cw;
     json["finishExit"] = printerConfig.finishExit;
+    json["finishExitTimer"] = printerConfig.finishExitTimer;
+    json["doorToggleSecs"] = printerConfig.doorToggleWindowMs / 1000;
     json["finish_check"] = printerConfig.finish_check;
     json["finishTimerMins"] = printerConfig.finishTimeOut;
     json["inactivityEnabled"] = printerConfig.inactivityEnabled;
@@ -210,6 +212,9 @@ void loadFileSystem()
         printerConfig.finishindication = json["finishindication"];
         printerConfig.finishColor = hex2rgb(json["finishColor"], json["finishWW"], json["finishCW"]);
         printerConfig.finishExit = json["finishExit"];
+        // Configs from before "whichever comes first": finishExit false meant timer-only.
+        printerConfig.finishExitTimer = json["finishExitTimer"] | !printerConfig.finishExit;
+        printerConfig.doorToggleWindowMs = (json["doorToggleSecs"] | 4UL) * 1000UL;
         printerConfig.finishTimeOut = json["finishTimerMins"];
         printerConfig.finish_check = json["finish_check"];
         printerConfig.inactivityEnabled = json["inactivityEnabled"];
