@@ -11,7 +11,7 @@ For a new fork build (`2.3.0-br.N`). Everything below needs the real controller,
 
 ## Flash
 
-- [ ] Firmware Update page → upload `.firmware/BLLC_V2.3.0-br.N.bin.ota`.
+- [ ] `tools/flash.sh <device-ip>` (or Firmware Update page → upload `.firmware/BLLC_V2.3.0-br.N.bin.ota`).
 - [ ] The page says "Upload complete. Rebooting...", and after the reboot the setup page shows **Firmware Version: 2.3.0-br.N**.
 - [ ] Your settings survived (colours, timers, printer IP/serial).
 - [ ] Web Serial log shows `[MQTT] connected` and the LEDs follow the printer.
@@ -44,6 +44,16 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 - [ ] With **Control chamber light** on and **inactivity timeout** off: closing the door mid-print does **not** turn the LEDs or the chamber light off.
 - [ ] If an HMS error turns the LEDs red, they return to normal when the error clears, with both debug-logging options off.
 - [ ] Inactivity timeout still turns the lights off when idle.
+
+## Added in br.2
+
+- [ ] **Door quick-tap:** with the strip on, open and close the door within ~4 s: the strip goes **off and stays off**. Tap again: it comes **back on** and stays on (no switch-off a moment later). A normal, slower open still turns it on.
+- [ ] **Door window setting:** set "Door Quick Open/Close Toggles LEDs" to 0 and save: a quick tap no longer toggles.
+- [ ] **Finish ending:** after a print, try each of *door*, *timer* and *whichever comes first* (a short timer, like 1 minute, makes this quick).
+- [ ] **Rhythms:** finished = slow green pulse; a pause = blue pulse; an error = red blink (an easy one: pause the print, or pull the filament for a runout). Turning "Blink Errors, Pulse Pause / Finish" off makes them steady.
+- [ ] **Live brightness:** drag the slider and the strip follows while you drag; reload the page and the new value has stuck.
+- [ ] **LED mode:** choosing Color Test or RGB Cycle and then Replicate State works with one click each; only one is ever selected.
+- [ ] **Clickable labels:** clicking the words beside a switch toggles it.
 
 ## If something goes wrong
 

@@ -20,6 +20,20 @@ firmware_filename_ota = f"{project_name}_V{version}.bin.ota"
 firmware_path_merged = os.path.normpath(os.path.join(env.subst("$PROJECT_DIR"), ".firmware", firmware_filename_merged))
 firmware_path_ota = os.path.normpath(os.path.join(env.subst("$PROJECT_DIR"), ".firmware", firmware_filename_ota))
 
+# Slot size of the partition layout used up to 2.3.0-br.1 (default.csv). A device that
+# hasn't been migrated over USB (docs/USB-MIGRATION.md) can only take OTA images below this.
+OLD_LAYOUT_APP_SLOT = 0x140000
+
+def warn_if_too_big_for_old_layout(source, target, env):
+    size = os.path.getsize(APP_BIN)
+    if size > OLD_LAYOUT_APP_SLOT:
+        print(f"*** WARNING: firmware is {size} bytes, more than the old 1.25 MB OTA slot "
+              f"({OLD_LAYOUT_APP_SLOT} bytes). Devices still on the old partition layout must be "
+              f"migrated over USB first (docs/USB-MIGRATION.md); an OTA upload would be refused.")
+    else:
+        print(f"Firmware {size} bytes: fits the old 1.25 MB OTA slot too "
+              f"({OLD_LAYOUT_APP_SLOT - size} bytes spare).")
+
 def copy_bin_as_ota(source, target, env):
     os.makedirs(os.path.dirname(firmware_path_ota), exist_ok=True)
     shutil.copyfile(APP_BIN, firmware_path_ota)
@@ -55,6 +69,7 @@ def merge_bin(source, target, env):
 
 # Immer OTA-Datei erzeugen (unkomprimiert, mit Endung .bin.ota)
 env.AddPostAction(APP_BIN, copy_bin_as_ota)
+env.AddPostAction(APP_BIN, warn_if_too_big_for_old_layout)
 
 # Optional merged .bin erzeugen
 if ENABLE_MERGE_BIN:
