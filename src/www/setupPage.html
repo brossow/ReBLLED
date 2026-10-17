@@ -226,7 +226,7 @@
                             <span>Door Quick Open/Close Toggles LEDs</span>
                             <div class="input-inline-group" style="margin-left: auto;">
                                 <label for="doorToggleSecs">within (s, 0 = off)</label>
-                                <input type="number" id="doorToggleSecs" name="doorToggleSecs" value='4' min='0' max='30' step='1'>
+                                <input type="number" id="doorToggleSecs" name="doorToggleSecs" value='0' min='0' max='30' step='1'>
                             </div>
                         </div>
                         <!-- Inactivity Timeout -->
@@ -801,7 +801,7 @@
                             var finishMode = finishDoor && finishTimer ? 'finishEndEither' : (finishTimer ? 'finishEndTimer' : 'finishEndDoor');
                             document.getElementById(finishMode).checked = true;
                             setFinishChoice();
-                            document.getElementById('doorToggleSecs').value = getSafeNumber(configData.doorToggleSecs, 4);
+                            document.getElementById('doorToggleSecs').value = getSafeNumber(configData.doorToggleSecs, 0);
                             document.getElementById('statusAnimations').checked = configData.statusAnimations !== false;
 
                             document.getElementById('finishTimerMins').value = getSafeNumber(configData.finishTimerMins, 10);
