@@ -32,6 +32,7 @@ static void doorOpen() { msg("{\"print\":{\"home_flag\":8388608}}"); }
 static void doorClose() { msg("{\"print\":{\"home_flag\":0}}"); }
 
 void test_quick_tap_turns_leds_off_and_it_sticks() {
+  printerConfig.doorToggleWindowMs = 4000;  // opt-in setting
   mqttChange();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));
   doorOpen(); advance(1000); doorClose();
@@ -41,6 +42,7 @@ void test_quick_tap_turns_leds_off_and_it_sticks() {
 }
 
 void test_quick_tap_turns_leds_back_on() {
+  printerConfig.doorToggleWindowMs = 4000;  // opt-in setting
   mqttChange();
   doorOpen(); advance(1000); doorClose();
   TEST_ASSERT_TRUE(ledsOff());
@@ -63,6 +65,7 @@ void test_quick_tap_window_is_configurable() {
 }
 
 void test_slow_door_use_relights_after_a_tap_off() {
+  printerConfig.doorToggleWindowMs = 4000;  // opt-in setting
   mqttChange();
   doorOpen(); advance(1000); doorClose();
   TEST_ASSERT_TRUE(ledsOff());
@@ -182,6 +185,7 @@ void test_ignored_command_messages_change_nothing() {
 }
 
 void test_quick_tap_during_finish_acknowledges_instead_of_toggling() {
+  printerConfig.doorToggleWindowMs = 4000;  // opt-in setting
   printerConfig.finishExit = true; printerConfig.finishExitTimer = false;
   finishPrint();                                  // green
   doorOpen(); advance(1500); doorClose();
@@ -191,6 +195,7 @@ void test_quick_tap_during_finish_acknowledges_instead_of_toggling() {
 }
 
 void test_tap_queued_in_maintenance_mode_does_not_fire_later() {
+  printerConfig.doorToggleWindowMs = 4000;  // opt-in setting
   printerConfig.maintMode = true;
   mqttChange();
   doorOpen(); advance(1000); doorClose();         // toggle can't run in maintenance mode
@@ -200,6 +205,14 @@ void test_tap_queued_in_maintenance_mode_does_not_fire_later() {
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));   // no surprise flip to off
   doorOpen();                                     // the next door open clears anything stale
   TEST_ASSERT_FALSE(printerVariables.doorSwitchTriggered);
+}
+
+void test_door_quick_tap_does_nothing_by_default() {
+  mqttChange();
+  TEST_ASSERT_EQUAL(0, printerConfig.doorToggleWindowMs); // off unless turned on
+  doorOpen(); advance(1000); doorClose();
+  advance(1000); ledsloop();
+  TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));          // strip stays on
 }
 
 int main() {
@@ -222,5 +235,6 @@ int main() {
   RUN_TEST(test_ignored_command_messages_change_nothing);
   RUN_TEST(test_quick_tap_during_finish_acknowledges_instead_of_toggling);
   RUN_TEST(test_tap_queued_in_maintenance_mode_does_not_fire_later);
+  RUN_TEST(test_door_quick_tap_does_nothing_by_default);
   return UNITY_END();
 }

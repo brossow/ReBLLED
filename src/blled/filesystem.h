@@ -215,7 +215,7 @@ void loadFileSystem()
         printerConfig.finishExit = json["finishExit"];
         // Configs from before "whichever comes first": finishExit false meant timer-only.
         printerConfig.finishExitTimer = json["finishExitTimer"] | !printerConfig.finishExit;
-        printerConfig.doorToggleWindowMs = (json["doorToggleSecs"] | 4UL) * 1000UL;
+        printerConfig.doorToggleWindowMs = (json["doorToggleSecs"] | 0UL) * 1000UL;
         printerConfig.statusAnimations = json["statusAnimations"] | true;
         printerConfig.finishTimeOut = json["finishTimerMins"];
         printerConfig.finish_check = json["finish_check"];
