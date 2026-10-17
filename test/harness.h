@@ -70,8 +70,9 @@ inline void freshDevice() {
   printerVariables.lastdoorClosems = 0;
   printerConfig.inactivityStartms = fake::now_ms;
   updateleds();                        // first call is the "Initial Boot" no-op
-  // Boot stamps lastdoorClosems, and replicate-OFF is ignored for 1 s after a door event.
-  fake::now_ms += 2000;
+  // Boot stamps lastdoorClosems. Replicate-OFF is ignored for 1 s after a door event, and a
+  // door event in the last 6 s ends the finish colour, so start well clear of both.
+  fake::now_ms += 10000;
   printerConfig.inactivityStartms = fake::now_ms;
 }
 

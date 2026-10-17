@@ -212,6 +212,15 @@
                                     min='0' max='999' step='1'>
                             </div>
                         </div>
+                        <!-- Status rhythms -->
+                        <div class="toggle-switch">
+                            <label class="switch">
+                                <input type="checkbox" id='statusAnimations' name='statusAnimations'
+                                    aria-labelledby="statusAnimations-label">
+                                <span class="slider"></span>
+                            </label>
+                            <span id="statusAnimations-label">Blink Errors, Pulse Pause / Finish (readable without colour)</span>
+                        </div>
                         <!-- Quick door open-and-close toggles the LEDs -->
                         <div class="toggle-switch">
                             <span>Door Quick Open/Close Toggles LEDs</span>
@@ -793,6 +802,7 @@
                             document.getElementById(finishMode).checked = true;
                             setFinishChoice();
                             document.getElementById('doorToggleSecs').value = getSafeNumber(configData.doorToggleSecs, 4);
+                            document.getElementById('statusAnimations').checked = configData.statusAnimations !== false;
 
                             document.getElementById('finishTimerMins').value = getSafeNumber(configData.finishTimerMins, 10);
                             document.getElementById('inactivityEnabled').checked = configData.inactivityEnabled || false;

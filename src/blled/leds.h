@@ -57,6 +57,66 @@ COLOR hex2rgb(String hex, short ww_value = 0, short cw_value = 0)
     return color;
 }
 
+// ---- Status rhythms ----
+// Errors blink, "needs attention" pulses, "finished" pulses slowly, everything else is steady,
+// so a state can be read without telling red from green. 1 blink/s is well under the
+// 3 flashes/s photosensitivity threshold.
+enum LedEffect { EFFECT_SOLID, EFFECT_BLINK, EFFECT_PULSE, EFFECT_PULSE_SLOW };
+LedEffect currentEffect = EFFECT_SOLID;
+unsigned long effectStartms = 0;
+int updateledsDepth = 0;              // >0 while updateleds() is choosing a colour
+bool ledsSetThisUpdate = false;       // updateleds() called tweenToColor()
+LedEffect nextEffect = EFFECT_SOLID;  // what the chosen branch wants
+
+void setEffect(LedEffect e)
+{
+    if (e != currentEffect)
+    {
+        currentEffect = e;
+        effectStartms = millis(); // restart the rhythm only when the status changes
+    }
+}
+
+float effectLevel(unsigned long now)
+{
+    if (!printerConfig.statusAnimations)
+        return 1.0f;
+    unsigned long t = now - effectStartms;
+    switch (currentEffect)
+    {
+    case EFFECT_BLINK:
+        return (t % 1000) < 600 ? 1.0f : 0.0f;
+    case EFFECT_PULSE:
+        return 0.25f + 0.75f * (0.5f + 0.5f * cosf(2.0f * (float)PI * (t % 1500) / 1500.0f));
+    case EFFECT_PULSE_SLOW:
+        return 0.35f + 0.65f * (0.5f + 0.5f * cosf(2.0f * (float)PI * (t % 4000) / 4000.0f));
+    default:
+        return 1.0f;
+    }
+}
+
+// Picks the effect for the updateleds() call it lives in; applied only if that call
+// actually set a colour (some branches deliberately leave the LEDs as they are).
+struct EffectScope
+{
+    bool outerSet;
+    LedEffect outerNext;
+    EffectScope() : outerSet(ledsSetThisUpdate), outerNext(nextEffect)
+    {
+        updateledsDepth++;
+        ledsSetThisUpdate = false;
+        nextEffect = EFFECT_SOLID;
+    }
+    ~EffectScope()
+    {
+        if (ledsSetThisUpdate)
+            setEffect(nextEffect);
+        updateledsDepth--;
+        ledsSetThisUpdate = outerSet || ledsSetThisUpdate;
+        nextEffect = outerNext;
+    }
+};
+
 // Last requested colour before brightness scaling, so a brightness change can re-apply it.
 int lastTargetRed = 0, lastTargetGreen = 0, lastTargetBlue = 0, lastTargetWarm = 0, lastTargetCold = 0;
 
@@ -65,6 +125,10 @@ void tweenToColor(int targetRed, int targetGreen, int targetBlue, int targetWarm
     StateLock lock;
     lastTargetRed = targetRed; lastTargetGreen = targetGreen; lastTargetBlue = targetBlue;
     lastTargetWarm = targetWarm; lastTargetCold = targetCold;
+    if (updateledsDepth > 0)
+        ledsSetThisUpdate = true;
+    else
+        setEffect(EFFECT_SOLID); // set directly (boot colours, Wi-Fi scan, MQTT auth error)
 
     float brightness = (float)constrain(printerConfig.brightness, 0, 100) / 100.0;
 
@@ -159,7 +223,24 @@ void setBrightness(int percent)
 {
     StateLock lock;
     printerConfig.brightness = constrain(percent, 0, 100);
+    LedEffect keep = currentEffect;
+    unsigned long keepStart = effectStartms;
     tweenToColor(lastTargetRed, lastTargetGreen, lastTargetBlue, lastTargetWarm, lastTargetCold, 0);
+    currentEffect = keep; // a brightness change must not stop a blink/pulse
+    effectStartms = keepStart;
+}
+
+// Called from ledsloop(): scales the current colour by the effect's level.
+void applyEffect()
+{
+    if (currentEffect == EFFECT_SOLID || printerConfig.discoMode)
+        return;
+    float k = effectLevel(millis());
+    ledcWrite(redChannel, (uint32_t)(currentRed * k));
+    ledcWrite(greenChannel, (uint32_t)(currentGreen * k));
+    ledcWrite(blueChannel, (uint32_t)(currentBlue * k));
+    ledcWrite(warmChannel, (uint32_t)(currentWarm * k));
+    ledcWrite(coldChannel, (uint32_t)(currentCold * k));
 }
 
 float hue = 0.0;
@@ -304,6 +385,7 @@ bool finishIndicationActive()
 void updateleds()
 {
     StateLock lock;
+    EffectScope effectScope;
     // Prevent replicate OFF immediately after door event
     if ((millis() - printerVariables.lastdoorOpenms) < 1000 || (millis() - printerVariables.lastdoorClosems) < 1000)
     {
@@ -505,6 +587,7 @@ void updateleds()
         {
             tweenToColor(printerConfig.filamentRunoutRGB); // Customisable - Default is RED
             printLogs("Stage 6, FILAMENT RUNOUT", printerConfig.filamentRunoutRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
 
@@ -513,6 +596,7 @@ void updateleds()
         {
             tweenToColor(printerConfig.frontCoverRGB); // Customisable - Default is RED
             printLogs("Stage 17, FRONT COVER REMOVED", printerConfig.frontCoverRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
 
@@ -521,6 +605,7 @@ void updateleds()
         {
             tweenToColor(printerConfig.nozzleTempRGB); // Customisable - Default is RED
             printLogs("Stage 20, NOZZLE TEMP FAIL", printerConfig.nozzleTempRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
 
@@ -529,6 +614,7 @@ void updateleds()
         {
             tweenToColor(printerConfig.bedTempRGB); // Customisable - Default is RED
             printLogs("Stage 21, BED TEMP FAIL", printerConfig.bedTempRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
         // SERIOUS HMS state
@@ -539,6 +625,7 @@ void updateleds()
             LogSerial.print(F("Error Code: "));
             LogSerial.printf("%016llX\n", printerVariables.parsedHMScode);
             printLogs("PROBLEM", printerConfig.hmsSeriousRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
 
@@ -550,6 +637,7 @@ void updateleds()
             LogSerial.print(F("Error Code: "));
             LogSerial.printf("%016llX\n", printerVariables.parsedHMScode);
             printLogs("PROBLEM", printerConfig.hmsFatalRGB);
+            nextEffect = EFFECT_BLINK;
             return;
         };
     };
@@ -561,6 +649,7 @@ void updateleds()
     {
         tweenToColor(printerConfig.pauseRGB); // Customisable - Default is BLUE
         printLogs("Stage 16, gcodeState pause, PAUSED", printerConfig.pauseRGB);
+        nextEffect = EFFECT_PULSE;
         return;
     }
 
@@ -569,6 +658,7 @@ void updateleds()
     {
         tweenToColor(printerConfig.firstlayerRGB); // Customisable - Default is BLUE
         printLogs("Stage 34, FIRST LAYER ERROR, PAUSED", printerConfig.firstlayerRGB);
+        nextEffect = EFFECT_PULSE;
         return;
     }
 
@@ -577,6 +667,7 @@ void updateleds()
     {
         tweenToColor(printerConfig.nozzleclogRGB); // Customisable - Default is BLUE
         printLogs("Stage 35, NOZZLE CLOG, PAUSED", printerConfig.nozzleclogRGB);
+        nextEffect = EFFECT_PULSE;
         return;
     }
 
@@ -726,6 +817,7 @@ void updateleds()
     {
         tweenToColor(printerConfig.finishColor); // Customisable - Default is GREEN
         printLogs("Finished print", printerConfig.finishColor);
+        nextEffect = EFFECT_PULSE_SLOW;
         printerVariables.finished = false;
         return;
     }
@@ -767,6 +859,7 @@ void ledsloopLocked()
 {
     StateLock lock;
     RGBCycle();
+    applyEffect();
     if ((millis() - lastUpdatems) > 30000 && (printerConfig.maintMode || printerConfig.testcolorEnabled || printerConfig.discoMode || printerConfig.debugwifi))
     {
         LogSerial.print(F("["));

@@ -97,6 +97,7 @@ extern "C"
         int finishTimeOut = 600000;     //300000 = 5 mins
         bool controlChamberLight = false;                //control chamber light
         unsigned long doorToggleWindowMs = 4000; //Door opened and closed within this = toggle LEDs (0 = off)
+        bool statusAnimations = true;   //Blink errors, pulse pause/finish, so states don't rely on colour alone
 
         //Inactivity Timout
         bool inactivityEnabled = true;
