@@ -104,7 +104,7 @@
                                     aria-labelledby="maintMode-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span id="maintMode-label">Maintenance Mode (Always On)</span>
+                            <label for="maintMode" class="toggle-text" id="maintMode-label">Maintenance Mode (Always On)</label>
                         </div>
                         <!-- RGB Cycle -->
                         <div class="toggle-switch">
@@ -113,7 +113,7 @@
                                     aria-labelledby="discoMode-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span id="discoMode-label">RGB Color Cycle Mode (Always On)</span>
+                            <label for="discoMode" class="toggle-text" id="discoMode-label">RGB Color Cycle Mode (Always On)</label>
                         </div>
                         <!-- Replicate State -->
                         <div class="toggle-switch">
@@ -122,7 +122,7 @@
                                     aria-labelledby="replicateLedState-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span id="replicateLedState-label">Replicate State</span>
+                            <label for="replicateLedState" class="toggle-text" id="replicateLedState-label">Replicate State</label>
                             <div id="runningcolorchoice" class="input-inline-group" style="margin-left: auto;">
                                 <input type="color" id="runningRGB" name="runningRGB" value="#000000">
                                 <label for="runningWW">WW</label>
@@ -140,7 +140,7 @@
                                     aria-labelledby="showtestcolor-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span id="showtestcolor-label">Color Test (Always On)</span>
+                            <label for="showtestcolor" class="toggle-text" id="showtestcolor-label">Color Test (Always On)</label>
                             <div id="testcolorchoice" class="input-inline-group" style="margin-left: auto;">
                                 <input type="color" id="testRGB" name="testRGB" value="#3F3CFB">
                                 <label for="testWW">WW</label>
@@ -156,7 +156,7 @@
                                     aria-labelledby="debugwifi-label" onchange='showhideOptions();'>
                                 <span class="slider"></span>
                             </label>
-                            <span id="debugwifi-label">Show Wifi Strength via LEDs</span>
+                            <label for="debugwifi" class="toggle-text" id="debugwifi-label">Show Wifi Strength via LEDs</label>
                         </div>
                         </div>
                         <!-- splitt line -->
@@ -168,7 +168,7 @@
                                     onchange='setFinishColor()'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Finish Indication</span>
+                            <label for="finishIndication" class="toggle-text">Finish Indication</label>
 
                             <div class="input-inline-group" id="finishcolorchoice" style="margin-left: auto;">
                                 <input type="color" id="finishColor" name="finishColor" value="#00FF00">
@@ -188,7 +188,7 @@
                                         aria-labelledby="finishEndDoor-label" onchange='setFinishChoice();'>
                                     <span class="slider"></span>
                                 </label>
-                                <span id="finishEndDoor-label">End Finish on Door Open / Close</span>
+                                <label for="finishEndDoor" class="toggle-text" id="finishEndDoor-label">End Finish on Door Open / Close</label>
                             </div>
                             <div class="toggle-switch">
                                 <label class="switch">
@@ -196,7 +196,7 @@
                                         aria-labelledby="finishEndTimer-label" onchange='setFinishChoice();'>
                                     <span class="slider"></span>
                                 </label>
-                                <span id="finishEndTimer-label">End Finish after a Timer</span>
+                                <label for="finishEndTimer" class="toggle-text" id="finishEndTimer-label">End Finish after a Timer</label>
                             </div>
                             <div class="toggle-switch">
                                 <label class="switch">
@@ -204,7 +204,7 @@
                                         aria-labelledby="finishEndEither-label" onchange='setFinishChoice();'>
                                     <span class="slider"></span>
                                 </label>
-                                <span id="finishEndEither-label">Whichever Comes First (Door or Timer)</span>
+                                <label for="finishEndEither" class="toggle-text" id="finishEndEither-label">Whichever Comes First (Door or Timer)</label>
                             </div>
                             <div id="finishtimeroption" class="input-inline-group">
                                 <label for="finishTimerMins">Finish timer (minutes)</label>
@@ -219,7 +219,7 @@
                                     aria-labelledby="statusAnimations-label">
                                 <span class="slider"></span>
                             </label>
-                            <span id="statusAnimations-label">Blink Errors, Pulse Pause / Finish (readable without colour)</span>
+                            <label for="statusAnimations" class="toggle-text" id="statusAnimations-label">Blink Errors, Pulse Pause / Finish (readable without colour)</label>
                         </div>
                         <!-- Quick door open-and-close toggles the LEDs -->
                         <div class="toggle-switch">
@@ -236,7 +236,7 @@
                                     onchange='updateIdle()'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Inactivity Timeout (Minutes)</span>
+                            <label for="inactivityEnabled" class="toggle-text">Inactivity Timeout (Minutes)</label>
                             <div class="input-inline-group" id="inactivityMinsDiv" style="margin-left: auto;">
                                 <label for="inactivityMins">Min.</label>
                                 <input type="text" id="inactivityMins" name="inactivityMins" value='1' maxlength='3'
@@ -249,7 +249,7 @@
                                 <input type="checkbox" id="controlChamberLight" name="controlChamberLight">
                                 <span class="slider"></span>
                             </label>
-                            <span>Control Chamber Light</span>
+                            <label for="controlChamberLight" class="toggle-text">Control Chamber Light</label>
                         </div>
                     </div>
                 </details>
@@ -265,7 +265,7 @@
                                     onchange='hasP1()'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Connecting to a P1 Printer?</span>
+                            <label for="p1Printer" class="toggle-text">Connecting to a P1 Printer?</label>
                         </div>
                         <!-- Doorswitch use -->
                         <div class="toggle-switch" id="AllowDoorSwitch">
@@ -273,7 +273,7 @@
                                 <input type="checkbox" id='doorSwitch' name='doorSwitch' class="PrinterOptions">
                                 <span class="slider"></span>
                             </label>
-                            <span>Stages with Lidar in use (if installed)</span>
+                            <label for="doorSwitch" class="toggle-text">Stages with Lidar in use (if installed)</label>
                         </div>
                         <!-- splitt line -->
                         <div class="detailSplitter">LED Actions</div>
@@ -352,7 +352,7 @@
                                     onchange='return showcustomColors()'>
                                 <span class="slider"></span>
                             </label>
-                            <span>Error Detection</span>
+                            <label for="errorDetection" class="toggle-text">Error Detection</label>
                         </div>
                         <div id='CustomColorsDiv'>
                             <div class="toggle-switch">
@@ -493,7 +493,7 @@
                                 <input type="checkbox" id='debuging' name='debuging' class="LEDOptions">
                                 <span class="slider"></span>
                             </label>
-                            <span>Debugging</span>
+                            <label for="debuging" class="toggle-text">Debugging</label>
                         </div>
                         <!-- Debugging OnChange Events -->
                         <div class="toggle-switch">
@@ -501,7 +501,7 @@
                                 <input type="checkbox" id='debugingchange' name='debugingchange' class="LEDOptions">
                                 <span class="slider"></span>
                             </label>
-                            <span>Debugging OnChange Events</span>
+                            <label for="debugingchange" class="toggle-text">Debugging OnChange Events</label>
                         </div>
                         <!-- MQTT Loging -->
                         <div class="toggle-switch">
@@ -509,7 +509,7 @@
                                 <input type="checkbox" id='mqttdebug' name='mqttdebug' class="LEDOptions">
                                 <span class="slider"></span>
                             </label>
-                            <span>MQTT Logging</span>
+                            <label for="mqttdebug" class="toggle-text">MQTT Logging</label>
                         </div>
                     </div>
                 </details>
