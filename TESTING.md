@@ -51,3 +51,28 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 
 - Device boots but misbehaves: upload the official `BLLC_V2.3.0.bin.ota` on the Firmware Update page. The config format is unchanged.
 - Device doesn't come back: flash `BLLC_V2.3.0.bin` over USB with the [web flasher](https://dutchdevelop.github.io/blledsetup/), then restore the config backup.
+
+## Results: 2.3.0-br.1 on the author's X1C controller, 2026-10-17
+
+Flashed over the network (upload ~19 s, back in ~13 s); settings carried over unchanged.
+
+| Check | Result |
+|---|---|
+| Version shown after reboot | ✅ 2.3.0-br.1 |
+| Settings survived | ✅ full config identical to the pre-flash backup (except the printer IP, changed on purpose) |
+| Secrets no longer exposed | ✅ `/config.json` has only `has*` flags; `/getConfig` has no access code |
+| No main-loop freezes | ✅ 61 status pushes/min, max gap 1.0 s (2.3.0: 31/min, ~6 s gap every 10 s); also 75/75 s in RGB-cycle mode |
+| MQTT back-off | ✅ `Connection Failed (-2)` → `next attempt in 30 s` while the printer was unreachable |
+| Printer IP follow (SSDP) | ✅ followed a DHCP change and then a reservation change, each after the 2-minute guard |
+| Fades | ✅ smooth ~0.5 s fade in both directions |
+| RGB cycle | ✅ saturated colours, smooth, dims with the brightness slider |
+| Door open/close | ✅ each event handled within a second (LEDs on, idle timer reset) |
+| Door quick-toggle (open+close < 2 s) | ⚠️ works but rarely fires: door state arrives via ~1 s printer reports, so the 2 s window is hard to hit. **Unchanged from 2.3.0.** Candidate fix: widen to ~4 s. |
+| Login protects everything | ✅ all 12 pages, `/update`, `/configrestore` and the Web Serial socket return 401 without it; refused uploads cause no restart |
+| Web Serial behind the login | ✅ Chrome and Safari |
+| Cold boot (unplug/replug) | ✅ back and connected to the printer in ~26 s |
+| Power-cut recovery | ✅ Wi-Fi unavailable at boot → `BLLED_AP` up; retried once a minute for ~9 h; rejoined, restarted and reconnected 54 s after Wi-Fi returned |
+| HMS colour clears without debug logging | ⏳ not testable on demand; waiting for a real HMS error |
+| Print start / finish colours | ⏳ next real print |
+
+Found during testing (hardware, not firmware): the strip's red and green wires were swapped; fixed by rewiring.
