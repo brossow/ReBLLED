@@ -146,10 +146,10 @@ colours, so without the restore the strip stays dark. The restore is required, n
 |---|---|
 | Version, new page, no setup dialog | ✅ 2.3.0-br.3 on the status feed (page checks to come) |
 | Connected through the certificate check | ✅ connected, not rejected (mbedtls 2.28 on the device accepts the X1C's chain) |
-| Settings migrated | |
+| Settings migrated | ✅ matches the pre-flash backup: Custom look (purple runout, plain green finish), door-or-30-min finish, chamber-light control → all four printer-light options, 5 HMS codes, check on |
 | Wiring check (RGBW) | |
 | Model detected | ⚠️ the X1C announces `BL-P001`, not `3DPrinter-X1-Carbon`; mapping added after br.3 |
-| Look up | |
+| Look up | ✅ printer answered, signed by Bambu Lab, right serial; the printer stayed connected during it (two TLS sessions at once) |
 | Modes, brightness, previews, tools | |
 | Door, idle, print colours | |
 | Restart keeps settings | |
