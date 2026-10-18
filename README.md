@@ -2,6 +2,30 @@
 
 Private fork of [DutchDevelop/BLLEDController](https://github.com/DutchDevelop/BLLEDController), based on release 2.3.0 (`Release_V_2.3.0`), with security and reliability fixes. Versions are tagged `2.3.0-br.N`. Licence unchanged (see [LICENSE](LICENSE): CC BY-NC-SA based, non-commercial, share-alike).
 
+### In progress on `main`: the v2 redesign (not released yet)
+
+A redesigned setup page and LED logic ([docs/REDESIGN.md](docs/REDESIGN.md)). Built and tested in
+stages; not yet tested on a device, so it isn't tagged. What it changes:
+
+- **One calm page, autosaved.** Mode (follow the printer / always on / off), a Look (standard
+  colours, white only, or Custom) and brightness up front; everything else in folded sections that
+  say what they hold and show "Changed" when they differ from the defaults. Every change applies
+  and saves at once.
+- **No hidden behaviour.** The door's quick open/close gesture is gone: the door only wakes the
+  strip and ends the finished colour. Each thing the controller does to the printer's own light is
+  a separate, visible setting. The status bar always says what the strip shows and why ("Off: no
+  activity for 15 min. Open the door or start a print to wake it.").
+- **Your strip, wired your way.** Strip type (RGB + warm + cool white, RGB + one white, RGB only,
+  warm + cool white, one white) and a wiring check that lights each output in turn and corrects
+  for swapped wires in software.
+- **Setup in four steps** on first use, and again from "Run setup again": printer (found on the
+  network, or by address), model, strip, look. Brand-new devices still join Wi-Fi through the
+  `BLLED_AP` hotspot page first.
+- **Status colours with rhythms**, a 5-second preview for each, and per-step / per-error colours.
+- **Spelling follows the browser:** US English, with British spelling for en-GB (and AU, NZ, IE,
+  ZA, IN).
+- **Settings move to a new format** on first boot; the old file is kept as `/blledconfig.v1.json`.
+
 What changed in `2.3.0-br.2` (on top of br.1):
 
 - **Door quick open-and-close toggles the LEDs reliably.** In 2.3.0 a toggle-off was undone within the same printer message, and opening the door relit the strip before the toggle decided, so it could only ever end "off". It now flips the state from before the door opened (except while the "finished" colour shows: then door use just acknowledges it), It is now **off by default** (a hidden gesture surprised people) and opt-in via "Door Quick Open/Close Toggles LEDs" (seconds; 2.3.0 always had it at a fixed 2 s, hard to hit because door state arrives in ~1 s printer reports). The planned UI redesign replaces it with a visible lights on/off control.
@@ -10,7 +34,7 @@ What changed in `2.3.0-br.2` (on top of br.1):
 - **Brightness applies live** while dragging the slider and saves when released.
 - **Clearer setup page.** The LED modes are one labelled radio group (choosing test colour or RGB cycle used to silently switch off "replicate printer light"); the finish ending is a three-way choice; the text beside every switch is clickable and announced by screen readers; switches show keyboard focus.
 - **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
-- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests drive printer states and real-shaped MQTT messages and check what the LEDs would do.
+- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (97 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
 
 What changed in `2.3.0-br.1` compared with 2.3.0:
 
@@ -30,7 +54,7 @@ What changed in `2.3.0-br.1` compared with 2.3.0:
 | Build | `pio run -e esp32dev` → `.firmware/BLLC_V<version>.bin.ota` (over the air) and `.firmware/BLLC_V<version>.bin` (full 4 MB image, USB) |
 | Run the tests | `pio test -e native` |
 | Update a device over the air | `tools/flash.sh <device-ip>` (reads the WebUI login from the macOS Keychain; see the script header) |
-| Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup |
+| Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup. `POST /_sim` changes what the simulated printer is doing (see the script header) |
 | Check a device for main-loop freezes | `python3 tools/ws_timing.py <device-ip> 60` |
 | Switch a device to the larger partition layout | [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md) |
 

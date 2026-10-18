@@ -64,6 +64,7 @@ void test_status_idle_with_countdown() {
   TEST_ASSERT_INT_WITHIN(2, 6 * 60, s["idleOffIn"].as<int>());
   TEST_ASSERT_EQUAL(255, s["outputs"][3].as<int>());
   TEST_ASSERT_TRUE(s["printer"]["connected"].as<bool>());
+  TEST_ASSERT_EQUAL_STRING("test", s["firmware"]);
 }
 void test_status_idle_off_says_for_how_long() {
   loopFor(12 * 60000);
@@ -122,6 +123,58 @@ void test_test_colour_same_keeps_the_last_colour() {
   lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 255, 0, 0, 0));
 }
+void test_preview_shows_the_rhythm_and_ends_by_itself() {
+  JsonDocument in = body(R"({"tool":"test","colour":{"kind":"custom","hex":"#ff0000"},"rhythm":"blink","seconds":5})"), out;
+  api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>());
+  lightsLoop();
+  TEST_ASSERT_EQUAL(EFFECT_BLINK, currentEffect);
+  JsonDocument s = status();
+  TEST_ASSERT_EQUAL_STRING("blink", s["rhythm"]);
+  TEST_ASSERT_TRUE(s["preview"].as<bool>());
+  loopFor(4000);
+  TEST_ASSERT_EQUAL(v2::TOOL_TEST, activeTool);
+  loopFor(1500);
+  TEST_ASSERT_EQUAL(v2::TOOL_NONE, activeTool);
+  TEST_ASSERT_EQUAL(EFFECT_SOLID, currentEffect);
+  loopFor(50);
+  TEST_ASSERT_TRUE(ledsWhite());
+}
+void test_tool_without_seconds_runs_until_stop() {
+  JsonDocument in = body(R"({"tool":"cycle"})"), out;
+  api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>());
+  loopFor(120000);
+  TEST_ASSERT_EQUAL(v2::TOOL_CYCLE, activeTool);
+  TEST_ASSERT_TRUE(status()["preview"].isNull());
+}
+void test_preview_length_is_capped_at_a_minute() {
+  JsonDocument in = body(R"({"tool":"test","colour":{"kind":"neutral"},"seconds":999})"), out;
+  api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>());
+  loopFor(59000);
+  TEST_ASSERT_EQUAL(v2::TOOL_TEST, activeTool);
+  loopFor(2000);
+  TEST_ASSERT_EQUAL(v2::TOOL_NONE, activeTool);
+  JsonDocument neg = body(R"({"tool":"cycle","seconds":-5})"), o2;
+  api::tool(neg.as<JsonVariantConst>(), o2.to<JsonObject>());
+  loopFor(120000);
+  TEST_ASSERT_EQUAL(v2::TOOL_CYCLE, activeTool);   // a negative length means no limit
+}
+void test_wifi_tool_status_names_the_colour() {
+  WiFi.rssi = -75;
+  JsonDocument in = body(R"({"tool":"wifi"})"), out;
+  api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>());
+  lightsLoop();
+  JsonDocument s = status();
+  TEST_ASSERT_EQUAL_STRING("#ff8000", s["colour"]["hex"]);
+  TEST_ASSERT_EQUAL(-75, s["rssi"].as<int>());
+  WiFi.rssi = -50;
+}
+void test_test_colour_off_turns_the_strip_off() {
+  JsonDocument in = body(R"({"tool":"test","colour":{"kind":"off"}})"), out;
+  api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>());
+  lightsLoop();
+  TEST_ASSERT_TRUE(ledsOff());
+  TEST_ASSERT_EQUAL_STRING("off", status()["show"]);
+}
 void test_unknown_tool_is_refused() {
   JsonDocument in = body(R"({"tool":"disco"})"), out;
   TEST_ASSERT_FALSE(api::tool(in.as<JsonVariantConst>(), out.to<JsonObject>()));
@@ -147,6 +200,40 @@ void test_saving_the_wiring_answer_applies_it() {
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 0, 255));
 }
 
+static bool setPrinter(const char *json, JsonDocument &out, bool &changed) {
+  JsonDocument in = body(json);
+  return api::setPrinter(in.as<JsonVariantConst>(), out.to<JsonObject>(), changed);
+}
+void test_set_printer_validates_and_keeps_a_blank_access_code() {
+  strcpy(printerConfig.printerIP, "192.0.2.10"); strcpy(printerConfig.serialNumber, "SERIALA"); strcpy(printerConfig.accessCode, "abcd1234");
+  JsonDocument o; bool changed = true;
+  TEST_ASSERT_FALSE(setPrinter(R"({"ip":"192.0.2.300","serial":"X"})", o, changed));
+  TEST_ASSERT_EQUAL_STRING("ip", o["error"]);
+  TEST_ASSERT_FALSE(setPrinter(R"({"ip":"192.0.2.11","serial":"bad serial"})", o, changed));
+  TEST_ASSERT_EQUAL_STRING("serial", o["error"]);
+  TEST_ASSERT_FALSE(setPrinter(R"({"ip":"192.0.2.11","serial":"SERIALB","accessCode":"123"})", o, changed));
+  TEST_ASSERT_EQUAL_STRING("accessCode", o["error"]);
+  TEST_ASSERT_EQUAL_STRING("192.0.2.10", printerConfig.printerIP);           // nothing changed on errors
+  TEST_ASSERT_TRUE(setPrinter(R"({"ip":"192.0.2.10","serial":"SERIALA","accessCode":""})", o, changed));
+  TEST_ASSERT_FALSE(changed);                                                  // same printer: no restart
+  TEST_ASSERT_TRUE(setPrinter(R"({"ip":"192.0.2.11","serial":"SERIALB"})", o, changed));
+  TEST_ASSERT_TRUE(changed);
+  TEST_ASSERT_EQUAL_STRING("192.0.2.11", printerConfig.printerIP);
+  TEST_ASSERT_EQUAL_STRING("SERIALB", printerConfig.serialNumber);
+  TEST_ASSERT_EQUAL_STRING("abcd1234", printerConfig.accessCode);            // kept
+  TEST_ASSERT_TRUE(setPrinter(R"({"ip":"192.0.2.11","serial":"SERIALB","accessCode":"wxyz9876"})", o, changed));
+  TEST_ASSERT_TRUE(changed);                                                   // a new code alone reconnects
+  TEST_ASSERT_EQUAL_STRING("wxyz9876", printerConfig.accessCode);
+}
+void test_set_printer_needs_a_code_the_first_time() {
+  printerConfig.accessCode[0] = 0;
+  JsonDocument o; bool changed;
+  TEST_ASSERT_FALSE(setPrinter(R"({"ip":"192.0.2.10","serial":"SERIALA"})", o, changed));
+  TEST_ASSERT_EQUAL_STRING("accessCode", o["error"]);
+  TEST_ASSERT_TRUE(setPrinter(R"({"ip":"192.0.2.10","serial":"SERIALA","accessCode":"12345678"})", o, changed));
+  TEST_ASSERT_TRUE(changed);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_patch_replies_with_what_is_in_effect);
@@ -161,8 +248,15 @@ int main() {
   RUN_TEST(test_test_colour_tool_and_stop);
   RUN_TEST(test_tools_leave_the_fade_to_the_loop);
   RUN_TEST(test_test_colour_same_keeps_the_last_colour);
+  RUN_TEST(test_preview_shows_the_rhythm_and_ends_by_itself);
+  RUN_TEST(test_tool_without_seconds_runs_until_stop);
+  RUN_TEST(test_preview_length_is_capped_at_a_minute);
+  RUN_TEST(test_wifi_tool_status_names_the_colour);
+  RUN_TEST(test_test_colour_off_turns_the_strip_off);
   RUN_TEST(test_unknown_tool_is_refused);
   RUN_TEST(test_wiring_check_lights_one_output_and_ends);
   RUN_TEST(test_saving_the_wiring_answer_applies_it);
+  RUN_TEST(test_set_printer_validates_and_keeps_a_blank_access_code);
+  RUN_TEST(test_set_printer_needs_a_code_the_first_time);
   return UNITY_END();
 }

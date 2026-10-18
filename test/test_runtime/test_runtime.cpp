@@ -137,6 +137,15 @@ void test_finish_either_door_first_means_no_later_light_off() {
   loopFor(9 * 60000);
   TEST_ASSERT_EQUAL(-1, pendingChamberLight);
 }
+void test_finish_uses_the_timer_on_a_printer_without_a_door() {
+  v2::Settings st = v2::defaults(); strcpy(st.model, "P1S"); st.finishMin = 5;   // finishEnds stays "door"
+  freshDevice(st);
+  finishPrint();
+  loopFor(4 * 60000);
+  TEST_ASSERT_TRUE(showing(0, 255, 0, 0, 0));
+  loopFor(61000);
+  TEST_ASSERT_TRUE(showingWhite());
+}
 void test_a_new_print_clears_the_finish() {
   finishPrint();
   gcode("PREPARE", 0);
@@ -293,6 +302,7 @@ int main() {
   RUN_TEST(test_finish_shows_until_the_door_by_default);
   RUN_TEST(test_finish_timer_mode_ignores_the_door_and_can_turn_the_printer_light_off);
   RUN_TEST(test_finish_either_door_first_means_no_later_light_off);
+  RUN_TEST(test_finish_uses_the_timer_on_a_printer_without_a_door);
   RUN_TEST(test_a_new_print_clears_the_finish);
   RUN_TEST(test_no_finish_colour_after_boot_without_a_print);
   RUN_TEST(test_idle_off_after_the_timeout_and_the_door_wakes_it);

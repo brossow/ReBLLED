@@ -86,32 +86,6 @@ void handleGetPCC(AsyncWebServerRequest *request)
     request->send(response);
 }
 
-void handleGetConfig(AsyncWebServerRequest *request)
-{
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-
-    JsonDocument doc;
-
-    doc["firmwareversion"] = globalVariables.FWVersion.c_str();
-    doc["wifiStrength"] = WiFi.RSSI();
-    doc["host"] = globalVariables.Host;
-    doc["ip"] = printerConfig.printerIP;
-    doc["id"] = printerConfig.serialNumber;
-    doc["apMAC"] = printerConfig.BSSID;
-    // LED settings: the v2 model (settings.h). The setup page edits them through /settings.
-    {
-        StateLock lock;
-        v2::toJson(settings, doc["settings"].to<JsonObject>());
-    }
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
-}
-
 void handlePrinterConfigJson(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
@@ -145,82 +119,6 @@ void handleStyleCss(AsyncWebServerRequest *request)
     AsyncWebServerResponse *response = request->beginResponse(200, style_css_gz_mime, style_css_gz, style_css_gz_len);
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
-}
-
-void handleSubmitConfig(AsyncWebServerRequest *request)
-{
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-    StateLock lock; // the loop and MQTT tasks read these settings
-
-    auto getSafeParamValue = [](AsyncWebServerRequest *req, const char *name, const char *fallback = "") -> String
-    {
-        return req->hasParam(name, true) ? req->getParam(name, true)->value() : fallback;
-    };
-
-
-
-    
-        String newHost = getSafeParamValue(request, "deviceName", globalVariables.Host.c_str());
-        newHost.trim();
-        if (newHost.length() == 0)
-        {
-            newHost = "BLLED";
-        }
-
-        if (newHost != globalVariables.Host)
-        {
-            LogSerial.print(F("[MDNS] Updating hostname from "));
-            LogSerial.print(globalVariables.Host);
-            LogSerial.print(F(" to "));
-            LogSerial.println(newHost);
-
-            globalVariables.Host = newHost;
-
-            MDNS.end();
-            if (!MDNS.begin(globalVariables.Host.c_str()))
-            {
-                LogSerial.println(F("[MDNS] Error resetting MDNS responder!"));
-            }
-            else
-            {
-                LogSerial.print(F("[MDNS] Hostname now: "));
-                LogSerial.println(globalVariables.Host);
-            }
-        }
-    
-
-    printerConfig.rescanWiFiNetwork = request->hasParam("rescanWiFiNetwork", true);
-    // LED settings are no longer part of this form: they autosave through /settings.
-
-    saveFileSystem();
-    LogSerial.println(F("Packet received from setuppage"));
-    request->send(200, "text/plain", "OK");
-}
-
-// Brightness slider: applied live while dragging (save=0), saved when released (save=1).
-void handleSetBrightness(AsyncWebServerRequest *request)
-{
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-    if (!request->hasParam("value", true))
-    {
-        request->send(400, "text/plain", "missing value");
-        return;
-    }
-    int value = request->getParam("value", true)->value().toInt();
-    {
-        StateLock lock;
-        settings.brightness = constrain(value, 0, 100);
-        setBrightness(settings.brightness);
-        if (request->hasParam("save", true) && request->getParam("save", true)->value() == "1")
-            saveFileSystem();
-    }
-    request->send(200, "text/plain", "OK");
 }
 
 // ---- v2 JSON API (api.h) ----
@@ -286,6 +184,27 @@ void setupApiRoutes()
         .setMaxContentLength(4096);
     webServer.on("/api/tool", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, api::tool); })
         .setMaxContentLength(512);
+    // Which printer to follow (setup step 1). Restarts to connect when it changed.
+    webServer.on("/api/printer", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) {
+        if (!isAuthorized(r)) return r->requestAuthentication();
+        JsonDocument doc;
+        bool changed = false;
+        bool ok = api::setPrinter(j, doc.to<JsonObject>(), changed);
+        if (ok && changed)
+        {
+            api::flush();
+            saveFileSystem();
+            shouldRestart = true;
+            restartRequestTime = millis();
+        }
+        sendJson(r, ok ? 200 : 400, doc);
+    }).setMaxContentLength(256);
+    // Re-pick the strongest access point of the configured network (Advanced).
+    webServer.on("/api/wifi-rescan", HTTP_POST, [](AsyncWebServerRequest *r) {
+        if (!isAuthorized(r)) return r->requestAuthentication();
+        printerConfig.rescanWiFiNetwork = true; // the loop scans, then reconnects
+        r->send(200, "application/json", "{}");
+    });
     webServer.on("/api/check", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, api::check); })
         .setMaxContentLength(256);
 }
@@ -581,9 +500,6 @@ void setupWebserver()
     } });
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
     setupApiRoutes();
-    webServer.on("/getConfig", HTTP_GET, handleGetConfig);
-    webServer.on("/submitConfig", HTTP_POST, handleSubmitConfig);
-    webServer.on("/setBrightness", HTTP_POST, handleSetBrightness);
     webServer.on("/blled.svg", HTTP_GET, handleGetIcon);
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
     webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);

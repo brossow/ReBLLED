@@ -1,6 +1,9 @@
 # Setup page and behaviour redesign (draft)
 
-Status: **prototype for review** (`prototype/setup-v2.html`). Nothing here is in the firmware yet.
+Status: **built on `main`, not yet tested on a device.** Settings and migration (stage 1), the LED
+rules (2), the web API (3) and the setup page (4, `src/www/setupPage.html`) are in. Model detection
+and serial lookup by address (stage 5) come next. The clickable prototype stays in
+`prototype/setup-v2.html`.
 
 ## Principles
 
@@ -149,6 +152,30 @@ All endpoints need the WebUI login when one is set. Bodies and replies are JSON.
 Changes from the page never fade the LEDs on the web server's task (a fade takes 500 ms);
 they're shown by the main loop on its next pass. A config restore or factory reset cancels
 any pending autosave so it can't overwrite the new file.
+
+## Setup page (stage 4, `src/www/setupPage.html`)
+
+Built from the prototype, minus the simulation panel, talking to the API above. Differences from
+the prototype, and why:
+
+- **Step 1 doesn't set up Wi-Fi.** The page is only reachable once the controller is on your
+  network, so step 1 shows the network it's on (with a link to the Wi-Fi page) and sets the
+  printer. A brand-new controller still joins Wi-Fi through the `BLLED_AP` hotspot's page first;
+  the setup dialog then opens the first time the main page loads.
+- **Changing the printer restarts the controller** (`POST /api/printer`), which is how it connects
+  to the new one. The dialog waits for it to come back and carries on at step 2. It doesn't use
+  `/submitWiFi`, which would also clear the WebUI login.
+- **"Finish later" also marks setup done**, so the dialog doesn't reopen on every visit. "Run
+  setup again" is always there.
+- **Preview** uses the colour test with the state's rhythm for 5 seconds (`seconds` in
+  `POST /api/tool`), so it ends even if the page is closed.
+- **Colour cycle** is disabled on strips without colours (the firmware cycles red, green and blue).
+- **Printer without a door sensor:** a finish set to end "when the door opens" ends on the timer
+  instead (firmware and page agree), as the prototype described.
+- **Language:** written in US English; British spelling is applied when the browser's first
+  language is en-GB, en-AU, en-NZ, en-IE, en-ZA or en-IN.
+- Removed endpoints: `/getConfig`, `/submitConfig`, `/setBrightness`. Added: `POST /api/printer`,
+  `POST /api/wifi-rescan`; `/api/status` also gives `firmware`, `rssi` and `preview`.
 
 ## Open questions for review
 

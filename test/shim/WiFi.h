@@ -11,3 +11,16 @@ struct FakeWiFi {
   int getMode() { return mode; }
 };
 inline FakeWiFi WiFi;
+// Like the ESP32 core's IPAddress::fromString: four dot-separated numbers, each 0-255.
+struct IPAddress {
+  uint8_t b[4] = {0, 0, 0, 0};
+  bool fromString(const String &str) {
+    const char *p = str.c_str(); int part = 0, v = -1;
+    for (;; p++) {
+      if (*p >= '0' && *p <= '9') { v = (v < 0 ? 0 : v) * 10 + (*p - '0'); if (v > 255) return false; }
+      else if (*p == '.' || *p == 0) { if (v < 0 || part > 3) return false; b[part++] = (uint8_t)v; v = -1; if (!*p) break; }
+      else return false;
+    }
+    return part == 4;
+  }
+};

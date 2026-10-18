@@ -76,14 +76,18 @@ namespace api
         if (d.detail >= 0 && d.state == v2::ST_ERROR) o["detail"] = v2::ERR_NAMES[d.detail];
         if (d.show == v2::SHOW_COLOUR)
         {
-            v2::colourToJson(activeTool == v2::TOOL_TEST ? testColour : d.colour, o["colour"].to<JsonObject>());
+            v2::colourToJson(d.colour, o["colour"].to<JsonObject>());
             o["rhythm"] = v2::RHYTHM_NAMES[d.rhythm];
         }
+        if (d.show == v2::SHOW_WIFI) v2::colourToJson(wifiColour(), o["colour"].to<JsonObject>());
+        o["rssi"] = WiFi.RSSI();
         JsonArray outs = o["outputs"].to<JsonArray>(); // as shown, before brightness
         for (uint8_t v : shown.out) outs.add(v);
         o["brightness"] = settings.brightness;
         o["mode"] = v2::MODE_NAMES[settings.mode];
+        o["firmware"] = globalVariables.FWVersion;
         o["tool"] = v2::TOOL_NAMES[activeTool];
+        if (activeTool != v2::TOOL_NONE && toolEndsMs) o["preview"] = true;
         if (checkOutput >= 0) o["check"] = v2::OUTPUT_NAMES[checkOutput];
 
         // Countdowns the sentence can mention (seconds; absent when not running).
@@ -93,7 +97,7 @@ namespace api
             unsigned long limit = (unsigned long)settings.idleOffMin * 60000UL, idle = now - lastActivityMs;
             o["idleOffIn"] = idle < limit ? (limit - idle) / 1000 : 0;
         }
-        if (finishShowing && settings.finishEnds != v2::FIN_DOOR)
+        if (finishShowing && finishEnds() != v2::FIN_DOOR)
         {
             unsigned long limit = (unsigned long)settings.finishMin * 60000UL, gone = now - finishStartMs;
             o["finishEndsIn"] = gone < limit ? (limit - gone) / 1000 : 0;
@@ -118,21 +122,50 @@ namespace api
         return false;
     }
 
-    // POST /api/tool {"tool":"test","colour":{...}} | {"tool":"cycle"|"wifi"|"none"}.
-    // Tools are temporary: never saved, they run until Stop or a restart.
+    // POST /api/tool {"tool":"test","colour":{...},"rhythm":"pulse","seconds":5} |
+    // {"tool":"cycle"|"wifi"|"none"}. Tools are temporary: never saved, they run until Stop,
+    // a restart, or `seconds` (1-60, for a preview).
     bool tool(JsonVariantConst body, JsonObject out)
     {
         int t = v2::lookup(v2::TOOL_NAMES, body["tool"].as<const char *>(), -1);
         if (t < 0) return fail(out, "unknown tool");
+        int secs = body["seconds"] | 0;
+        secs = secs < 0 ? 0 : secs > 60 ? 60 : secs;
         if (t == v2::TOOL_TEST)
         {
             v2::LookColour c = v2::colourFromJson(body["colour"], testColour);
             if (c.kind == v2::CK_SAME) c = testColour;
-            lightsSetTool(v2::TOOL_TEST, &c);
+            v2::Rhythm r = (v2::Rhythm)v2::lookup(v2::RHYTHM_NAMES, body["rhythm"] | (const char *)nullptr, v2::R_STEADY);
+            lightsSetTool(v2::TOOL_TEST, &c, r, secs);
         }
         else
-            lightsSetTool((v2::Tool)t);
+            lightsSetTool((v2::Tool)t, nullptr, v2::R_STEADY, secs);
         out["tool"] = v2::TOOL_NAMES[t];
+        return true;
+    }
+
+    // POST /api/printer {"ip":"192.0.2.10","serial":"…","accessCode":"12345678"}: which
+    // printer to follow (setup step 1). A blank access code keeps the stored one. Returns
+    // false with an error for bad input; `changed` says whether a restart is needed.
+    bool setPrinter(JsonVariantConst body, JsonObject out, bool &changed)
+    {
+        changed = false;
+        String ip = body["ip"] | "", serial = body["serial"] | "", code = body["accessCode"] | "";
+        ip.trim(); serial.trim(); code.trim();
+        IPAddress addr;
+        if (!addr.fromString(ip) || ip.length() > 15) return fail(out, "ip");
+        if (serial.length() == 0 || serial.length() >= sizeof(printerConfig.serialNumber)) return fail(out, "serial");
+        for (unsigned i = 0; i < serial.length(); i++)
+            if (!isalnum((unsigned char)serial.charAt(i))) return fail(out, "serial");
+        if (code.length() && code.length() != 8) return fail(out, "accessCode");
+        if (!code.length() && !strlen(printerConfig.accessCode)) return fail(out, "accessCode");
+        StateLock lock;
+        changed = ip != printerConfig.printerIP || serial != printerConfig.serialNumber ||
+                  (code.length() && code != printerConfig.accessCode);
+        strlcpy(printerConfig.printerIP, ip.c_str(), sizeof(printerConfig.printerIP));
+        strlcpy(printerConfig.serialNumber, serial.c_str(), sizeof(printerConfig.serialNumber));
+        if (code.length()) strlcpy(printerConfig.accessCode, code.c_str(), sizeof(printerConfig.accessCode));
+        out["restart"] = changed;
         return true;
     }
 

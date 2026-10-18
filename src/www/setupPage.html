@@ -1,1022 +1,1274 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en-US">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>BLLED Setup</title>
-    <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LED controller setup</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+/* Layout: one calm column of settings under a sticky "what the strip is doing" bar.
+   System fonts on purpose: the real page is served by the controller, offline. */
+:root {
+  --bg: #f3f5f6;          /* cool paper, slightly blue-grey */
+  --panel: #ffffff;
+  --fg: #1b2226;
+  --muted: #55626b;       /* 6.1:1 on --bg */
+  --line: #d5dce0;
+  --accent: #0b6b66;      /* deep teal: links, focus, selected */
+  --accent-fg: #ffffff;
+  --accent-soft: #e2f1ef;
+  --strip-off: #2a3034;
+  --ok: #1d6b34; --warn: #8a5300; --err: #a1261b;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111517; --panel: #1a2023; --fg: #e5eaed; --muted: #a2afb6; --line: #2f383d;
+  --accent: #5cc8bd; --accent-fg: #062b28; --accent-soft: #163331;
+  --strip-off: #0b0d0e;
+  --ok: #7fd197; --warn: #f0b860; --err: #ff8a7a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111517; --panel: #1a2023; --fg: #e5eaed; --muted: #a2afb6; --line: #2f383d;
+  --accent: #5cc8bd; --accent-fg: #062b28; --accent-soft: #163331;
+  --strip-off: #0b0d0e;
+  --ok: #7fd197; --warn: #f0b860; --err: #ff8a7a; color-scheme: dark }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 16px/1.5 var(--font); margin: 0; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 0 96px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-size: 1.15rem; margin: 0; letter-spacing: .01em; }
+h2 { font-size: 1.2rem; margin: 0 0 4px; text-wrap: balance; }
+h3 { font-size: 1rem; margin: 0; }
+p { margin: 0; }
+.hint { color: var(--muted); font-size: .9rem; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- sticky status bar ---- */
+.statusbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  padding-block: 12px; border-bottom: 1px solid var(--line); }
+.statusbar .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.conn { font-size: .85rem; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.conn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
+.conn.down::before { background: var(--err); }
+.strip { height: 22px; border-radius: 11px; margin: 10px 0 8px; background: var(--strip-off);
+  border: 4px solid var(--strip-off); /* the dark channel a real strip sits in, so white shows on a light page */
+  transition: background-color .5s, box-shadow .5s, filter .3s; }
+.strip.lit { box-shadow: 0 0 18px 2px var(--glow, transparent); }
+.strip.pulse { animation: pulse 1.5s ease-in-out infinite; }
+.strip.slow { animation: pulse 4s ease-in-out infinite; }
+.strip.blink { animation: blink 1s steps(1, end) infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+@keyframes blink { 60% { opacity: .08; } }
+@media (prefers-reduced-motion: reduce) { .strip.pulse, .strip.slow, .strip.blink { animation: none; } }
+#statusText { font-weight: 600; }
+#statusReason { color: var(--muted); font-size: .92rem; }
+
+/* ---- sections ---- */
+section { margin-top: 28px; display: grid; gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 12px; }
+fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+label { cursor: pointer; }
+.choice { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: start; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+.choice .t { font-weight: 600; }
+.choice .d { grid-column: 2; color: var(--muted); font-size: .9rem; }
+.choice:has(input:disabled) { opacity: .55; }
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.field { display: grid; gap: 4px; }
+.inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+select, input[type=number], input[type=text], input[type=password], textarea { font: inherit; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+input[type=number] { width: 6em; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=color] { width: 44px; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+button { font: inherit; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.danger { color: var(--err); border-color: var(--err); }
+.check { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+.check input { margin: 4px 0 0; width: 18px; height: 18px; accent-color: var(--accent); }
+.check .d { grid-column: 2; color: var(--muted); font-size: .9rem; }
+
+/* state looks: one row per printer state */
+.looks { display: grid; gap: 0; }
+.look { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.look:first-child { border-top: 0; padding-top: 0; }
+.swatch { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--strip-off); }
+.look .name { font-weight: 600; }
+.look .controls { grid-column: 2 / 4; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.look .when { grid-column: 2 / 4; color: var(--muted); font-size: .9rem; }
+details.more > summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+details.more[open] > summary { margin-bottom: 8px; }
+.sub { display: grid; gap: 8px; padding-left: 4px; }
+.sub .inline label { min-width: 12em; }
+
+/* A folded section is ONE card: the header row, and when open, its contents inside the same box. */
+section.fold { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.fold > h2 { margin: 0; font-size: 1.05rem; }
+.fold-btn { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 12px 16px;
+  background: transparent; border: 0; border-radius: 0; font-weight: 600; }
+.fold-btn:focus-visible { outline-offset: -3px; }
+.fold-btn::after { content: "Show"; grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: .85rem; font-weight: 600; color: var(--accent); }
+.fold-btn[aria-expanded="true"]::after { content: "Hide"; }
+.fold-btn .ft { font-size: 1.05rem; }
+.fold-btn .sum { grid-column: 1; font-weight: 400; color: var(--muted); font-size: .9rem; }
+.changed { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78rem; font-weight: 600;
+  color: var(--accent); border: 1px solid var(--accent); }
+.fold-body { display: grid; gap: 10px; padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+.fold-body > .card { border: 0; padding: 0; background: transparent; }
+section.fold { gap: 0; margin-top: 12px; }
+.tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tool:last-of-type { border-bottom: 0; }
+@media (max-width: 520px) { .tool { grid-template-columns: 1fr; } }
+.lockline { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px;
+  border-radius: 8px; background: var(--accent-soft); }
+.look select:disabled, .look input:disabled { opacity: .7; cursor: not-allowed; }
+dialog#setup { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 1px solid var(--line); border-radius: 14px;
+  padding: 0; background: var(--panel); color: var(--fg); }
+dialog#setup::backdrop { background: rgb(0 0 0 / .45); }
+.wz { display: grid; gap: 14px; padding: 18px 18px 16px; }
+.wz-head { display: grid; gap: 6px; }
+.wz-step { display: grid; gap: 12px; margin: 0; }
+.wz-step h2 { font-size: 1.25rem; }
+.wz-step h2:focus { outline: none; }
+.wz-step h2:focus-visible { outline: 3px solid var(--accent); }
+.strip.mini { height: 16px; margin: 0; }
+.wz-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+.err { color: var(--err); font-size: .9rem; margin: 0; }
+[aria-invalid="true"] { border-color: var(--err) !important; }
+.manual { display: grid; gap: 10px; padding: 12px; border-left: 3px solid var(--accent); }
+.wz-looks .look { grid-template-columns: minmax(0, 1fr); }
+.wz-looks .look .controls { grid-column: 1; }
+table.map { border-collapse: collapse; font-size: .92rem; }
+table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+table.map td.out { font-family: var(--mono); }
+.checkbox { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+.answers { display: flex; gap: 6px; flex-wrap: wrap; }
+.note { color: var(--warn); font-size: .88rem; grid-column: 2 / 4; }
+.legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 22px 9em minmax(0, 1fr); gap: 10px; align-items: center; }
+.legend b { font-weight: 600; }
+.nav { display: flex; gap: 8px; flex-wrap: wrap; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; border: 1px solid var(--err); border-radius: 8px; }
+code { font-family: var(--mono); font-size: .9em; }
+
+/* autosave confirmation */
+.toast { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: .9rem;
+  opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.toast.show { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* ---- device page additions ---- */
+.banner { margin-top: 10px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--err); color: var(--err); font-size: .92rem; }
+.nav a { font: inherit; border-radius: 8px; padding: 7px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); text-decoration: none; }
+.nav a:hover, button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.wz-wifi { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.wz-wait { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+</style>
 </head>
-
 <body>
-    <canvas id="particleCanvas"></canvas>
-    <div id="container">
-        <div id="header">
-            <img id="logo" src="/blled.svg">
-            <h1 id="deviceNameDisplay">BLLED LED Settings</h1>
+<div class="statusbar">
+  <div class="wrap" style="padding-block:0">
+    <div class="row">
+      <h1 id="pageTitle">Printer lights</h1>
+      <span class="inline"><button type="button" id="stopTool" class="primary" hidden>Stop</button><span class="conn down" id="conn">Connecting…</span></span>
+    </div>
+    <div class="strip" id="strip" role="img" aria-labelledby="statusText"></div>
+    <div aria-live="polite">
+      <p id="statusText" tabindex="-1">Connecting to the controller…</p>
+      <p id="statusReason"></p>
+    </div>
+    <p class="banner" id="lostBanner" role="alert" hidden>Lost contact with the controller. Retrying… Changes made now may not be saved.</p>
+  </div>
+</div>
+
+<main class="wrap">
+  <section aria-labelledby="h-lights">
+    <div><h2 id="h-lights">Lights</h2><p class="hint">Changes apply and save immediately.</p></div>
+    <div class="card">
+      <fieldset>
+        <legend>Mode</legend>
+        <div class="modes">
+          <label class="choice"><input type="radio" name="mode" value="follow"><span class="t">Follow the printer</span><span class="d">Shows what the printer is doing. The normal setting.</span></label>
+          <label class="choice"><input type="radio" name="mode" value="on"><span class="t">Always on</span><span class="d">Printing color all the time, for maintenance.</span></label>
+          <label class="choice"><input type="radio" name="mode" value="off"><span class="t">Off</span><span class="d">Stays off until you choose another mode.</span></label>
         </div>
+      </fieldset>
+      <div class="field">
+        <label for="lookPreset">Look</label>
+        <select id="lookPreset" aria-describedby="lookHint">
+          <option value="standard">Standard colors</option>
+          <option value="white">White only</option>
+          <option value="custom">Custom</option>
+        </select>
+        <p class="hint" id="lookHint"></p>
+      </div>
+      <div class="field">
+        <label for="brightness">Brightness: <span id="brightnessOut">100</span>%</label>
+        <input type="range" id="brightness" min="0" max="100" value="100">
+      </div>
+    </div>
+  </section>
 
-        <div class="form-container">
-            <div style="text-align: center">
-                <!-- Wifi Signal indicator -->
-                <svg id="wifi-symbol" class="wifi-symbol" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                    <title id="wifiTitle">WiFi-Signal</title>
-                    <path id="level5" d="M8 32 A33 32 0 0 1 56 32" stroke="black" stroke-width="4" fill="none" />
-                    <path id="level4" d="M14 38 A26 26 0 0 1 50 38" stroke="black" stroke-width="4" fill="none" />
-                    <path id="level3" d="M20 44 A18 20 0 0 1 44 44" stroke="black" stroke-width="4" fill="none" />
-                    <path id="level2" d="M26 50 A10 14 0 0 1 38 50" stroke="black" stroke-width="4" fill="none" />
-                    <circle id="level1" cx="32" cy="56" r="3" fill="black" />
-                </svg>
+  <section class="fold" aria-labelledby="fh-looks">
+    <h2 id="fh-looks"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-looks" data-fold="looks"><span class="ft">Status colors</span><span class="sum" id="sum-looks"></span></button></h2>
+    <div class="fold-body" id="fb-looks" hidden>
+      <p class="hint">The color and rhythm for each thing the printer can be doing, when the mode is "Follow the printer". Rhythms mean you don't have to tell colors apart.</p>
+      <div class="card">
+        <div class="lockline" id="looksLock" hidden><span id="looksLockText"></span><button type="button" id="customiseBtn">Customize</button></div>
+        <div class="looks" id="looks"></div>
+        <label class="check"><input type="checkbox" id="followLight"><span>Turn the strip off when the printer's own light is off</span><span class="d">The strip mirrors the printer's chamber light. Errors and finished prints still show.</span></label>
+      </div>
+    </div>
+  </section>
 
-                <!-- MQTT Connection Indicator -->
-                <svg id="mqtt_status_svg" viewBox="0 0 140 56" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                        <style>
-                            .mqtt-offline {
-                                fill: #c00;
-                            }
-
-                            .mqtt-online {
-                                fill: #327b1d;
-                            }
-
-                            .svg-blled {
-
-                                fill: #327b1d;
-                            }
-
-                            .svg-x1c {
-
-                                fill: #333;
-                            }
-
-                            .mqtt-offline,
-                            .mqtt-online,
-                            .svg-x1c,
-                            .svg-blled {
-                                fill-rule: evenodd;
-                                stroke-width: 0px;
-                            }
-
-                            .cls-4 {
-                                isolation: isolate;
-                            }
-                        </style>
-                    </defs>
-                    <g class="cls-4" data-name="MQTT Online">
-                        <g id="mqtt_online" data-name="MQTT Online" style="display:inline">
-                            <path class="mqtt-online"
-                                d="M59.95,33.52c.52,1.11.33,2.47-.59,3.39l-6.25,6.25c-1.17,1.17-3.07,1.17-4.24,0l-2.05-2.05c-1.17-1.17-1.17-3.07,0-4.24l6.25-6.25c.92-.92,2.27-1.11,3.39-.59l2.16-2.16c-2.34-1.63-5.58-1.42-7.66.67l-6.2,6.2c-2.34,2.34-2.34,6.14,0,8.49l2.01,2.01c2.34,2.34,6.14,2.34,8.49,0l6.2-6.2c2.09-2.09,2.3-5.33.67-7.66l-2.16,2.16ZM54.83,35.13h0c.58.58,1.52.58,2.09,0l11.19-11.19c.58-.58.58-1.52,0-2.09h0c-.58-.58-1.52-.58-2.09,0l-11.19,11.19c-.58.58-.58,1.52,0,2.09ZM78.22,13.75l-2.01-2.01c-2.34-2.34-6.14-2.34-8.49,0l-6.2,6.2c-2.09,2.09-2.3,5.33-.67,7.66l2.16-2.16c-.52-1.11-.33-2.47.59-3.39l6.25-6.25c1.17-1.17,3.07-1.17,4.24,0l2.05,2.05c1.17,1.17,1.17,3.07,0,4.24l-6.25,6.25c-.92.92-2.27,1.11-3.39.59l-2.16,2.16c2.34,1.63,5.58,1.42,7.66-.67l6.2-6.2c2.34-2.34,2.34-6.14,0-8.49Z" />
-                        </g>
-                    </g>
-                    <g class="cls-4" data-name="MQTT Offline">
-                        <g id="mqtt_offline" data-name="MQTT Offline" style="display:none">
-                            <path class="mqtt-offline"
-                                d="M45.95,21.78l5.61,2.25c.52.21,1.1-.04,1.31-.55s-.04-1.09-.56-1.3l-5.61-2.25c-.52-.21-1.1.04-1.31.55-.21.51.04,1.09.56,1.3ZM54.44,19.77c.34.44.98.51,1.42.17.44-.34.52-.97.17-1.4l-3.73-4.73c-.34-.44-.98-.51-1.42-.17-.44.34-.52.97-.17,1.4l3.73,4.73ZM60.03,17.94c.55-.08.94-.58.86-1.13l-.84-5.94c-.08-.55-.59-.93-1.14-.85-.55.08-.94.58-.86,1.13l.84,5.94c.08.55.59.93,1.14.85ZM60.32,33.23c.53,1.11.35,2.48-.58,3.41l-6.42,6.36c-1.18,1.17-3.1,1.17-4.28,0l-2.14-2.12c-1.18-1.17-1.18-3.07,0-4.24l6.42-6.36c.93-.92,2.31-1.11,3.44-.58l2.2-2.18c-2.36-1.67-5.65-1.47-7.77.64l-6.42,6.36c-2.36,2.34-2.36,6.14,0,8.49l2.14,2.12c2.36,2.34,6.2,2.34,8.56,0l6.42-6.36c2.12-2.1,2.32-5.36.64-7.71l-2.2,2.18ZM82.21,18.1l-1.51-2.6c-1.67-2.87-5.37-3.85-8.27-2.2l-7.86,4.5c-2.6,1.49-3.64,4.59-2.63,7.28l2.69-1.54c-.23-1.21.31-2.49,1.45-3.14l7.86-4.5c1.45-.83,3.3-.34,4.13,1.1l1.51,2.6c.84,1.43.34,3.27-1.11,4.1l-7.86,4.5c-1.14.65-2.52.48-3.47-.32l-2.69,1.54c1.85,2.22,5.08,2.87,7.67,1.38l7.86-4.5c2.89-1.66,3.89-5.33,2.22-8.2ZM78.54,35.26l-5.57-2.2c-.51-.2-1.1.05-1.31.56s.03,1.09.55,1.29l5.57,2.2c.51.2,1.1-.05,1.31-.56s-.03-1.09-.55-1.29ZM64.51,39.16c-.55.08-.94.58-.86,1.13l.8,5.89c.07.54.58.92,1.13.84s.94-.58.86-1.13l-.8-5.89c-.07-.54-.58-.92-1.13-.84ZM70.09,37.31c-.34-.44-.98-.51-1.42-.17-.44.34-.52.97-.17,1.4l3.67,4.65c.34.44.98.51,1.42.17s.52-.97.17-1.4l-3.67-4.65Z" />
-                        </g>
-                    </g>
-                    <g id="g6" data-name="BLLED">
-                        <path class="svg-blled"
-                            d="M16,0l-.75.12c-2.61.31-5.95,1.7-8.23,3.4C.66,8.29-1.65,16.39,1.22,23.92c.24.62.48,1.13.54,1.12.09,0,14.24-6.04,14.24-6.04V0ZM33.59,10.28c-2.07-4.45-6.13-8.03-10.75-9.47-.74-.23-1.72-.47-2.18-.53-.46-.06-1.66-.28-1.66-.28v10s16.05,6.2,15.82,6.19c.55.04-.25-3.81-1.23-5.91ZM19,13v25h7l.79-2.03c1.04-2.86,2.02-4.57,4.45-7.76,1.44-1.89,2.34-3.48,2.91-5.15.35-1.03.91-3.37.81-3.44-13.24-5.49-15.96-6.62-15.96-6.62ZM16,38v-16s-13.24,5.23-13,5c-.04.04.8,1.34,1.26,1.91,1.82,2.28,3.38,5.11,4.23,7.68l.51,1.41h7ZM10,43h15l1-3H9l1,3ZM10,49c0,1.1.9,2,2,2,0,2.76,2.24,5,5,5h1c2.76,0,5-2.24,5-5,1.1,0,2-.9,2-2v-4h-15v4Z" />
-                    </g>
-                    <g id="g8" data-name="X1C">
-                        <path class="svg-x1c"
-                            d="M99.5,11h14c.83,0,1.5-.67,1.5-1.5V1.5c0-.83-.67-1.5-1.5-1.5h-14c-.83,0-1.5.67-1.5,1.5v8c0,.83.67,1.5,1.5,1.5ZM138,4h-22v6.5c0,.83-.67,1.5-1.5,1.5h-16c-.83,0-1.5-.67-1.5-1.5v-6.5h-4c-1.1,0-2,.9-2,2v48c0,1.1.9,2,2,2h45c1.1,0,2-.9,2-2V6c0-1.1-.9-2-2-2ZM136,49.5c0,.83-.67,1.5-1.5,1.5h-38c-.83,0-1.5-.67-1.5-1.5v-28.5h18v4.5c0,.55.45,1,1,1h1l1,1.5h1l1-1.5h1c.55,0,1-.45,1-1v-4.5h16v28.5ZM114.5,23c0-1.1.9-2,2-2s2,.9,2,2-.9,2-2,2-2-.9-2-2ZM136,19h-16v-1c0-.55-.45-1-1-1h-5c-.55,0-1,.45-1,1v1h-18v-3.5c0-.83.67-1.5,1.5-1.5h38c.83,0,1.5.67,1.5,1.5v3.5ZM96,49h39v-3h-39v3Z" />
-                    </g>
-                </svg>
-
-            </div>
-
-            <!-- <p>Use the options below to configure your BLLED Controller.</p> -->
-            <form method='POST' action='/submitConfig' onsubmit='return submitForm(event);'>
-                <label for="brightnessslider" id="brightnesssliderDisplay">Brightness: 100%</label>
-                <input type="range" id="brightnessslider" name="brightnessslider" min="0" max="100" value="100">
-                <!-- LED behaviour Page -->
-                <details class="collapse" open>
-                    <summary>LED Behaviour</summary>
-                    <div>
-                        <!-- LED mode: exactly one of these (a radio group) -->
-                        </br>
-                        <div role="radiogroup" aria-label="LED mode">
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="radio" id="maintMode" name="ledMode" value="maint" class="LEDBehavior"
-                                    aria-labelledby="maintMode-label" onchange='showhideOptions();'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="maintMode" class="toggle-text" id="maintMode-label">Maintenance Mode (Always On)</label>
-                        </div>
-                        <!-- RGB Cycle -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="radio" id="discoMode" name="ledMode" value="disco" class="LEDBehavior"
-                                    aria-labelledby="discoMode-label" onchange='showhideOptions();'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="discoMode" class="toggle-text" id="discoMode-label">RGB Color Cycle Mode (Always On)</label>
-                        </div>
-                        <!-- Replicate State -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="radio" id="replicateLedState" name="ledMode" value="replicate" class="LEDBehavior"
-                                    aria-labelledby="replicateLedState-label" onchange='showhideOptions();'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="replicateLedState" class="toggle-text" id="replicateLedState-label">Replicate State</label>
-                            <div id="runningcolorchoice" class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="runningRGB" name="runningRGB" value="#000000">
-                                <label for="runningWW">WW</label>
-                                <input type="number" id="runningWW" name="runningWW" value="255" min="0" max="255"
-                                    step="1">
-                                <label for="runningCW">CW</label>
-                                <input type="number" id="runningCW" name="runningCW" value="255" min="0" max="255"
-                                    step="1">
-                            </div>
-                        </div>
-                        <!-- Colortest -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="radio" id="showtestcolor" name="ledMode" value="test" class="LEDBehavior"
-                                    aria-labelledby="showtestcolor-label" onchange='showhideOptions();'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="showtestcolor" class="toggle-text" id="showtestcolor-label">Color Test (Always On)</label>
-                            <div id="testcolorchoice" class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="testRGB" name="testRGB" value="#3F3CFB">
-                                <label for="testWW">WW</label>
-                                <input type="number" id="testWW" name="testWW" value="255" min="0" max="255" step="1">
-                                <label for="testCW">CW</label>
-                                <input type="number" id="testCW" name="testCW" value="255" min="0" max="255" step="1">
-                            </div>
-                        </div>
-                        <!-- Wifi Strength -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="radio" id="debugwifi" name="ledMode" value="wifi" class="LEDBehavior"
-                                    aria-labelledby="debugwifi-label" onchange='showhideOptions();'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="debugwifi" class="toggle-text" id="debugwifi-label">Show Wifi Strength via LEDs</label>
-                        </div>
-                        </div>
-                        <!-- splitt line -->
-                        <div class="detailSplitter">LED Actions</div>
-                        <!-- Finish Indicator -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='finishIndication' name='finishIndication'
-                                    onchange='setFinishColor()'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="finishIndication" class="toggle-text">Finish Indication</label>
-
-                            <div class="input-inline-group" id="finishcolorchoice" style="margin-left: auto;">
-                                <input type="color" id="finishColor" name="finishColor" value="#00FF00">
-                                <label for="finishWW">WW</label>
-                                <input type="number" id="finishWW" name="finishWW" value="255" min="0" max="255"
-                                    step="1">
-                                <label for="finishCW">CW</label>
-                                <input type="number" id="finishCW" name="finishCW" value="255" min="0" max="255"
-                                    step="1">
-                            </div>
-                        </div>
-                        <!-- Finish Exit selector: door / timer / whichever comes first -->
-                        <div id="finishendchoice" style='display:none' role="radiogroup" aria-label="End the finish colour">
-                            <div class="toggle-switch">
-                                <label class="switch">
-                                    <input type="radio" id='finishEndDoor' name='finishExitMode' value='door' class='finishOption'
-                                        aria-labelledby="finishEndDoor-label" onchange='setFinishChoice();'>
-                                    <span class="slider"></span>
-                                </label>
-                                <label for="finishEndDoor" class="toggle-text" id="finishEndDoor-label">End Finish on Door Open / Close</label>
-                            </div>
-                            <div class="toggle-switch">
-                                <label class="switch">
-                                    <input type="radio" id='finishEndTimer' name='finishExitMode' value='timer' class='finishOption'
-                                        aria-labelledby="finishEndTimer-label" onchange='setFinishChoice();'>
-                                    <span class="slider"></span>
-                                </label>
-                                <label for="finishEndTimer" class="toggle-text" id="finishEndTimer-label">End Finish after a Timer</label>
-                            </div>
-                            <div class="toggle-switch">
-                                <label class="switch">
-                                    <input type="radio" id='finishEndEither' name='finishExitMode' value='either' class='finishOption'
-                                        aria-labelledby="finishEndEither-label" onchange='setFinishChoice();'>
-                                    <span class="slider"></span>
-                                </label>
-                                <label for="finishEndEither" class="toggle-text" id="finishEndEither-label">Whichever Comes First (Door or Timer)</label>
-                            </div>
-                            <div id="finishtimeroption" class="input-inline-group">
-                                <label for="finishTimerMins">Finish timer (minutes)</label>
-                                <input type="number" id="finishTimerMins" name="finishTimerMins" value='10'
-                                    min='0' max='999' step='1'>
-                            </div>
-                        </div>
-                        <!-- Status rhythms -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='statusAnimations' name='statusAnimations'
-                                    aria-labelledby="statusAnimations-label">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="statusAnimations" class="toggle-text" id="statusAnimations-label">Blink Errors, Pulse Pause / Finish (readable without colour)</label>
-                        </div>
-                        <!-- Quick door open-and-close toggles the LEDs -->
-                        <div class="toggle-switch">
-                            <span>Door Quick Open/Close Toggles LEDs</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <label for="doorToggleSecs">within (s, 0 = off)</label>
-                                <input type="number" id="doorToggleSecs" name="doorToggleSecs" value='0' min='0' max='30' step='1'>
-                            </div>
-                        </div>
-                        <!-- Inactivity Timeout -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='inactivityEnabled' name='inactivityEnabled'
-                                    onchange='updateIdle()'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="inactivityEnabled" class="toggle-text">Inactivity Timeout (Minutes)</label>
-                            <div class="input-inline-group" id="inactivityMinsDiv" style="margin-left: auto;">
-                                <label for="inactivityMins">Min.</label>
-                                <input type="text" id="inactivityMins" name="inactivityMins" value='1' maxlength='3'
-                                    size='3'>
-                            </div>
-                        </div>
-                        <!-- Control Chamber Light -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id="controlChamberLight" name="controlChamberLight">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="controlChamberLight" class="toggle-text">Control Chamber Light</label>
-                        </div>
-                    </div>
-                </details>
-                <!-- Printer Dependant Page -->
-                <details class="collapse">
-                    <summary>Printer Dependant</summary>
-                    <div>
-                        </br>
-                        <!-- is P1 Printer -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='p1Printer' name='p1Printer' class="PrinterOptions"
-                                    onchange='hasP1()'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="p1Printer" class="toggle-text">Connecting to a P1 Printer?</label>
-                        </div>
-                        <!-- Doorswitch use -->
-                        <div class="toggle-switch" id="AllowDoorSwitch">
-                            <label class="switch">
-                                <input type="checkbox" id='doorSwitch' name='doorSwitch' class="PrinterOptions">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="doorSwitch" class="toggle-text">Stages with Lidar in use (if installed)</label>
-                        </div>
-                        <!-- splitt line -->
-                        <div class="detailSplitter">LED Actions</div>
-                        <!-- Cleaning Nozzle -->
-                        <div class="toggle-switch">
-                            <span>Cleaning Nozzle</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="stage14RGB" name="stage14RGB" value="#000000">
-                                <label for="stage14WW">WW</label>
-                                <input type="number" id="stage14WW" name="stage14WW" value="0" min="0" max="255"
-                                    step="1">
-                                <label for="stage14CW">CW</label>
-                                <input type="number" id="stage14CW" name="stage14CW" value="0" min="0" max="255"
-                                    step="1">
-                            </div>
-                        </div>
-                        <!-- Bed Leveling -->
-                        <div class="toggle-switch">
-                            <span>Bed Leveling</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="stage1RGB" name="stage1RGB" value="#0000AA">
-                                <label for="stage1WW">WW</label>
-                                <input type="number" id="stage1WW" name="stage1WW" value="0" min="0" max="255" step="1">
-                                <label for="stage1CW">CW</label>
-                                <input type="number" id="stage1CW" name="stage1CW" value="0" min="0" max="255" step="1">
-                            </div>
-                        </div>
-                        <!-- Calibrating Extrusion -->
-                        <div class="toggle-switch">
-                            <span>Calibrating Extrusion</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="stage8RGB" name="stage8RGB" value="#000000">
-                                <label for="stage8WW">WW</label>
-                                <input type="number" id="stage8WW" name="stage8WW" value="0" min="0" max="255" step="1">
-                                <label for="stage8CW">CW</label>
-                                <input type="number" id="stage8CW" name="stage8CW" value="0" min="0" max="255" step="1">
-                            </div>
-                        </div>
-                        <!-- Scanning Bed Surface -->
-                        <div class="toggle-switch">
-                            <span>Scanning Bed Surface</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="stage9RGB" name="stage9RGB" value="#000000">
-                                <label for="stage9WW">WW</label>
-                                <input type="number" id="stage9WW" name="stage9WW" value="0" min="0" max="255" step="1">
-                                <label for="stage9CW">CW</label>
-                                <input type="number" id="stage9CW" name="stage9CW" value="0" min="0" max="255" step="1">
-                            </div>
-                        </div>
-                        <!-- First Layer Inspection -->
-                        <div class="toggle-switch">
-                            <span>First Layer Inspection</span>
-                            <div class="input-inline-group" style="margin-left: auto;">
-                                <input type="color" id="stage10RGB" name="stage10RGB" value="#000000">
-                                <label for="stage10WW">WW</label>
-                                <input type="number" id="stage10WW" name="stage10WW" value="0" min="0" max="255"
-                                    step="1">
-                                <label for="stage10CW">CW</label>
-                                <input type="number" id="stage10CW" name="stage10CW" value="0" min="0" max="255"
-                                    step="1">
-                            </div>
-                        </div>
-                    </div>
-                </details>
-                <!-- Error Page -->
-                <details class="collapse">
-                    <summary>Error Detection / Colors</summary>
-                    <div>
-
-                        </br>
-
-                        <!-- Error Detection -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='errorDetection' name='errorDetection' class="PrinterOptions"
-                                    onchange='return showcustomColors()'>
-                                <span class="slider"></span>
-                            </label>
-                            <label for="errorDetection" class="toggle-text">Error Detection</label>
-                        </div>
-                        <div id='CustomColorsDiv'>
-                            <div class="toggle-switch">
-                                <span>WiFi Setup / Scanning</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="wifiRGB" name="wifiRGB" value="#FFA500">
-                                    <label for="wifiWW">WW</label>
-                                    <input type="number" id="wifiWW" name="wifiWW" value="0" min="0" max="255" step="1">
-                                    <label for="wifiCW">CW</label>
-                                    <input type="number" id="wifiCW" name="wifiCW" value="0" min="0" max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Pause (Gcode or User)</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="pauseRGB" name="pauseRGB" value="#0000FF">
-                                    <label for="pauseWW">WW</label>
-                                    <input type="number" id="pauseWW" name="pauseWW" value="0" min="0" max="255"
-                                        step="1">
-                                    <label for="pauseCW">CW</label>
-                                    <input type="number" id="pauseCW" name="pauseCW" value="0" min="0" max="255"
-                                        step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>First Layer Error (Pause user)</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="firstlayerRGB" name="firstlayerRGB" value="#0000FF">
-                                    <label for="firstlayerWW">WW</label>
-                                    <input type="number" id="firstlayerWW" name="firstlayerWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="firstlayerCW">CW</label>
-                                    <input type="number" id="firstlayerCW" name="firstlayerCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Nozzle Clog (Pause user)</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="nozzleclogRGB" name="nozzleclogRGB" value="#0000FF">
-                                    <label for="nozzleclogWW">WW</label>
-                                    <input type="number" id="nozzleclogWW" name="nozzleclogWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="nozzleclogCW">CW</label>
-                                    <input type="number" id="nozzleclogCW" name="nozzleclogCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>HMS Severity, SERIOUS</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="hmsSeriousRGB" name="hmsSeriousRGB" value="#FF0000">
-                                    <label for="hmsSeriousWW">WW</label>
-                                    <input type="number" id="hmsSeriousWW" name="hmsSeriousWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="hmsSeriousCW">CW</label>
-                                    <input type="number" id="hmsSeriousCW" name="hmsSeriousCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>HMS Severity, FATAL</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="hmsFatalRGB" name="hmsFatalRGB" value="#FF0000">
-                                    <label for="hmsFatalWW">WW</label>
-                                    <input type="number" id="hmsFatalWW" name="hmsFatalWW" value="0" min="0" max="255"
-                                        step="1">
-                                    <label for="stage10CW">CW</label>
-                                    <input type="number" id="hmsFatalCW" name="hmsFatalCW" value="0" min="0" max="255"
-                                        step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Filament Runout</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="filamentRunoutRGB" name="filamentRunoutRGB" value="#FF0000">
-                                    <label for="filamentRunoutWW">WW</label>
-                                    <input type="number" id="filamentRunoutWW" name="filamentRunoutWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="filamentRunoutCW">CW</label>
-                                    <input type="number" id="filamentRunoutCW" name="filamentRunoutCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Front Cover Removed</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="frontCoverRGB" name="frontCoverRGB" value="#FF0000">
-                                    <label for="frontCoverWW">WW</label>
-                                    <input type="number" id="frontCoverWW" name="frontCoverWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="frontCoverCW">CW</label>
-                                    <input type="number" id="frontCoverCW" name="frontCoverCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Nozzle Temp Fail</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="nozzleTempRGB" name="nozzleTempRGB" value="#FF0000">
-                                    <label for="nozzleTempWW">WW</label>
-                                    <input type="number" id="nozzleTempWW" name="nozzleTempWW" value="0" min="0"
-                                        max="255" step="1">
-                                    <label for="nozzleTempCW">CW</label>
-                                    <input type="number" id="nozzleTempCW" name="nozzleTempCW" value="0" min="0"
-                                        max="255" step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Bed Temp Fail</span>
-                                <div class="input-inline-group" style="margin-left: auto;">
-                                    <input type="color" id="bedTempRGB" name="bedTempRGB" value="#FF0000">
-                                    <label for="bedTempWW">WW</label>
-                                    <input type="number" id="bedTempWW" name="bedTempWW" value="0" min="0" max="255"
-                                        step="1">
-                                    <label for="bedTempCW">CW</label>
-                                    <input type="number" id="bedTempCW" name="bedTempCW" value="0" min="0" max="255"
-                                        step="1">
-                                </div>
-                            </div>
-                            <div class="toggle-switch">
-                                <span>Ignore HMS Codes (one per line)</span>
-                                <textarea name="hmsIgnoreList" id="hmsIgnoreList" rows="4"
-                                    style="width:50%; resize:vertical;"
-                                    placeholder="HMS_XXXX_XXXX_XXXX_XXXX&#10;HMS_0300_1200_0002_0001"></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </details>
-                <!-- Debug Page -->
-                <details class="collapse">
-                    <summary>Debug Options</summary>
-                    <div>
-                        </br>
-                        <!-- Debugging -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='debuging' name='debuging' class="LEDOptions">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="debuging" class="toggle-text">Debugging</label>
-                        </div>
-                        <!-- Debugging OnChange Events -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='debugingchange' name='debugingchange' class="LEDOptions">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="debugingchange" class="toggle-text">Debugging OnChange Events</label>
-                        </div>
-                        <!-- MQTT Loging -->
-                        <div class="toggle-switch">
-                            <label class="switch">
-                                <input type="checkbox" id='mqttdebug' name='mqttdebug' class="LEDOptions">
-                                <span class="slider"></span>
-                            </label>
-                            <label for="mqttdebug" class="toggle-text">MQTT Logging</label>
-                        </div>
-                    </div>
-                </details>
-                <!-- navigation Page -->
-                <details class="collapse">
-                    <summary>Navigation</summary>
-                    <div>
-                        </br>
-                        <button type="button" onclick="location.href='/wifi'">WiFi & Printer Setup</button>
-                        <button type="button" onclick="location.href='/fwupdate'">Firmware Update</button>
-                        <button type="button" onclick="location.href='/backuprestore'">backup & Restore</button>
-                        <button type="button" onclick="window.open('/webserial','_blank')">Web Serial Log</button>
-                    </div>
-                </details>
-                <button type="submit">Save Configuration</button>
-            </form>
+  <section class="fold" aria-labelledby="fh-timing">
+    <h2 id="fh-timing"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-timing" data-fold="timing"><span class="ft">Timing</span><span class="sum" id="sum-timing"></span></button></h2>
+    <div class="fold-body" id="fb-timing" hidden>
+      <div class="card">
+        <div class="inline">
+          <label for="idleOff">Turn the strip off after no activity for</label>
+          <select id="idleOff"><option value="0">Never</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
         </div>
-        <h4 id="firmwareversion">Firmware version: ??.??.??</h4>
+        <p class="hint" style="margin-top:-6px">Never during a print. Opening the door, a new print or any printer event counts as activity.</p>
+        <fieldset id="finishSet">
+          <legend>The finished color ends</legend>
+          <label class="choice"><input type="radio" name="finishEnds" value="door"><span class="t">When the door opens</span><span class="d" id="finishDoorNote">So it stays until you've seen it.</span></label>
+          <label class="choice"><input type="radio" name="finishEnds" value="timer"><span class="t">After a set time</span></label>
+          <label class="choice"><input type="radio" name="finishEnds" value="either"><span class="t">Whichever comes first</span></label>
+          <div class="inline" id="finishMinRow" hidden><label for="finishMin">Minutes</label><input type="number" id="finishMin" min="1" max="999" value="10"></div>
+          <p class="hint" id="finishFallback" hidden>This model has no door sensor, so the finished color ends after the set time instead. Your choice is kept for a model that has one.</p>
+        </fieldset>
+        <div class="inline">
+          <label for="offlineSec">Turn the strip off when the printer is unreachable for</label>
+          <select id="offlineSec"><option value="30">30 s</option><option value="60">1 min</option><option value="300">5 min</option><option value="0">Never</option></select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-plight">
+    <h2 id="fh-plight"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-plight" data-fold="plight"><span class="ft">The printer's own light</span><span class="sum" id="sum-plight"></span></button></h2>
+    <div class="fold-body" id="fb-plight" hidden>
+      <p class="hint">The controller can switch the printer's chamber light too. Each of these is separate.</p>
+      <div class="card">
+        <label class="check"><input type="checkbox" id="lightPrintStart" data-pl="onPrintStart"><span>Turn it on when a print starts</span><span class="d">The camera and AI print monitoring need light.</span></label>
+        <label class="check"><input type="checkbox" id="lightDoor" data-pl="onDoor"><span>Turn it on when the door opens</span><span class="d">Off again once the door is closed and the strip goes idle.</span></label>
+        <label class="check"><input type="checkbox" id="lightIdle" data-pl="offIdle"><span>Turn it off when the strip goes idle</span></label>
+        <label class="check"><input type="checkbox" id="lightFinishTimer" data-pl="offFinishTimer"><span>Turn it off when the finished color ends on its timer</span></label>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-strip">
+    <h2 id="fh-strip"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-strip" data-fold="strip"><span class="ft">Your LED strip</span><span class="sum" id="sum-strip"></span></button></h2>
+    <div class="fold-body" id="fb-strip" hidden>
+      <p class="hint">Which lights your strip has and how it's wired, so colors come out right.</p>
+      <div class="card">
+        <fieldset>
+          <legend>Strip type</legend>
+          <div class="modes" id="stripTypes"></div>
+        </fieldset>
+        <div class="field">
+          <h3>Wiring</h3>
+          <p class="hint">The controller has five outputs, marked R, G, B, WW and CW on the board. If the strip's wires aren't in that order, the wiring check finds out and corrects for it, so you don't have to rewire. A single white is driven on both WW and CW until the check shows which one it's on.</p>
+          <div style="overflow-x:auto"><table class="map" id="mapTable"></table></div>
+          <div class="inline"><button type="button" id="checkBtn">Check the wiring</button><button type="button" id="mapReset">Reset to the board labels</button></div>
+          <div id="checkArea" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-printer">
+    <h2 id="fh-printer"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-printer" data-fold="printer"><span class="ft">Your printer</span><span class="sum" id="sum-printer"></span></button></h2>
+    <div class="fold-body" id="fb-printer" hidden>
+      <div class="card">
+        <p id="modelDetected"></p>
+        <div class="inline"><label for="model">Model</label><select id="model"></select></div>
+        <p class="hint" id="modelNote"></p>
+        <p class="hint">To follow a different printer, or change the access code, use <b>Run setup again</b> below.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-tools">
+    <h2 id="fh-tools"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-tools" data-fold="tools"><span class="ft">Tools</span><span class="sum" id="sum-tools"></span></button></h2>
+    <div class="fold-body" id="fb-tools" hidden>
+      <div class="card">
+        <div class="tool">
+          <div><h3>Color test</h3><p class="hint">Shows one color, to check the strip and its wiring.</p></div>
+          <div class="inline"><label for="testColor">Color</label><input type="color" id="testColor" value="#ff0000"><button type="button" data-tool="test">Show it</button></div>
+        </div>
+        <div class="tool">
+          <div><h3>Color cycle</h3><p class="hint" id="cycleHint">Slowly cycles through all colors.</p></div>
+          <div class="inline"><button type="button" data-tool="cycle">Start</button></div>
+        </div>
+        <div class="tool">
+          <div><h3>Wi-Fi strength</h3><p class="hint">Green is strong, red is weak. For finding a good spot for the controller.</p></div>
+          <div class="inline"><button type="button" data-tool="wifi">Show it</button></div>
+        </div>
+        <p class="hint">A tool runs until you press Stop at the top of the page; then the strip goes back to normal. It isn't saved, so a restart also ends it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-help">
+    <h2 id="fh-help"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-help" data-fold="help"><span class="ft">Help</span><span class="sum" id="sum-help"></span></button></h2>
+    <div class="fold-body" id="fb-help" hidden>
+      <div class="card">
+        <h3>What the door does</h3>
+        <p>Opening or closing the door wakes the strip and restarts the idle timer. If the finished color ends "when the door opens", it ends. That's all: the door never changes your settings.</p>
+        <p class="hint">Replaces the old "open and close quickly to toggle the lights" gesture. To turn the strip off, choose the Off mode above.</p>
+        <h3>Colors you may see while it starts</h3>
+        <p class="hint">Shown before the printer is reachable.</p>
+        <ul class="legend" id="legend"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-adv">
+    <h2 id="fh-adv"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-adv" data-fold="adv"><span class="ft">Advanced</span><span class="sum" id="sum-adv"></span></button></h2>
+    <div class="fold-body" id="fb-adv" hidden>
+      <div class="card">
+        <div class="field"><label for="hmsIgnore">HMS codes to ignore (one per line)</label>
+          <textarea id="hmsIgnore" rows="3" placeholder="HMS_0300_1200_0002_0001" spellcheck="false"></textarea>
+          <p class="hint">Errors with these codes won't change the strip.</p></div>
+        <label class="check"><input type="checkbox" id="debugLog"><span>Detailed log</span><span class="d">Writes every LED decision to the log page.</span></label>
+        <label class="check"><input type="checkbox" id="mqttLog"><span>Log printer messages</span><span class="d">Writes each message from the printer to the log page. Very busy.</span></label>
+        <div class="tool">
+          <div><h3>Wi-Fi access point</h3><p class="hint">If your network has several access points, the controller can move to the strongest one. It drops off the network for a few seconds while it looks.</p></div>
+          <div class="inline"><button type="button" id="rescanBtn">Find the strongest</button></div>
+        </div>
+        <div id="resetArea"><button type="button" class="danger" id="resetBtn">Erase all settings…</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-more">
+    <div><h2 id="h-more">More</h2></div>
+    <nav class="nav" aria-label="Other pages">
+      <button type="button" id="runSetup">Run setup again</button>
+      <a href="/wifi">Wi-Fi and login</a>
+      <a href="/fwupdate">Firmware update</a>
+      <a href="/backuprestore">Back up and restore</a>
+      <a href="/webserial">Log</a>
+    </nav>
+    <p class="hint" id="fwVersion"></p>
+  </section>
+</main>
+
+<dialog id="setup" aria-labelledby="wzTitle">
+  <form method="dialog" class="wz" id="wzForm" novalidate>
+    <div class="wz-head">
+      <p class="hint" id="wzCount">Step 1 of 4</p>
+      <h2 id="wzTitle" class="visually-hidden">Set up your lights</h2>
+      <div class="strip mini" id="wzStrip" role="img" aria-label="Preview of the LED strip"></div>
     </div>
 
-    <div id="toast"><span id="toast-icon">ℹ️</span><span id="toast-msg">Placeholder</span></div>
+    <section class="wz-step" data-step="connection" aria-labelledby="wz1h">
+      <h2 id="wz1h" tabindex="-1">Connect to your printer</h2>
+      <p class="wz-wifi"><span id="wzWifi"></span> <a href="/wifi">Change the Wi-Fi network</a></p>
+      <fieldset id="wzPrinterSet"><legend>Which printer should this controller follow?</legend>
+        <p class="hint" id="wzNoneFound" hidden>No printers found on this network. If the printer is on a different network (or VLAN), enter its address by hand.</p>
+        <div class="modes" id="wzPrinters"></div>
+        <label class="choice"><input type="radio" name="wzPrinter" value="manual" id="wzPrinterManual"><span class="t">Enter its address by hand</span><span class="d">If the printer isn't listed.</span></label>
+      </fieldset>
+      <div class="manual" id="wzManual" hidden>
+        <div class="field"><label for="wzIp">Printer IP address</label>
+          <span class="inline"><input type="text" id="wzIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" aria-describedby="wzIpHint"><button type="button" id="wzLookupBtn">Look up</button></span>
+          <p class="hint" id="wzLookup" aria-live="polite"></p>
+          <p class="hint" id="wzIpHint">On the printer: Settings → Network.</p>
+          <p class="err" id="wzIpErr" hidden>Enter an address like 192.168.1.50.</p></div>
+        <div class="field"><label for="wzSerial">Printer serial number</label>
+          <input type="text" id="wzSerial" autocomplete="off" spellcheck="false" aria-describedby="wzSerialHint">
+          <p class="hint" id="wzSerialHint">Filled in by Look up (the controller reads it from the printer). Otherwise: on the printer, Settings → Device.</p>
+          <p class="err" id="wzSerialErr" hidden>Enter the printer's serial number (letters and numbers).</p></div>
+      </div>
+      <div class="field"><label for="wzCode">Printer access code</label>
+        <input type="text" id="wzCode" maxlength="8" autocomplete="off" spellcheck="false" aria-describedby="wzCodeHint">
+        <p class="hint" id="wzCodeHint">8 characters. On the printer: Settings → Network → "Access Code" (LAN mode).</p>
+        <p class="err" id="wzCodeErr" hidden>The access code is 8 characters.</p></div>
+      <div class="wz-wait" id="wzWait" hidden><p id="wzWaitText"></p></div>
+    </section>
 
-    <script src="particleCanvas.js"></script>
+    <section class="wz-step" data-step="printer" aria-labelledby="wz2h" hidden>
+      <h2 id="wz2h" tabindex="-1">Your printer</h2>
+      <p id="wzDetected"></p>
+      <div class="field"><label for="wzModel">Model</label><select id="wzModel"></select></div>
+      <p class="hint" id="wzModelNote"></p>
+    </section>
 
-    <!-- colapse JS -->
-    <script>
-        document.querySelectorAll("details.collapse").forEach((detail) => {
-            const content = detail.querySelector("div");
-            const summary = detail.querySelector("summary");
+    <section class="wz-step" data-step="strip" aria-labelledby="wz3h" hidden>
+      <h2 id="wz3h" tabindex="-1">Your LED strip</h2>
+      <fieldset><legend>Which lights does your strip have?</legend><div class="modes" id="wzStripTypes"></div></fieldset>
+      <p class="hint">Not sure, or colors look wrong? The wiring check lights each output in turn and asks what you see.</p>
+      <div class="inline"><button type="button" id="wzCheckBtn">Check the wiring</button></div>
+      <div id="wzCheckArea" aria-live="polite"></div>
+    </section>
 
-            if (detail.hasAttribute("open")) {
-                content.style.maxHeight = content.scrollHeight + "px";
-                content.style.opacity = 1;
-            } else {
-                content.style.maxHeight = "0px";
-                content.style.opacity = 0;
-            }
+    <section class="wz-step" data-step="look" aria-labelledby="wz4h" hidden>
+      <h2 id="wz4h" tabindex="-1">How it looks</h2>
+      <div class="field"><label for="wzLook">Look</label>
+        <select id="wzLook" aria-describedby="wzLookHint"><option value="standard">Standard colors</option><option value="white">White only</option><option value="custom">Custom</option></select>
+        <p class="hint" id="wzLookHint"></p></div>
+      <div id="wzCustom" hidden>
+        <div class="looks wz-looks" id="wzCustomRows"></div>
+        <p class="hint">Finer options (a color for each preparing step or kind of error) are under Status colors on the main page.</p>
+      </div>
+      <div class="field"><label for="wzBrightness">Brightness: <span id="wzBrightnessOut">100</span>%</label><input type="range" id="wzBrightness" min="0" max="100" value="100"></div>
+      <p class="hint">Everything else (timing, the printer's own light, tools) is on the main page, and you can run this setup again any time.</p>
+    </section>
 
-            summary.addEventListener("click", (e) => {
-                e.preventDefault();
+    <div class="wz-nav">
+      <button type="button" id="wzLater">Finish later</button>
+      <span class="inline"><button type="button" id="wzBack">Back</button><button type="button" class="primary" id="wzNext">Next</button></span>
+    </div>
+  </form>
+</dialog>
 
-                if (detail.hasAttribute("open")) {
-                    content.style.maxHeight = content.scrollHeight + "px";
-                    requestAnimationFrame(() => {
-                        content.style.maxHeight = "0px";
-                        content.style.opacity = 0;
-                    });
-                    setTimeout(() => {
-                        detail.removeAttribute("open");
-                    }, 400);
-                } else {
-                    document.querySelectorAll("details.collapse[open]").forEach((openDetail) => {
-                        if (openDetail !== detail) {
-                            const openContent = openDetail.querySelector("div");
-                            openContent.style.maxHeight = openContent.scrollHeight + "px";
-                            openContent.style.opacity = 1;
-                            requestAnimationFrame(() => {
-                                openContent.style.maxHeight = "0px";
-                                openContent.style.opacity = 0;
-                            });
-                            setTimeout(() => {
-                                openDetail.removeAttribute("open");
-                            }, 400);
-                        }
-                    });
-                    detail.setAttribute("open", "");
-                    content.style.maxHeight = "0px";
-                    content.style.opacity = 0;
-                    requestAnimationFrame(() => {
-                        content.style.maxHeight = content.scrollHeight + "px";
-                        content.style.opacity = 1;
-                    });
-                }
-            });
-        });
-    </script>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
 
+  // ---------- language: US English, Commonwealth spelling when the browser prefers it ----------
+  const LANG = (navigator.languages && navigator.languages[0]) || navigator.language || "en-US";
+  const GB = /^en-(GB|AU|NZ|IE|ZA|IN)\b/i.test(LANG);
+  document.documentElement.lang = GB ? "en-GB" : "en-US";
+  const SPELL = [[/\bcolor/g, "colour"], [/\bColor/g, "Colour"], [/\bcustomiz/g, "customis"], [/\bCustomiz/g, "Customis"],
+                 [/\bleveling/g, "levelling"], [/\bLeveling/g, "Levelling"], [/\bgray/g, "grey"]];
+  const loc = t => { if (!GB || !t) return t; for (const [re, r] of SPELL) t = t.replace(re, r); return t; };
+  function locText(n) { const t = loc(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
+  function locTree(root) {
+    if (root.nodeType === 3) return locText(root);
+    if (root.nodeType !== 1) return;
+    for (const a of ["aria-label", "placeholder", "title"]) if (root.hasAttribute(a)) { const v = loc(root.getAttribute(a)); if (v !== root.getAttribute(a)) root.setAttribute(a, v); }
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) n.nodeType === 3 ? locText(n) : locTree1(n);
+  }
+  function locTree1(e) { for (const a of ["aria-label", "placeholder", "title"]) if (e.hasAttribute(a)) { const v = loc(e.getAttribute(a)); if (v !== e.getAttribute(a)) e.setAttribute(a, v); } }
+  if (GB) {
+    locTree(document.body); document.title = loc(document.title);
+    new MutationObserver(ms => { for (const m of ms) {
+      if (m.type === "characterData") locText(m.target);
+      else if (m.type === "attributes") locTree1(m.target);
+      else m.addedNodes.forEach(locTree);
+    } }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["aria-label", "placeholder", "title"] });
+  }
 
-    <!-- AlertToast JS-->
-    <script>
-        function alertToast(type, message) {
-            const toast = document.getElementById("toast");
-            const icon = document.getElementById("toast-icon");
-            const msg = document.getElementById("toast-msg");
+  // ---------- talking to the controller ----------
+  async function getJSON(path) {
+    const r = await fetch(path, { cache: "no-store" });
+    if (!r.ok) throw new Error(path + ": HTTP " + r.status);
+    return r.json();
+  }
+  async function postJSON(path, body) {
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    let j = {}; try { j = await r.json(); } catch (e) {}
+    if (!r.ok) { const e = new Error(j.error || "HTTP " + r.status); e.code = j.error; throw e; }
+    return j;
+  }
 
-            let iconChar = "ℹ️";
-            let color = "#333";
+  // ---------- colours ----------
+  const RHYTHMS = { steady: "Steady", pulse: "Pulse", slow: "Slow pulse", blink: "Blink" };
+  const NAMED = [["#ff0000", "Red"], ["#00ff00", "Green"], ["#0000ff", "Blue"], ["#ffa500", "Orange"], ["#ff8000", "Orange"], ["#ff00ff", "Pink"],
+                 ["#00ffff", "Cyan"], ["#ffff00", "Yellow"], ["#80ff00", "Yellow-green"], ["#ffffff", "White"], ["#800000", "Dim red"], ["#000055", "Dim blue"]];
+  function describeHex(hex) {
+    const n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max === 0) return "Off";
+    if (max - min < 24) return max > 200 ? "White" : "Dim white";
+    let h = 0; const d = max - min;
+    if (max === r) h = ((g - b) / d) % 6; else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    const names = [[15, "red"], [45, "orange"], [70, "yellow"], [160, "green"], [200, "cyan"], [260, "blue"], [290, "purple"], [340, "pink"], [360, "red"]];
+    const name = names.find(x => h < x[0])[1];
+    const prefix = max < 140 ? "Dim " : (min > 150 ? "Light " : "");
+    if (prefix === "Light " && name === "red") return "Pink";
+    return prefix ? prefix + name : name.charAt(0).toUpperCase() + name.slice(1);
+  }
+  const STRIP_TYPES = {
+    rgbww: { label: "RGB + warm + cool white", d: "Red, green, blue, warm white and cool white.", ch: ["r", "g", "b", "ww", "cw"],
+             whites: { warm: "Warm white", neutral: "Neutral white", cool: "Cool white" }, custom: true },
+    rgbw:  { label: "RGB + one white", d: "Red, green, blue and a single white.", ch: ["r", "g", "b", "w"],
+             whites: { neutral: "White", warm: "Warm white (mixed)", cool: "Cool white (mixed)" }, custom: true },
+    rgb:   { label: "RGB only", d: "Red, green and blue. Whites are mixed from all three.", ch: ["r", "g", "b"],
+             whites: { neutral: "White (mixed)", warm: "Warm white (mixed)", cool: "Cool white (mixed)" }, custom: true },
+    wwcw:  { label: "Warm + cool white", d: "No colors. States are told apart by rhythm.", ch: ["ww", "cw"],
+             whites: { warm: "Warm white", neutral: "Neutral white", cool: "Cool white" }, custom: false },
+    w:     { label: "One white only", d: "A single white. States are told apart by rhythm.", ch: ["w"],
+             whites: { neutral: "White" }, custom: false },
+  };
+  const CH_NAMES = { r: "Red", g: "Green", b: "Blue", w: "White", ww: "Warm white", cw: "Cool white" };
+  const OUTPUTS = ["R", "G", "B", "WW", "CW"];
+  const LIGHTS = ["r", "g", "b", "w", "ww", "cw"];
+  const LIGHT_RGB = { r: [255, 0, 0], g: [0, 255, 0], b: [0, 0, 255], w: [255, 244, 229], ww: [255, 196, 130], cw: [210, 226, 255] };
+  const LABEL_MAP = { r: "R", g: "G", b: "B", ww: "WW", cw: "CW" };
+  const OUT_FOR = { r: ["R"], g: ["G"], b: ["B"], ww: ["WW"], cw: ["CW"], w: ["WW", "CW"] };
+  const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const stripType = () => STRIP_TYPES[S.strip] || STRIP_TYPES.rgbww;
 
-            switch (type.toLowerCase()) {
-                case "success": iconChar = "✅"; color = "#28a745"; break;
-                case "error": iconChar = "❌"; color = "#dc3545"; break;
-                case "warning": iconChar = "⚠️"; color = "#ffc107"; break;
-                case "info": default: iconChar = "ℹ️"; color = "#17a2b8";
-            }
+  // What a colour turns into on the strip type: the same rules as the firmware (toLights in
+  // decide.h), plus a note when the strip can't show it exactly.
+  function toChannels(c, type) {
+    type = type || S.strip;
+    const T = STRIP_TYPES[type];
+    if (!c || c.kind === "off" || c.kind === "same") return { ch: {}, note: "" };
+    if (c.kind === "custom") {
+      const [r, g, b] = hexRgb(c.hex || "#000000"), ww = c.ww || 0, cw = c.cw || 0, w = Math.max(ww, cw);
+      if (type === "rgbww") return { ch: { r, g, b, ww, cw }, note: "" };
+      if (type === "rgbw") return { ch: { r, g, b, w }, note: "" };
+      if (type === "rgb") return { ch: w ? { r: Math.max(r, w), g: Math.max(g, Math.floor(w * 235 / 255)), b: Math.max(b, Math.floor(w * 210 / 255)) } : { r, g, b }, note: "" };
+      return { ch: type === "w" ? { w: 255 } : { ww: 255, cw: 255 }, note: "This strip has no colors, so it shows " + (type === "w" ? "white" : "neutral white") + " instead." };
+    }
+    const W = {
+      rgbww: { warm: { ww: 255 }, neutral: { ww: 255, cw: 255 }, cool: { cw: 255 } },
+      rgbw:  { neutral: { w: 255 }, warm: { w: 255, r: 90, g: 35 }, cool: { w: 255, b: 70 } },
+      rgb:   { neutral: { r: 255, g: 235, b: 210 }, warm: { r: 255, g: 170, b: 90 }, cool: { r: 200, g: 220, b: 255 } },
+      wwcw:  { warm: { ww: 255 }, neutral: { ww: 255, cw: 255 }, cool: { cw: 255 } },
+      w:     { warm: { w: 255 }, neutral: { w: 255 }, cool: { w: 255 } },
+    };
+    return { ch: W[type][c.kind] || {}, note: T.whites[c.kind] ? "" : "This strip has one white, so it shows that." };
+  }
+  function mixCss(ch) {
+    let rgb = [0, 0, 0], any = false;
+    for (const [k, v] of Object.entries(ch)) { if (!v) continue; any = true; LIGHT_RGB[k].forEach((x, i) => rgb[i] += x * v / 255); }
+    if (!any) return null;
+    const m = Math.max(255, ...rgb); return `rgb(${rgb.map(x => Math.round(x * 255 / m)).join(",")})`;
+  }
+  const colourCss = c => mixCss(toChannels(c).ch);
+  function colourName(c) {
+    if (!c || c.kind === "off") return "Off";
+    const T = stripType();
+    if (c.kind === "custom" && !T.custom) return S.strip === "w" ? "White" : "Neutral white";
+    if (c.kind !== "custom") return (T.whites[c.kind] || "White").replace(" (mixed)", "");
+    const hit = NAMED.find(n => n[0] === (c.hex || "").toLowerCase());
+    const base = hit ? hit[1] : describeHex(c.hex || "#000000");
+    return (c.ww || c.cw) && T.custom ? base + " with white" : base;
+  }
+  const colourLabel = (kind, type) => { const T = STRIP_TYPES[type || S.strip]; return kind === "custom" ? "Custom color" : kind === "off" ? "Off" : kind === "same" ? "Same as group" : (T.whites[kind] || { warm: "Warm white", neutral: "Neutral white", cool: "Cool white" }[kind]); };
 
-            toast.style.backgroundColor = color;
-            icon.textContent = iconChar;
-            msg.textContent = message;
+  // ---------- models (only the X1 Carbon has been tested with this controller) ----------
+  const MODELS = {
+    X1:   { name: "X1", door: true, lidar: true, note: "Same hardware as the X1 Carbon (door sensor and lidar). Not tested with this controller." },
+    X1C:  { name: "X1 Carbon", door: true, lidar: true, tested: true, note: "Door sensor and lidar. Tested with this controller." },
+    X1E:  { name: "X1E", door: true, lidar: true, note: "Door sensor and lidar. Not tested with this controller." },
+    P1P:  { name: "P1P", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    P1S:  { name: "P1S", door: false, lidar: false, note: "No door sensor or lidar, so door options and preparing colors don't apply." },
+    P2S:  { name: "P2S", door: true, lidar: false, note: "Not tested. Door sensor and lidar not confirmed; door options shown in case." },
+    A1:   { name: "A1", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    A1M:  { name: "A1 mini", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    H2D:  { name: "H2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    H2S:  { name: "H2S", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    X2D:  { name: "X2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
+    other:{ name: "Not listed", door: true, lidar: true, note: "Unknown model: every option is shown. It may not report what this controller expects." },
+  };
+  const UNKNOWN_MODEL = { name: "Unknown", door: true, lidar: true, note: "The printer hasn't reported its model yet, so every option is shown." };
+  const detected = () => (ST && ST.printer && ST.printer.detectedModel) || "";
+  const modelKey = () => S.model === "auto" ? detected() : S.model;
+  const modelInfo = k => MODELS[k] || UNKNOWN_MODEL;
+  const detectedName = () => detected() ? modelInfo(detected()).name === "Unknown" ? detected() : modelInfo(detected()).name : "not reported yet";
 
-            toast.classList.add("show");
-            setTimeout(() => toast.classList.remove("show"), 3000);
+  // ---------- printer states and looks ----------
+  const STATES = [
+    ["printing", "Printing", "While a print is running."],
+    ["idle", "Idle", "Printer on, not printing."],
+    ["preparing", "Preparing", "Nozzle cleaning, bed leveling and scans before a print. Off by default so the lidar isn't disturbed."],
+    ["attention", "Needs attention", "Paused, first-layer problem or nozzle clog."],
+    ["error", "Error", "Filament runout, front cover off, temperature fault, serious or fatal HMS."],
+    ["finished", "Finished", "Print done, until the finish ends (see Timing)."],
+  ];
+  const SUBS = {
+    preparing: ["prep", "step", { nozzle: "Cleaning the nozzle", level: "Leveling the bed", extrude: "Calibrating extrusion", scan: "Scanning the bed", firstlayer: "Inspecting the first layer", lidarcal: "Calibrating the lidar" }],
+    attention: ["attn", "kind of problem", { pause: "Paused", firstlayer: "First-layer problem", clog: "Nozzle clog" }],
+    error: ["err", "kind of error", { runout: "Filament runout", cover: "Front cover off", nozzleTemp: "Nozzle temperature", bedTemp: "Bed temperature", hmsSerious: "Serious HMS error", hmsFatal: "Fatal HMS error" }],
+  };
+  // The fixed presets, in the firmware's JSON shape (presetLooks in settings.h).
+  function presetLooks(name) {
+    const white = name === "white", c = h => ({ kind: "custom", hex: h }), n = { kind: "neutral" }, same = { kind: "same" };
+    const L = {
+      printing: { colour: n, rhythm: "steady" }, idle: { colour: n, rhythm: "steady" }, preparing: { colour: { kind: "off" }, rhythm: "steady" },
+      attention: { colour: white ? n : c("#0000ff"), rhythm: "pulse" }, error: { colour: white ? n : c("#ff0000"), rhythm: "blink" },
+      finished: { colour: white ? n : c("#00ff00"), rhythm: "slow" }, prep: {}, attn: {}, err: {},
+    };
+    for (const [, [g, , subs]] of Object.entries(SUBS)) for (const k of Object.keys(subs)) L[g][k] = same;
+    L.prep.level = c("#000055");
+    return clone(L);
+  }
+  const LOOK_TEXT = {
+    standard: ["Standard colors", "White while printing. Errors blink red, pauses pulse blue, finished prints pulse green."],
+    white: ["White only", "White all the time. Errors blink, pauses and finished prints pulse."],
+    custom: ["Custom", "Your own color and rhythm for each state, under Status colors."],
+  };
+  const looks = () => S.look === "custom" ? S.custom : presetLooks(S.look);
+  const resolve = (sub, group) => !sub || sub.kind === "same" ? group : sub;
+
+  // ---------- state ----------
+  let S = null;            // settings as the controller holds them (v2 JSON)
+  let ST = null;           // latest status
+  let CONN = {};           // /config.json: Wi-Fi network, printer connection (no secrets)
+  let PRINTERS = { printers: [] };
+  let pending = 0;         // saves in flight
+  let chain = Promise.resolve();
+
+  function deepMerge(dst, src) {
+    for (const [k, v] of Object.entries(src)) {
+      if (v && typeof v === "object" && !Array.isArray(v) && dst[k] && typeof dst[k] === "object") deepMerge(dst[k], v);
+      else if (v === null) delete dst[k];
+      else dst[k] = clone(v);
+    }
+    return dst;
+  }
+
+  // ---------- autosave ----------
+  let toastTimer;
+  function toast(text, bad) {
+    const t = $("toast"); t.textContent = text; t.style.background = bad ? "var(--err)" : ""; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), bad ? 5000 : 1800);
+  }
+  // Apply a change here at once, send it, and take the controller's answer as the truth once
+  // nothing else is in flight (it may have clamped or refused a value).
+  function save(patch, what) {
+    deepMerge(S, patch); pending++;
+    refresh();
+    chain = chain.then(() => postJSON("/api/settings", patch)).then(reply => {
+      if (--pending === 0) { S = reply; syncControls(); refresh(); }
+      if (what) toast("Saved: " + what);
+    }).catch(err => {
+      pending--; toast("Couldn't save " + (what ? what.toLowerCase() : "that") + ": " + err.message, true);
+      return getJSON("/api/settings").then(s => { S = s; syncControls(); rebuild(); }).catch(() => {});
+    });
+    return chain;
+  }
+
+  // ---------- status bar ----------
+  const fmtSec = s => s >= 60 ? Math.round(s / 60) + " min" : s + " s";
+  const fmtDur = s => s >= 3600 ? Math.floor(s / 3600) + " h " + Math.round((s % 3600) / 60) + " min" : s >= 60 ? Math.round(s / 60) + " min" : s + " s";
+  const ATTN_TEXT = { pause: "The print is paused.", firstlayer: "The printer found a first-layer problem.", clog: "The printer found a nozzle clog." };
+  function wifiWord(rssi) { return rssi >= -50 ? "strong" : rssi >= -60 ? "good" : rssi >= -70 ? "fair" : rssi >= -80 ? "weak" : "very weak"; }
+  // What the controller is sending to the strip, and why, in words.
+  function describe(st) {
+    const stop = " Press Stop to go back to normal.";
+    if (st.check) return { text: `Wiring check: output ${st.check} is on`, reason: "What color does the strip show?", css: null, rhythm: "steady", outputs: st.outputs };
+    const c = st.colour, lit = st.show === "colour" && c && c.kind !== "off";
+    const text = st.show === "cycle" ? "Cycling through colors" : st.show === "wifi" ? `${colourName(c)}: ${wifiWord(st.rssi)} Wi-Fi`
+      : lit ? `${colourName(c)}, ${RHYTHMS[st.rhythm].toLowerCase()}` : "Off";
+    const sub = SUBS[st.state] && st.detail ? SUBS[st.state][2][st.detail] : "";
+    const R = {
+      mode_off: "Mode is Off. Choose another mode to turn the strip on.",
+      mode_on: "Mode is Always on.",
+      tool_test: st.preview ? "Previewing a status color for a few seconds." : "Color test (Tools)." + stop,
+      tool_cycle: "Color cycle (Tools)." + stop,
+      tool_wifi: `Wi-Fi strength (Tools): signal ${st.rssi} dBm.` + stop,
+      unreachable: `The printer has been unreachable for over ${fmtSec(S.offlineOffSec)}.`,
+      access_rejected: "The printer rejected the access code. Check it with Run setup again.",
+      error: `Error: ${(sub || "printer error").toLowerCase()}.`,
+      attention: ATTN_TEXT[st.detail] || "The printer needs attention.",
+      finished: "Print finished. " + finishText(st),
+      preparing: `Preparing: ${(sub || "getting ready").toLowerCase()}.` + (lit ? "" : " Off so the lidar isn't disturbed."),
+      preparing_no_lidar: "Preparing. This model has no lidar, so the printing color is used.",
+      printing: "Printing.",
+      light_off: "Following the printer's own light, which is off.",
+      idle_off: `No activity for ${fmtDur(st.idleFor || 0)}. Open the door or start a print to wake it.`,
+      idle: "Printer idle." + (S.idleOffMin ? ` Turns off after ${S.idleOffMin} min without activity (${Math.max(1, Math.ceil((st.idleOffIn || 0) / 60))} min left).` : " Stays on."),
+    };
+    const css = st.show === "cycle" ? "cycle" : (st.show === "colour" || st.show === "wifi") && c ? colourCss(c) : null;
+    return { text, reason: R[st.reason] || "", css, rhythm: lit ? st.rhythm : "steady" };
+  }
+  function finishText(st) {
+    const mins = Math.max(1, Math.ceil((st.finishEndsIn || 0) / 60));
+    const end = !modelInfo(modelKey()).door && S.finishEnds !== "timer" ? "timer" : S.finishEnds;
+    return end === "door" ? "Ends when the door opens." : end === "timer" ? `Ends in ${mins} min.` : `Ends when the door opens or in ${mins} min, whichever comes first.`;
+  }
+  let cycleTimer = null, hue = 0;
+  function paintStrip(strip, d, mini) {
+    strip.className = "strip" + (mini ? " mini" : "");
+    let css = d.css;
+    if (d.outputs) {   // wiring check: one output, shown as the light it's labelled for
+      const i = d.outputs.findIndex(v => v > 0), k = i >= 0 ? ["r", "g", "b", "ww", "cw"][i] : null;
+      css = k ? mixCss({ [k]: 255 }) : null;
+    }
+    if (css === "cycle") { strip.classList.add("lit"); return true; }
+    if (css) {
+      strip.style.background = css; strip.style.setProperty("--glow", css); strip.classList.add("lit");
+      if (d.rhythm && d.rhythm !== "steady") strip.classList.add(d.rhythm === "slow" ? "slow" : d.rhythm);
+    } else { strip.style.background = ""; strip.style.removeProperty("--glow"); }
+    strip.style.filter = css ? `brightness(${0.25 + 0.75 * S.brightness / 100})` : "";
+    return false;
+  }
+  function renderStatus() {
+    if (!S) return;
+    if (!ST) return;
+    const d = describe(ST);
+    clearInterval(cycleTimer);
+    const cycling = paintStrip($("strip"), d) | paintStrip($("wzStrip"), d, true);
+    if (cycling) cycleTimer = setInterval(() => { hue = (hue + 2) % 360; for (const s of [$("strip"), $("wzStrip")]) { const c = `hsl(${hue} 100% 50%)`; s.style.background = c; s.style.setProperty("--glow", c); } }, 80);
+    $("statusText").textContent = d.text;
+    $("statusReason").textContent = d.reason;
+    const p = ST.printer || {};
+    $("conn").textContent = p.connected ? "Printer connected" : p.accessRejected ? "Access code rejected" : "Printer unreachable";
+    $("conn").classList.toggle("down", !p.connected);
+    const tool = ST.tool && ST.tool !== "none" ? ST.tool : null;
+    $("stopTool").hidden = !tool && !ST.check;
+    $("stopTool").textContent = ST.check ? "Stop wiring check" : !tool ? "Stop" : ST.preview ? "Stop preview" : "Stop " + { test: "color test", cycle: "color cycle", wifi: "Wi-Fi strength" }[tool];
+  }
+  $("stopTool").addEventListener("click", async () => {
+    const t = ST && ST.tool;
+    try { await (ST && ST.check ? postJSON("/api/check", { output: null }) : postJSON("/api/tool", { tool: "none" })); }
+    catch (e) { toast("Couldn't stop it: " + e.message, true); }
+    pollSoon();
+    const back = document.querySelector(`[data-tool="${t}"]`);
+    (back && back.offsetParent ? back : $("statusText")).focus();   // the Tools section may be folded
+  });
+
+  // Live status: pushed every second on the web socket; polled if the socket isn't working.
+  let lastHeard = 0, ws = null, pollTimer = null;
+  function heard(st) { ST = st; if (st.firmware) $("fwVersion").textContent = "Firmware " + st.firmware + "."; lastHeard = Date.now(); $("lostBanner").hidden = true; renderStatus(); applyModel(); summaries(); }
+  async function poll() { try { heard(await getJSON("/api/status")); } catch (e) {} }
+  function pollSoon() { setTimeout(poll, 150); }
+  function openSocket() {
+    try { ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws"); } catch (e) { return; }
+    ws.onmessage = ev => { try { const d = JSON.parse(ev.data); if (d.lights) heard(d.lights); } catch (e) {} };
+    ws.onclose = () => { ws = null; setTimeout(openSocket, 3000); };
+  }
+  setInterval(() => {
+    const quiet = Date.now() - lastHeard;
+    if (quiet > 1500) poll();                                   // socket down or slow
+    if (lastHeard && quiet > 8000) $("lostBanner").hidden = false;
+  }, 2000);
+
+  // ---------- Status colours rows ----------
+  function colourControl(id, colour, label, allowSame, disabled) {
+    const wrap = el("span", "inline");
+    const sel = el("select"); sel.id = id; sel.setAttribute("aria-label", label);
+    const T = stripType();
+    const kinds = Object.keys(T.whites).concat(T.custom ? ["custom"] : [], ["off"]);
+    const opts = (allowSame ? [["same", "Same as group"]] : []).concat(kinds.map(k => [k, colourLabel(k)]));
+    if (colour && colour.kind !== "same" && !kinds.includes(colour.kind)) opts.push([colour.kind, colourLabel(colour.kind, "rgbww") + " (not on this strip)"]);
+    for (const [v, t] of opts) { const o = el("option", null, t); o.value = v; sel.appendChild(o); }
+    const pick = el("input"); pick.type = "color"; pick.id = id + "-hex"; pick.setAttribute("aria-label", label + ": custom color");
+    sel.value = colour ? colour.kind : "same"; pick.value = colour && colour.hex ? colour.hex : "#ffffff"; pick.hidden = sel.value !== "custom";
+    sel.disabled = pick.disabled = !!disabled;
+    wrap.append(sel, pick);
+    const value = () => sel.value === "custom" ? { kind: "custom", hex: pick.value, ww: 0, cw: 0 } : { kind: sel.value };
+    sel.addEventListener("change", () => { pick.hidden = sel.value !== "custom"; });
+    return { wrap, sel, pick, value };
+  }
+  function rhythmSelect(id, value, label, disabled) {
+    const rs = el("select"); rs.id = id; rs.setAttribute("aria-label", label);
+    for (const [v, t] of Object.entries(RHYTHMS)) { const o = el("option", null, t); o.value = v; rs.appendChild(o); }
+    rs.value = value; rs.disabled = !!disabled; return rs;
+  }
+  async function preview(colour, rhythm, label) {
+    try { await postJSON("/api/tool", { tool: "test", colour, rhythm, seconds: 5 }); pollSoon(); setTimeout(poll, 5300); }
+    catch (e) { toast("Couldn't preview " + label + ": " + e.message, true); }
+  }
+  function buildLooks() {
+    const host = $("looks"); host.textContent = "";
+    const L = looks(), locked = S.look !== "custom", lidar = modelInfo(modelKey()).lidar;
+    for (const [key, label, when] of STATES) {
+      if (key === "preparing" && !lidar) continue;
+      const look = L[key], row = el("div", "look");
+      const sw = el("span", "swatch"); sw.setAttribute("aria-hidden", "true");
+      const css = colourCss(look.colour); if (css) sw.style.background = css;
+      const name = el("h3", "name", label); name.id = "look-" + key;
+      const prev = el("button", null, "Preview"); prev.type = "button"; prev.setAttribute("aria-describedby", name.id);
+      const controls = el("div", "controls");
+      const cc = colourControl("look-" + key + "-colour", look.colour, label + " color", false, locked);
+      const rs = rhythmSelect("look-" + key + "-rhythm", look.rhythm, label + " rhythm", locked);
+      controls.append(cc.wrap, rs);
+      const note = el("p", "note", toChannels(look.colour).note); note.hidden = !note.textContent;
+      row.append(sw, name, prev, controls, el("p", "when", when), note);
+      const setColour = () => save({ custom: { [key]: { colour: cc.value() } } }, label + " color");
+      cc.sel.addEventListener("change", setColour);
+      cc.pick.addEventListener("input", () => { sw.style.background = cc.pick.value; });
+      cc.pick.addEventListener("change", setColour);
+      rs.addEventListener("change", () => save({ custom: { [key]: { rhythm: rs.value } } }, label + " rhythm"));
+      prev.addEventListener("click", () => preview(looks()[key].colour, looks()[key].rhythm, label));
+      if (SUBS[key]) {
+        const [group, what, subs] = SUBS[key];
+        const det = el("details", "more"); det.style.gridColumn = "2 / 4";
+        det.appendChild(el("summary", null, "Set colors for each " + what));
+        const sub = el("div", "sub");
+        for (const [sk, slabel] of Object.entries(subs)) {
+          if (sk === "lidarcal" && !lidar) continue;
+          const line = el("div", "inline");
+          const lab = el("label", null, slabel); lab.htmlFor = `sub-${key}-${sk}`;
+          const sc = colourControl(`sub-${key}-${sk}`, (L[group] || {})[sk] || { kind: "same" }, slabel, true, locked);
+          const setSub = () => save({ custom: { [group]: { [sk]: sc.value() } } }, slabel + " color");
+          sc.sel.addEventListener("change", setSub); sc.pick.addEventListener("change", setSub);
+          line.append(lab, sc.wrap); sub.appendChild(line);
         }
+        det.appendChild(sub); row.appendChild(det);
+      }
+      host.appendChild(row);
+    }
+  }
+  function syncPreset() {
+    $("lookPreset").value = S.look; $("lookHint").textContent = LOOK_TEXT[S.look][1];
+    const locked = S.look !== "custom";
+    $("looksLock").hidden = !locked;
+    if (locked) $("looksLockText").textContent = `These follow the ${LOOK_TEXT[S.look][0]} look.`;
+  }
+  // Only when someone picks Custom: open Status colours and move to it (never on page load).
+  function openLooksForEditing() {
+    const btn = document.querySelector('[data-fold="looks"]');
+    if (btn.getAttribute("aria-expanded") !== "true") btn.click();
+    const first = document.querySelector("#looks select:not(:disabled)");
+    btn.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    if (first) first.focus({ preventScroll: true });
+  }
+  function choosePreset(name, chosenByUser) {
+    save({ look: name }, "Look: " + LOOK_TEXT[name][0]);
+    buildLooks(); syncPreset();
+    if (name === "custom" && chosenByUser) openLooksForEditing();
+  }
+  $("lookPreset").addEventListener("change", () => choosePreset($("lookPreset").value, true));
+  $("customiseBtn").addEventListener("click", () => choosePreset("custom", true));
 
-        function saveConfig() {
-            alertToast("success", "Settings saved.");
-        }
-        function hideMessage() {
-            clearTimeout(alertToast.timer);
-            document.body.removeAttribute("message");
-            document.body.removeAttribute("message-type");
-            document.body.removeAttribute("message-icon");
-            document.body.removeEventListener("click", hideMessage);
-        }
-    </script>
+  // ---------- start-up colours ----------
+  const LEGEND = [["#ffffff", "White", "Starting up."], ["#ff0000", "Red", "Loading settings."], ["#ffa500", "Orange", "Joining Wi-Fi (also shown while looking for the strongest access point)."],
+    ["#ff00ff", "Pink", "No Wi-Fi configured. Join the BLLED_AP hotspot to set it up."], ["#0000ff", "Blue", "Wi-Fi connected."], ["#00ffff", "Cyan", "Connecting to the printer."],
+    ["#800000", "Dim red", "The printer rejected the access code. Check it with Run setup again."]];
+  for (const [hex, name, what] of LEGEND) {
+    const li = el("li"), sw = el("span", "swatch"); sw.setAttribute("aria-hidden", "true"); sw.style.background = hex;
+    li.append(sw, el("b", null, name), el("span", null, what)); $("legend").appendChild(li);
+  }
 
-    <script>
-        function updateIdle() {
-            if (document.getElementById('inactivityEnabled').checked) {
-                document.getElementById("inactivityMinsDiv").style.display = '';
-            } else {
-                document.getElementById("inactivityMinsDiv").style.display = 'none';
-            }
-        }
-        /*         function setFinishColor() {
-                    if (document.getElementById('finishIndication').checked) {
-                        document.getElementById("finishcolorchoice").style.display = '';
-                        document.getElementById("finishendchoice").style.display = '';
-                        //document.getElementById("finishendchoicetitle").style.display = '';
-        
-                    } else {
-                        document.getElementById("finishcolorchoice").style.display = 'none';
-                        document.getElementById("finishendchoice").style.display = 'none';
-                        //document.getElementById("finishendchoicetitle").style.display = 'none';
-                    }
-                } */
+  // ---------- LED strip and wiring ----------
+  const outputsFor = k => S.wiring && S.wiring[k] ? [S.wiring[k]] : OUT_FOR[k];
+  // Wiring for a strip type: keep what applies to its lights, clear the rest.
+  function wiringFor(type, map) {
+    const w = {}; for (const l of LIGHTS) w[l] = STRIP_TYPES[type].ch.includes(l) && map && map[l] ? map[l] : null; return w;
+  }
+  function stripRadios(host, name, checked, onChange) {
+    host.textContent = "";
+    for (const [k, T] of Object.entries(STRIP_TYPES)) {
+      const lab = el("label", "choice"), r = el("input");
+      r.type = "radio"; r.name = name; r.value = k; r.id = name + "-" + k; r.checked = checked === k;
+      lab.append(r, el("span", "t", T.label), el("span", "d", T.d));
+      if (onChange) r.addEventListener("change", () => onChange(k));
+      host.appendChild(lab);
+    }
+  }
+  function buildStrip() {
+    stripRadios($("stripTypes"), "stripType", S.strip, k => { save({ strip: k, wiring: wiringFor(k, S.wiring) }, "Strip type: " + STRIP_TYPES[k].label); rebuild(); });
+    const t = $("mapTable"); t.textContent = "";
+    const cap = el("caption", "visually-hidden", "Which controller output drives each light on the strip");
+    const head = el("thead"), hr = el("tr");
+    for (const h of ["Light on the strip", "Controller output", ""]) { const th = el("th", null, h); th.scope = "col"; hr.appendChild(th); }
+    head.appendChild(hr); const tb = el("tbody"); t.append(cap, head, tb);
+    for (const c of stripType().ch) {
+      const tr = el("tr"), th = el("th", null, CH_NAMES[c]); th.scope = "row";
+      const pinned = S.wiring && S.wiring[c];
+      const moved = pinned && c !== "w" && S.wiring[c] !== LABEL_MAP[c];
+      const note = c === "w" && !pinned ? "Either works; the wiring check pins it down." : moved ? "Differs from the board label; corrected in software." : "";
+      tr.append(th, el("td", "out", outputsFor(c).join(" and ")), el("td", "hint", note)); tb.appendChild(tr);
+    }
+    const cycle = document.querySelector('[data-tool="cycle"]');
+    cycle.disabled = !stripType().custom;
+    $("cycleHint").textContent = stripType().custom ? "Slowly cycles through all colors." : "Needs a strip with colors.";
+  }
+  $("mapReset").addEventListener("click", () => { save({ wiring: wiringFor(S.strip, null) }, "Wiring reset to the board labels"); buildStrip(); });
 
-        function setFinishColor() {
-            const show = document.getElementById('finishIndication').checked;
+  const ANSWERS = [["r", "Red"], ["g", "Green"], ["b", "Blue"], ["w", "White"], ["ww", "Warm white"], ["cw", "Cool white"], ["", "Nothing"]];
+  function wiringCheck(area, btn, onApplied) {
+    const answers = {};
+    btn.disabled = true;
+    const light = async o => { try { await postJSON("/api/check", { output: o }); pollSoon(); } catch (e) { toast("Wiring check: " + e.message, true); } };
+    const button = (text, cls, fn) => { const b = el("button", cls, text); b.type = "button"; b.addEventListener("click", fn); return b; };
+    const step = i => {
+      light(OUTPUTS[i]);
+      area.textContent = "";
+      const box = el("div", "checkbox"); box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", "checkQ");
+      const q = el("p"); q.id = "checkQ";
+      q.append(el("b", null, `Output ${i + 1} of ${OUTPUTS.length}: `), el("code", null, OUTPUTS[i]), document.createTextNode(" is on by itself. What do you see on the strip?"));
+      const row = el("div", "answers");
+      for (const [v, t] of ANSWERS) row.appendChild(button(t, null, () => { answers[OUTPUTS[i]] = v; i + 1 < OUTPUTS.length ? step(i + 1) : finish(); }));
+      box.append(q, row, button("Cancel", null, stop)); area.appendChild(box); row.firstChild.focus();
+    };
+    const stop = () => { light(null); area.textContent = ""; btn.disabled = false; btn.focus(); };
+    const finish = () => {
+      light(null);
+      const map = {}; for (const o of OUTPUTS) if (answers[o]) map[answers[o]] = o;
+      const has = c => !!map[c], rgb = has("r") && has("g") && has("b");
+      const whites = ["w", "ww", "cw"].filter(has);
+      let type = null;
+      if (rgb && has("ww") && has("cw")) type = "rgbww";
+      else if (rgb && whites.length === 1) type = "rgbw";
+      else if (rgb && whites.length === 0) type = "rgb";
+      else if (!rgb && has("ww") && has("cw") && !has("w")) type = "wwcw";
+      else if (!has("r") && !has("g") && !has("b") && whites.length === 1) type = "w";
+      // a single white, whatever it was called, is "the white"
+      if (whites.length === 1 && (type === "rgbw" || type === "w")) { const o = map[whites[0]]; delete map.ww; delete map.cw; map.w = o; }
+      const said = Object.values(answers).filter(Boolean), dupes = new Set(said).size !== said.length;   // each light once
+      area.textContent = "";
+      const box = el("div", "checkbox"), p = el("p");
+      if (!type || dupes) {
+        p.textContent = "Those answers don't match a strip the controller knows (each light should appear once). Try again, or choose the strip type by hand.";
+        const again = button("Start again", null, () => step(0));
+        box.append(p, again, button("Cancel", null, stop)); area.appendChild(box); again.focus(); return;
+      }
+      const T = STRIP_TYPES[type];
+      const lines = T.ch.map(c => `${CH_NAMES[c]} is on output ${map[c]}`);
+      const moved = T.ch.filter(c => map[c] !== LABEL_MAP[c] && !(c === "w" && (map[c] === "WW" || map[c] === "CW")));
+      p.append(el("b", null, `Found: ${T.label}. `), document.createTextNode(lines.join(", ") + ". " + (moved.length
+        ? `${moved.map(c => CH_NAMES[c]).join(" and ")} ${moved.length > 1 ? "are" : "is"} not where the board labels say; the controller will correct for it, no rewiring needed.`
+        : "Everything matches the board labels.")));
+      const use = button("Use this", "primary", () => { save({ strip: type, wiring: wiringFor(type, map) }, "Strip type and wiring"); rebuild(); if (onApplied) onApplied(type); stop(); });
+      const btns = el("div", "inline"); btns.append(use, button("Start again", null, () => step(0)), button("Cancel", null, stop));
+      box.append(p, btns); area.appendChild(box); use.focus();
+    };
+    step(0);
+  }
+  $("checkBtn").addEventListener("click", () => wiringCheck($("checkArea"), $("checkBtn")));
 
-            document.getElementById("finishcolorchoice").style.display = show ? '' : 'none';
-            document.getElementById("finishendchoice").style.display = show ? '' : 'none';
+  // ---------- simple settings ----------
+  document.querySelectorAll("input[name=mode]").forEach(r => r.addEventListener("change", () =>
+    save({ mode: r.value }, "Mode: " + r.closest("label").querySelector(".t").textContent)));
+  let brightTimer = null;
+  function brightnessInput(v) {
+    S.brightness = v; $("brightnessOut").textContent = v; $("wzBrightnessOut").textContent = v; renderStatus();
+    if (brightTimer) return;   // live while dragging, at most ~8 updates a second
+    brightTimer = setTimeout(() => { brightTimer = null; save({ brightness: S.brightness }); }, 120);
+  }
+  $("brightness").addEventListener("input", () => brightnessInput(+$("brightness").value));
+  $("brightness").addEventListener("change", () => save({ brightness: +$("brightness").value }, "Brightness " + $("brightness").value + "%"));
+  $("followLight").addEventListener("change", () => save({ followLight: $("followLight").checked }, "Follow the printer's light"));
+  $("idleOff").addEventListener("change", () => save({ idleOffMin: +$("idleOff").value }, "Idle timeout"));
+  document.querySelectorAll("input[name=finishEnds]").forEach(r => r.addEventListener("change", () => { save({ finishEnds: r.value }, "Finished color ending"); applyModel(); }));
+  $("finishMin").addEventListener("change", () => { const v = Math.min(999, Math.max(1, Math.round(+$("finishMin").value) || 10)); $("finishMin").value = v; save({ finishMin: v }, "Finish minutes"); });
+  $("offlineSec").addEventListener("change", () => save({ offlineOffSec: +$("offlineSec").value }, "Unreachable timeout"));
+  document.querySelectorAll("[data-pl]").forEach(cb => cb.addEventListener("change", () =>
+    save({ printerLight: { [cb.dataset.pl]: cb.checked } }, cb.nextElementSibling.textContent)));
+  $("hmsIgnore").addEventListener("change", () => {
+    const v = $("hmsIgnore").value.split(/[\s,;]+/).filter(Boolean).map(x => x.toUpperCase().replace(/-/g, "_")).join("\n");
+    $("hmsIgnore").value = v; save({ hmsIgnore: v }, "HMS codes to ignore");
+  });
+  $("debugLog").addEventListener("change", () => save({ debugLog: $("debugLog").checked }, "Detailed log"));
+  $("mqttLog").addEventListener("change", () => save({ mqttLog: $("mqttLog").checked }, "Printer message log"));
+  $("model").addEventListener("change", () => { save({ model: $("model").value }, "Model"); rebuild(); });
+  $("rescanBtn").addEventListener("click", async () => {
+    try { await postJSON("/api/wifi-rescan", {}); toast("Looking for the strongest access point…"); } catch (e) { toast("Couldn't start it: " + e.message, true); }
+  });
 
-            if (show) {
-                setFinishChoice();
+  // ---------- tools (temporary: never saved) ----------
+  async function runTool(tool) {
+    const body = { tool };
+    if (tool === "test") body.colour = { kind: "custom", hex: $("testColor").value };
+    try { await postJSON("/api/tool", body); pollSoon(); $("stopTool").hidden = false; $("stopTool").focus(); }
+    catch (e) { toast("Couldn't start it: " + e.message, true); }
+  }
+  document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => runTool(b.dataset.tool)));
+  let testTimer = null;
+  $("testColor").addEventListener("input", () => {
+    if (!ST || ST.tool !== "test" || ST.preview || testTimer) return;   // follow the picker while the test runs
+    testTimer = setTimeout(() => { testTimer = null; postJSON("/api/tool", { tool: "test", colour: { kind: "custom", hex: $("testColor").value } }).then(pollSoon, () => {}); }, 150);
+  });
 
-                // Fix: max-height neu berechnen
-                const parentCollapse = document.getElementById("finishendchoice")?.closest("details.collapse");
-                if (parentCollapse) {
-                    const content = parentCollapse.querySelector("div");
-                    content.style.maxHeight = content.scrollHeight + "px";
-                }
-            }
-        }
+  // ---------- erase ----------
+  function showResetButton() {
+    const area = $("resetArea"); area.textContent = "";
+    const b = el("button", "danger", "Erase all settings…"); b.type = "button"; b.id = "resetBtn";
+    b.addEventListener("click", askReset); area.appendChild(b); return b;
+  }
+  function askReset() {
+    const area = $("resetArea"); area.textContent = "";
+    const box = el("div", "confirm"); box.setAttribute("role", "group"); box.setAttribute("aria-label", "Confirm erase");
+    const p = el("p", null, "Erase every setting, including Wi-Fi and the printer connection, and restart in setup mode?");
+    const yes = el("button", "danger", "Erase and restart"); yes.type = "button";
+    const no = el("button", null, "Cancel"); no.type = "button";
+    box.append(p, yes, no); area.appendChild(box); no.focus();
+    no.addEventListener("click", () => showResetButton().focus());
+    yes.addEventListener("click", async () => {
+      yes.disabled = no.disabled = true;
+      try { const r = await fetch("/factoryreset", { cache: "no-store" }); p.textContent = r.ok ? "Erased. The controller is restarting; join the BLLED_AP Wi-Fi hotspot to set it up again." : "Couldn't erase (HTTP " + r.status + ")."; }
+      catch (e) { p.textContent = "Couldn't reach the controller."; }
+    });
+  }
+  $("resetBtn").addEventListener("click", askReset);
 
-        function setFinishChoice() {
-            // The timer minutes only matter for "timer" and "either"
-            document.getElementById("finishtimeroption").style.display =
-                document.getElementById('finishEndDoor').checked ? 'none' : '';
-        }
-        //LED Behaviour (a radio group, so the browser keeps exactly one selected)
-        function showhideOptions() {
-            if (document.getElementById('showtestcolor').checked) {
-                document.getElementById("testcolorchoice").style.display = '';
-            } else {
-                document.getElementById("testcolorchoice").style.display = 'none';
-            }
-            if (document.getElementById('debugwifi').checked) {
-                //document.getElementById("displayWifiStrength").style.display = 'block';
-            } else {
-                //document.getElementById("displayWifiStrength").style.display = 'none';
-            }
-            if (document.getElementById('replicateLedState').checked) {
-                document.getElementById("runningcolorchoice").style.display = '';
-            } else {
-                document.getElementById("runningcolorchoice").style.display = 'none';
-            }
+  // ---------- model and printer ----------
+  function fillModelSelect(sel) {
+    sel.textContent = "";
+    const auto = el("option", null, "Use the detected model (" + detectedName() + ")"); auto.value = "auto"; sel.appendChild(auto);
+    for (const [k, M] of Object.entries(MODELS)) { const o = el("option", null, M.name + (M.tested || k === "other" ? "" : " (not tested)")); o.value = k; sel.appendChild(o); }
+    if (S.model !== "auto" && !MODELS[S.model]) { const o = el("option", null, S.model); o.value = S.model; sel.appendChild(o); }
+  }
+  let lastModelSig = "";
+  function applyModel() {
+    if (!S) return;
+    const sig = S.model + "|" + detected() + "|" + S.finishEnds;
+    if (sig === lastModelSig) return;
+    const lidarBefore = lastModelSig ? modelInfo(lastModelSig.split("|")[0] === "auto" ? lastModelSig.split("|")[1] : lastModelSig.split("|")[0]).lidar : null;
+    lastModelSig = sig;
+    const m = modelInfo(modelKey());
+    if (document.activeElement !== $("model")) { fillModelSelect($("model")); $("model").value = S.model; }
+    $("modelNote").textContent = m.note;
+    const f = currentPrinter();
+    $("modelDetected").textContent = (f.ip ? `Following the printer at ${f.ip}` + (f.serial ? ` (serial ending ${f.serial.slice(-4)})` : "") + ". " : "No printer set up yet. ") + `It reports itself as: ${detectedName()}.`;
+    const door = document.querySelector("input[name=finishEnds][value=door]"), either = document.querySelector("input[name=finishEnds][value=either]");
+    door.disabled = either.disabled = !m.door; $("lightDoor").disabled = !m.door;
+    $("finishDoorNote").textContent = m.door ? "So it stays until you've seen it." : "Not available: this model has no door sensor.";
+    $("finishFallback").hidden = m.door || S.finishEnds === "timer";
+    $("finishMinRow").hidden = S.finishEnds === "door" && m.door;
+    if (lidarBefore !== null && lidarBefore !== m.lidar) buildLooks();
+  }
+  function currentPrinter() {
+    const p = (PRINTERS.printers || []).find(x => x.current);
+    return { ip: CONN.printerIP || (p && p.ip) || "", serial: CONN.printerSerial || (p && p.serial) || "", name: p && p.name };
+  }
 
-        }
-        //Error colors
-        function showcustomColors() {
-            const div = document.getElementById("CustomColorsDiv");
-            if (document.getElementById('errorDetection').checked) {
-                div.style.display = '';
+  // ---------- section summaries and "Changed" markers ----------
+  let DEFAULTS = null;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function summaries() {
+    if (!S || !DEFAULTS) return;
+    const finish = { door: "finished ends on the door", timer: `finished ends after ${S.finishMin} min`, either: `finished ends on the door or after ${S.finishMin} min` }[S.finishEnds];
+    const pl = S.printerLight || {};
+    const lights = [["onPrintStart", "on at print start"], ["onDoor", "on when the door opens"], ["offIdle", "off when idle"], ["offFinishTimer", "off when the finish timer ends"]].filter(([k]) => pl[k]).map(([, t]) => t);
+    const wiringMoved = stripType().ch.some(c => c !== "w" && S.wiring && S.wiring[c] && S.wiring[c] !== LABEL_MAP[c]);
+    const rows = {
+      looks: [`${LOOK_TEXT[S.look][0]} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, S.look === "custom" && !same(S.custom, DEFAULTS.custom) || S.followLight !== DEFAULTS.followLight],
+      timing: [`${S.idleOffMin ? "Off after " + S.idleOffMin + " min idle" : "Stays on when idle"} · ${finish} · ${S.offlineOffSec ? "off when unreachable " + fmtSec(S.offlineOffSec) : "stays on when unreachable"}`,
+               S.idleOffMin !== DEFAULTS.idleOffMin || S.finishEnds !== DEFAULTS.finishEnds || S.finishMin !== DEFAULTS.finishMin || S.offlineOffSec !== DEFAULTS.offlineOffSec],
+      plight: [lights.length ? "Turns it " + lights.join(", ") : "Not controlled", lights.length > 0],
+      strip: [stripType().label + (wiringMoved ? " · wiring corrected" : ""), S.strip !== DEFAULTS.strip || Object.keys(S.wiring || {}).length > 0],
+      printer: [modelInfo(modelKey()).name + (S.model === "auto" ? " (detected)" : " (set by hand)"), S.model !== DEFAULTS.model],
+      tools: ["Color test, color cycle, Wi-Fi strength", false],
+      help: ["What the door does · start-up colors", false],
+      adv: [`HMS codes ignored: ${S.hmsIgnore.trim() ? S.hmsIgnore.trim().split(/\s+/).length : "none"} · logging ${S.debugLog || S.mqttLog ? "on" : "off"}`, !!S.hmsIgnore.trim() || S.debugLog || S.mqttLog],
+    };
+    for (const [k, [text, changed]] of Object.entries(rows)) {
+      const e = $("sum-" + k); if (!e) continue;
+      const sig = text + changed; if (e.dataset.sig === sig) continue; e.dataset.sig = sig;
+      e.textContent = text;
+      if (changed) e.appendChild(el("span", "changed", "Changed"));
+    }
+  }
+  let openFolds = [];
+  try { openFolds = JSON.parse(localStorage.getItem("blled-open-sections") || "[]"); } catch (e) { openFolds = []; }
+  document.querySelectorAll(".fold-btn").forEach(btn => {
+    const key = btn.dataset.fold, body = $("fb-" + key);
+    const setOpen = open => { btn.setAttribute("aria-expanded", String(open)); body.hidden = !open; };
+    setOpen(openFolds.includes(key));
+    btn.addEventListener("click", () => {
+      const open = btn.getAttribute("aria-expanded") !== "true"; setOpen(open);
+      openFolds = open ? [...new Set(openFolds.concat(key))] : openFolds.filter(k => k !== key);
+      try { localStorage.setItem("blled-open-sections", JSON.stringify(openFolds)); } catch (e) {}
+    });
+  });
 
-                // ⬅️ Fix: max-height neu setzen
-                const parentCollapse = div.closest("details.collapse");
-                const content = parentCollapse.querySelector("div");
-                content.style.maxHeight = content.scrollHeight + "px";
+  // ---------- first-run setup: a modal dialog, four steps, each saves as you move on ----------
+  const wz = { dlg: $("setup"), steps: [...document.querySelectorAll(".wz-step")], i: 0, custom: null };
+  const IP_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+  function wzBuildPrinters() {
+    const host = $("wzPrinters"); host.textContent = "";
+    const found = (PRINTERS.printers || []).filter(p => p.ip && p.serial);
+    found.forEach((p, i) => {
+      const lab = el("label", "choice"), r = el("input");
+      r.type = "radio"; r.name = "wzPrinter"; r.value = String(i); r.id = "wz-printer-" + i; r.checked = !!p.current;
+      const title = [p.name, p.model ? modelInfo(p.model).name === "Unknown" ? p.model : modelInfo(p.model).name : null].filter(Boolean).join(" · ") || "Printer at " + p.ip;
+      lab.append(r, el("span", "t", title), el("span", "d", `Serial ending ${p.serial.slice(-4)} · ${p.ip}` + (p.current ? " · followed now" : "")));
+      host.appendChild(lab);
+    });
+    wz.found = found;
+    $("wzNoneFound").hidden = found.length > 0;
+    if (!document.querySelector("input[name=wzPrinter]:checked")) {
+      const cur = currentPrinter();
+      if (found.length && !cur.ip) $("wz-printer-0").checked = true;
+      else { $("wzPrinterManual").checked = true; $("wzIp").value = cur.ip; $("wzSerial").value = cur.serial; }
+    }
+    $("wzManual").hidden = !$("wzPrinterManual").checked;
+  }
+  function wzStep2() {
+    $("wzDetected").textContent = "The printer reports itself as: " + detectedName() + ".";
+    fillModelSelect($("wzModel")); $("wzModel").value = S.model;
+    $("wzModelNote").textContent = modelInfo($("wzModel").value === "auto" ? detected() : $("wzModel").value).note;
+  }
+  function wzBuildCustomRows() {
+    const host = $("wzCustomRows"); host.textContent = "";
+    const lidar = modelInfo(modelKey()).lidar;
+    for (const [key, label] of STATES) {
+      if (key === "preparing" && !lidar) continue;
+      const draft = wz.custom[key], row = el("div", "look"), controls = el("div", "controls");
+      const cc = colourControl("wz-look-" + key + "-colour", draft.colour, label + " color", false, false);
+      const rs = rhythmSelect("wz-look-" + key + "-rhythm", draft.rhythm, label + " rhythm", false);
+      cc.sel.addEventListener("change", () => { draft.colour = cc.value(); });
+      cc.pick.addEventListener("input", () => { draft.colour = cc.value(); });
+      rs.addEventListener("change", () => { draft.rhythm = rs.value; });
+      controls.append(cc.wrap, rs); row.append(el("h3", "name", label), controls); host.appendChild(row);
+    }
+  }
+  function wzShowCustom() { const on = $("wzLook").value === "custom"; $("wzCustom").hidden = !on; if (on) wzBuildCustomRows(); $("wzLookHint").textContent = LOOK_TEXT[$("wzLook").value][1]; }
+  function wzFill() {
+    wz.custom = clone(S.custom);   // a draft of the Custom set, saved with step 4
+    $("wzWifi").textContent = CONN.ssid ? `Wi-Fi: connected to ${CONN.ssid}.` : "Wi-Fi: not set up.";
+    for (const r of document.querySelectorAll("input[name=wzPrinter]")) r.checked = false;
+    $("wzIp").value = ""; $("wzSerial").value = ""; $("wzCode").value = ""; $("wzLookup").textContent = "";
+    $("wzCode").placeholder = CONN.hasAccessCode ? "Saved (leave blank to keep it)" : "";
+    $("wzCodeHint").textContent = "8 characters. On the printer: Settings → Network → \"Access Code\" (LAN mode)." + (CONN.hasAccessCode ? " Leave blank to keep the saved code." : "");
+    $("wzWait").hidden = true;
+    wzBuildPrinters(); wzStep2();
+    stripRadios($("wzStripTypes"), "wzStripType", S.strip);
+    $("wzLook").value = S.look; wzShowCustom();
+    $("wzBrightness").value = S.brightness; $("wzBrightnessOut").textContent = S.brightness;
+  }
+  function wzShow(i) {
+    wz.i = i;
+    wz.steps.forEach((st, j) => st.hidden = j !== i);
+    $("wzCount").textContent = `Step ${i + 1} of ${wz.steps.length}`;
+    $("wzBack").hidden = i === 0;
+    $("wzNext").textContent = i === wz.steps.length - 1 ? "Finish" : "Next";
+    wz.steps[i].querySelector("h2").focus();
+  }
+  function wzError(input, errEl, bad) { input.setAttribute("aria-invalid", String(bad)); errEl.hidden = !bad; return bad; }
+  // Serial from the address: the controller reads it from the printer's TLS certificate.
+  async function wzLookup() {
+    const ip = $("wzIp").value.trim(), out = $("wzLookup");
+    if (!IP_RE.test(ip)) { out.textContent = ""; return; }
+    out.textContent = "Looking up the printer at " + ip + "…"; $("wzLookupBtn").disabled = true;
+    try {
+      const r = await getJSON("/api/lookup?ip=" + encodeURIComponent(ip));
+      if (r.serial) { $("wzSerial").value = r.serial; wzError($("wzSerial"), $("wzSerialErr"), false);
+        out.textContent = `Found a printer. Serial read from it: ending ${r.serial.slice(-4)}.`; }
+      else out.textContent = `No printer answered at ${ip}. Check the address, or type the serial number below.`;
+    } catch (e) { out.textContent = `Couldn't look it up (${e.message}). Type the serial number below.`; }
+    $("wzLookupBtn").disabled = false;
+  }
+  // Wait for the controller to come back after a restart, then carry on at step 2.
+  async function wzWaitForRestart() {
+    $("wzWait").hidden = false; $("wzNext").disabled = $("wzBack").disabled = $("wzLater").disabled = true;
+    $("wzWaitText").textContent = "Saved. The controller is restarting to connect to the printer…";
+    try { sessionStorage.setItem("blled-setup-resume", "1"); } catch (e) {}
+    await new Promise(r => setTimeout(r, 5000));
+    for (let i = 0; i < 30; i++) {
+      try { await getJSON("/api/status"); location.reload(); return; } catch (e) {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    $("wzWaitText").textContent = "The controller hasn't come back yet. Reload this page in a minute; setup carries on where you left it.";
+    $("wzLater").disabled = false;
+  }
+  // Validate and save the current step. Resolves false to stay on it.
+  async function wzSaveStep() {
+    const step = wz.steps[wz.i].dataset.step;
+    if (step === "connection") {
+      const picked = document.querySelector("input[name=wzPrinter]:checked");
+      const manual = !picked || picked.value === "manual";
+      const p = manual ? { ip: $("wzIp").value.trim(), serial: $("wzSerial").value.trim() } : wz.found[+picked.value];
+      const code = $("wzCode").value.trim();
+      const bad = [
+        [manual && wzError($("wzIp"), $("wzIpErr"), !IP_RE.test(p.ip)), $("wzIp")],
+        [manual && wzError($("wzSerial"), $("wzSerialErr"), !/^[A-Za-z0-9]{1,15}$/.test(p.serial)), $("wzSerial")],
+        [wzError($("wzCode"), $("wzCodeErr"), code ? code.length !== 8 : !CONN.hasAccessCode), $("wzCode")],
+      ].find(([isBad]) => isBad);
+      if (!manual) { wzError($("wzIp"), $("wzIpErr"), false); wzError($("wzSerial"), $("wzSerialErr"), false); }
+      if (bad) { bad[1].focus(); return false; }
+      try {
+        const r = await postJSON("/api/printer", { ip: p.ip, serial: p.serial, accessCode: code });
+        if (r.restart) { wzWaitForRestart(); return false; }
+      } catch (e) {
+        const field = { ip: ["wzIp", "wzIpErr"], serial: ["wzSerial", "wzSerialErr"], accessCode: ["wzCode", "wzCodeErr"] }[e.code];
+        if (field) { if (manual || field[0] === "wzCode") { wzError($(field[0]), $(field[1]), true); $(field[0]).focus(); } else toast("The controller refused that printer: " + e.message, true); }
+        else toast("Couldn't save the printer: " + e.message, true);
+        return false;
+      }
+      wzStep2();
+    } else if (step === "printer") {
+      save({ model: $("wzModel").value }, "Printer model"); rebuild();
+    } else if (step === "strip") {
+      const t = document.querySelector("input[name=wzStripType]:checked").value;
+      if (t !== S.strip) save({ strip: t, wiring: wiringFor(t, S.wiring) }, "Strip type: " + STRIP_TYPES[t].label);
+      rebuild();
+    } else if (step === "look") {
+      const choice = $("wzLook").value, patch = { look: choice, brightness: +$("wzBrightness").value };
+      if (choice === "custom") { patch.custom = {}; for (const [k] of STATES) patch.custom[k] = wz.custom[k]; }
+      save(patch, "Look and brightness"); syncControls(); rebuild();
+    }
+    return true;
+  }
+  function openSetup(at) { wzFill(); wz.dlg.showModal(); wzShow(at || 0); }
+  function finishSetup(done) {
+    if (wz.dlg.open) wz.dlg.close();
+    if (!S.setupDone) save({ setupDone: true }, done ? "Setup finished" : null);
+    else if (done) toast("Setup finished");
+    $("runSetup").focus();
+  }
+  $("wzNext").addEventListener("click", async () => {
+    $("wzNext").disabled = true;
+    const ok = await wzSaveStep();
+    if (!$("wzWait").hidden) return;
+    $("wzNext").disabled = false;
+    if (ok) wz.i < wz.steps.length - 1 ? wzShow(wz.i + 1) : finishSetup(true);
+  });
+  $("wzBack").addEventListener("click", () => wzShow(wz.i - 1));
+  $("wzLater").addEventListener("click", () => finishSetup(false));
+  wz.dlg.addEventListener("cancel", e => { if (!$("wzWait").hidden) { e.preventDefault(); return; } finishSetup(false); });   // Esc
+  $("wzModel").addEventListener("change", () => { const v = $("wzModel").value; $("wzModelNote").textContent = modelInfo(v === "auto" ? detected() : v).note; });
+  $("wzLook").addEventListener("change", wzShowCustom);
+  $("wzPrinterSet").addEventListener("change", e => {
+    if (e.target.name !== "wzPrinter") return;
+    const manual = $("wzPrinterManual").checked; $("wzManual").hidden = !manual; if (manual) $("wzIp").focus();
+  });
+  $("wzLookupBtn").addEventListener("click", wzLookup);
+  $("wzIp").addEventListener("change", wzLookup);
+  $("wzBrightness").addEventListener("input", () => { $("brightness").value = $("wzBrightness").value; brightnessInput(+$("wzBrightness").value); });
+  $("wzCheckBtn").addEventListener("click", () => wiringCheck($("wzCheckArea"), $("wzCheckBtn"), t => stripRadios($("wzStripTypes"), "wzStripType", t)));
+  ["wzCode", "wzIp", "wzSerial"].forEach(id => $(id).addEventListener("input", () => $(id).removeAttribute("aria-invalid")));
+  $("runSetup").addEventListener("click", () => openSetup(0));
 
-            } else {
-                div.style.display = 'none';
-            }
-        }
-        function hasP1() {
-            if (document.getElementById('p1Printer').checked) {
-                document.getElementById("doorSwitch").checked = false;
-                document.getElementById("AllowDoorSwitch").style.display = 'none';
+  // ---------- controls from settings ----------
+  function syncControls() {
+    const keep = document.activeElement;
+    const set = (id, fn) => { if ($(id) !== keep) fn($(id)); };
+    document.querySelectorAll("input[name=mode]").forEach(r => r.checked = r.value === S.mode);
+    syncPreset();
+    set("brightness", e => { e.value = S.brightness; $("brightnessOut").textContent = S.brightness; });
+    set("followLight", e => e.checked = S.followLight);
+    set("idleOff", e => { if (![...e.options].some(o => +o.value === S.idleOffMin)) { const o = el("option", null, S.idleOffMin + " min"); o.value = S.idleOffMin; e.appendChild(o); } e.value = String(S.idleOffMin); });
+    document.querySelectorAll("input[name=finishEnds]").forEach(r => r.checked = r.value === S.finishEnds);
+    set("finishMin", e => e.value = S.finishMin);
+    set("offlineSec", e => { if (![...e.options].some(o => +o.value === S.offlineOffSec)) { const o = el("option", null, fmtSec(S.offlineOffSec)); o.value = S.offlineOffSec; e.appendChild(o); } e.value = String(S.offlineOffSec); });
+    document.querySelectorAll("[data-pl]").forEach(cb => cb.checked = !!(S.printerLight || {})[cb.dataset.pl]);
+    set("hmsIgnore", e => e.value = S.hmsIgnore);
+    $("debugLog").checked = S.debugLog; $("mqttLog").checked = S.mqttLog;
+  }
+  function refresh() { renderStatus(); summaries(); lastModelSig = ""; applyModel(); }
+  function rebuild() { buildStrip(); buildLooks(); refresh(); }
 
-                document.getElementById("stage14WW").value = 255;
-                document.getElementById("stage1WW").value = 255;
-                document.getElementById("stage8WW").value = 255;
-                document.getElementById("stage9WW").value = 255;
-                document.getElementById("stage10WW").value = 255;
+  // ---------- start ----------
+  (async () => {
+    try {
+      [S, CONN] = await Promise.all([getJSON("/api/settings"), getJSON("/config.json").catch(() => ({}))]);
+    } catch (e) {
+      $("statusText").textContent = "Couldn't load the settings from the controller.";
+      $("statusReason").textContent = e.message + ". Reload the page to try again.";
+      return;
+    }
+    DEFAULTS = { custom: presetLooks("standard"), followLight: true, idleOffMin: 10, finishEnds: "door", finishMin: 10, offlineOffSec: 30, strip: "rgbww", model: "auto" };
+    try { PRINTERS = await getJSON("/api/printers"); } catch (e) {}
+    const cur = (PRINTERS.printers || []).find(p => p.current);
+    if (cur && cur.name) { $("pageTitle").textContent = cur.name + " lights"; document.title = cur.name + " lights"; }
+    syncControls(); buildStrip(); buildLooks(); summaries(); applyModel();
+    await poll(); openSocket();
+    let resume = false; try { resume = sessionStorage.getItem("blled-setup-resume") === "1"; sessionStorage.removeItem("blled-setup-resume"); } catch (e) {}
+    if (resume) openSetup(1);
+    else if (!S.setupDone) openSetup(0);
+  })();
+})();
 
-                document.getElementById("stage14CW").value = 255;
-                document.getElementById("stage1CW").value = 255;
-                document.getElementById("stage8CW").value = 255;
-                document.getElementById("stage9CW").value = 255;
-                document.getElementById("stage10CW").value = 255;
-                if (document.getElementById('finishIndication').checked) {
-                    // P1 printers have no door sensor: a door-based ending would never come
-                    if (!document.getElementById('finishEndTimer').checked) {
-                        document.getElementById('finishEndTimer').checked = true;
-                    }
-                    setFinishChoice();
-                }
-            } else {
-                document.getElementById("doorSwitch").checked = true;
-                document.getElementById("AllowDoorSwitch").style.display = '';
-
-                document.getElementById("stage14RGB").value = '#000000';
-                document.getElementById("stage1RGB").value = '#000000';
-                document.getElementById("stage8RGB").value = '#000000';
-                document.getElementById("stage9RGB").value = '#000000';
-                document.getElementById("stage10RGB").value = '#000000';
-
-                document.getElementById("stage14WW").value = 0;
-                document.getElementById("stage1WW").value = 0;
-                document.getElementById("stage8WW").value = 0;
-                document.getElementById("stage9WW").value = 0;
-                document.getElementById("stage10WW").value = 0;
-
-                document.getElementById("stage14CW").value = 0;
-                document.getElementById("stage1CW").value = 0;
-                document.getElementById("stage8CW").value = 0;
-                document.getElementById("stage9CW").value = 0;
-                document.getElementById("stage10CW").value = 0;
-
-                if (document.getElementById('finishIndication').checked) {
-                    document.getElementById('finishEndDoor').checked = true;
-                    setFinishChoice();
-                }
-            }
-        }
-
-        function getSafeNumber(val, fallback) {
-            return (val !== undefined) ? val : fallback;
-        }
-
-        function updateConfig() {
-            var xhr = new XMLHttpRequest();
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        try {
-                            var configData = JSON.parse(xhr.responseText);
-
-                            document.getElementById("firmwareversion").textContent = "Firmware Version: " + (configData.firmwareversion || "Unknown version");
-                            document.getElementById('brightnessslider').value = getSafeNumber(configData.brightness, 100);
-                            document.getElementById("brightnesssliderDisplay").textContent = "Brightness: " + getSafeNumber(configData.brightness, 100) + "%";
-                            var hostName = configData.host || "BLLED";
-                            var hostDisplay = hostName + " LED Settings";
-
-                            var hostLabel = document.getElementById("deviceNameDisplay");
-                            if (hostLabel) {
-                                hostLabel.textContent = hostDisplay;
-                            }
-                            document.getElementById('maintMode').checked = configData.maintMode || false;
-                            document.getElementById('discoMode').checked = configData.discoMode || false;
-                            document.getElementById('replicateLedState').checked = configData.replicateled || false;
-
-                            document.getElementById('runningRGB').value = configData.runningRGB || '';
-                            document.getElementById('runningWW').value = getSafeNumber(configData.runningWW, 255);
-                            document.getElementById('runningCW').value = getSafeNumber(configData.runningCW, 255);
-
-                            document.getElementById('showtestcolor').checked = configData.showtestcolor || false;
-                            document.getElementById('testRGB').value = configData.testRGB || '';
-                            document.getElementById('testWW').value = getSafeNumber(configData.testWW, 0);
-                            document.getElementById('testCW').value = getSafeNumber(configData.testCW, 0);
-
-                            document.getElementById('debugwifi').checked = configData.debugwifi || false;
-                            document.getElementById('finishIndication').checked = configData.finishindication || false;
-                            document.getElementById('finishColor').value = configData.finishColor || '';
-                            document.getElementById('finishWW').value = getSafeNumber(configData.finishWW, 0);
-                            document.getElementById('finishCW').value = getSafeNumber(configData.finishCW, 0);
-
-                            var finishDoor = configData.finishExit !== false;
-                            var finishTimer = !!configData.finishExitTimer;
-                            var finishMode = finishDoor && finishTimer ? 'finishEndEither' : (finishTimer ? 'finishEndTimer' : 'finishEndDoor');
-                            document.getElementById(finishMode).checked = true;
-                            setFinishChoice();
-                            document.getElementById('doorToggleSecs').value = getSafeNumber(configData.doorToggleSecs, 0);
-                            document.getElementById('statusAnimations').checked = configData.statusAnimations !== false;
-
-                            document.getElementById('finishTimerMins').value = getSafeNumber(configData.finishTimerMins, 10);
-                            document.getElementById('inactivityEnabled').checked = configData.inactivityEnabled || false;
-                            document.getElementById('inactivityMins').value = getSafeNumber(configData.inactivityMins, 30);
-
-                            document.getElementById('controlChamberLight').checked = configData.controlChamberLight || false;
-                            document.getElementById('debuging').checked = configData.debuging || false;
-                            document.getElementById('debugingchange').checked = configData.debugingchange || false;
-                            document.getElementById('mqttdebug').checked = configData.mqttdebug || false;
-                            document.getElementById('p1Printer').checked = configData.p1Printer || false;
-                            document.getElementById('doorSwitch').checked = configData.doorSwitch || false;
-
-                            const stages = ['stage14', 'stage1', 'stage8', 'stage9', 'stage10'];
-                            for (const s of stages) {
-                                document.getElementById(`${s}RGB`).value = configData[`${s}RGB`] || '';
-                                document.getElementById(`${s}WW`).value = getSafeNumber(configData[`${s}WW`], 0);
-                                document.getElementById(`${s}CW`).value = getSafeNumber(configData[`${s}CW`], 0);
-                            }
-
-                            document.getElementById('errorDetection').checked = configData.errordetection || false;
-
-                            const errorTypes = [
-                                'wifi', 'pause', 'firstlayer', 'nozzleclog', 'hmsSerious', 'hmsFatal',
-                                'filamentRunout', 'frontCover', 'nozzleTemp', 'bedTemp'
-                            ];
-                            for (const e of errorTypes) {
-                                document.getElementById(`${e}RGB`).value = configData[`${e}RGB`] || '';
-                                document.getElementById(`${e}WW`).value = getSafeNumber(configData[`${e}WW`], 0);
-                                document.getElementById(`${e}CW`).value = getSafeNumber(configData[`${e}CW`], 0);
-                            }
-
-                            document.getElementById('hmsIgnoreList').value = configData.hmsIgnoreList || '';
-
-                            updateIdle();
-                            showhideOptions();
-                            showcustomColors();
-                            setFinishColor();
-                            setFinishChoice();
-                            showMessage("Success", "Configuration loaded successfully!");
-                        } catch (e) {
-                            console.log(e);
-                            showMessage("Error", "Invalid server response! (" + e + ").");
-                        }
-                    } else if (xhr.status >= 400 && xhr.status < 500) {
-                        showMessage("Error", "Client Error (" + xhr.status + "): " + (xhr.responseText || "Request failed."));
-                    } else if (xhr.status >= 500) {
-                        showMessage("Error", "Server Error (" + xhr.status + "): " + (xhr.responseText || "Internal server error."));
-                    } else {
-                        showMessage("Error", "Unexpected response (" + xhr.status + ").");
-                    }
-                }
-            };
-            xhr.open('GET', '/getConfig', true);
-            xhr.send();
-        }
-        window.onload = function () {
-            // Brightness applies live while dragging and is saved when released.
-            var brightnessTimer = null;
-            function sendBrightness(value, save) {
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/setBrightness', true);
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.send('value=' + encodeURIComponent(value) + (save ? '&save=1' : ''));
-            }
-            document.getElementById("brightnessslider").addEventListener("input", function (e) {
-                document.getElementById("brightnesssliderDisplay").textContent = "Brightness: " + e.target.value + "%";
-                clearTimeout(brightnessTimer);
-                var v = e.target.value;
-                brightnessTimer = setTimeout(function () { sendBrightness(v, false); }, 120);
-            });
-            document.getElementById("brightnessslider").addEventListener("change", function (e) {
-                clearTimeout(brightnessTimer);
-                sendBrightness(e.target.value, true);
-            });
-            updateIdle();
-            updateConfig();
-            showhideOptions();
-            showcustomColors();
-            setFinishColor();
-            setFinishChoice();
-        };
-        function hideMessage() {
-            clearTimeout(showMessage.timer);
-            document.body.removeAttribute("message");
-            document.body.removeAttribute("message-type");
-            document.body.removeAttribute("message-icon");
-            document.body.removeEventListener("click", hideMessage);
-        }
-
-        function showMessage(type, message) {
-            clearTimeout(showMessage.timer);
-            showMessage.timer = setTimeout(hideMessage, 6000);
-
-            // Icon Mapping
-            let icon = "";
-            switch (type.toLowerCase()) {
-                case "success":
-                    icon = "✔️";
-                    break;
-                case "error":
-                    icon = "❌";
-                    break;
-                case "info":
-                    icon = "ℹ️";
-                    break;
-                default:
-                    icon = "🔔";
-            }
-
-            document.body.setAttribute("message", message);
-            document.body.setAttribute("message-type", type.toLowerCase());
-            document.body.setAttribute("message-icon", icon);
-            document.body.addEventListener("click", hideMessage);
-        }
-
-
-        /* Submit all form data */
-        function submitForm(event) {
-            event.preventDefault();
-
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/submitConfig', true);
-            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        alertToast("Success", "Settings saved successfully!");
-                        updateConfig();
-                    } else if (xhr.status >= 400 && xhr.status < 500) {
-                        alertToast("Error", "Client Error (" + xhr.status + "): " + (xhr.responseText || "Request failed."));
-                    } else if (xhr.status >= 500) {
-                        alertToast("Error", "Server Error (" + xhr.status + "): " + (xhr.responseText || "Internal server error."));
-                    } else {
-                        alertToast("Error", "Unexpected response (" + xhr.status + ").");
-                    }
-                }
-            };
-
-            xhr.onerror = function () {
-                alertToast("Error", "Network Error: Unable to reach server.");
-            };
-
-            xhr.ontimeout = function () {
-                alertToast("Error", "Request Timeout: The request took too long.");
-            };
-
-            xhr.onabort = function () {
-                alertToast("Error", "Request Aborted: The request was aborted.");
-            };
-
-            var formData = new FormData(document.querySelector('form'));
-            var parameters = [];
-            formData.forEach(function (value, key) {
-                parameters.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
-            });
-            var body = parameters.join('&');
-
-            try {
-                xhr.send(body);
-            } catch (err) {
-                alertToast("Error", "Exception during send: " + err.message);
-            }
-
-            return false;
-        }
-    </script>
-
-    <script>
-        //wifi svg draw
-        const minRSSI = -85, maxRSSI = -60;
-        function setWiFiSignal(rssi) {
-            const lv = ['level1', 'level2', 'level3', 'level4', 'level5'],
-                c = ['red', 'orange', 'gold', 'yellowgreen', 'green'],
-                p = Math.max(0, Math.min(100, Math.round((rssi - minRSSI) * 100 / (maxRSSI - minRSSI)))),
-                lvl = Math.floor(p / 25),
-                col = c[Math.min(lvl, 4)];
-            const svg = document.querySelector(".wifi-symbol");
-            if (svg) {
-                const title = svg.querySelector("title");
-                if (title) title.textContent = p + "% Strength";
-            }
-            lv.forEach((id, i) => {
-                const e = document.getElementById(id);
-                if (e) (e.tagName === "circle" ? e.setAttribute("fill", i <= lvl ? col : "#ccc")
-                    : e.setAttribute("stroke", i <= lvl ? col : "#ccc"));
-            });
-        }
-
-        function setOnlineStatus(isOnline) {
-            const onlineEl = document.getElementById("mqtt_online");
-            const offlineEl = document.getElementById("mqtt_offline");
-            if (onlineEl) onlineEl.style.display = isOnline ? "inline" : "none";
-            if (offlineEl) offlineEl.style.display = isOnline ? "none" : "inline";
-        }
-
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        ws.onopen = () => {
-        };
-        ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                setWiFiSignal(data.wifi_rssi);
-                setOnlineStatus(data.printerConnection);
-            } catch (error) {
-                console.error('json error:', event.data);
-            }
-        };
-        ws.onclose = () => {
-        };
-        ws.onerror = (error) => {
-            console.error('WebSocket error:', error);
-        };
-    </script>
+</script>
 </body>
-
 </html>
