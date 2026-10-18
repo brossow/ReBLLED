@@ -1,100 +1,95 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en-US">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>BLLED Config Backup</title>
-  <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Back up and restore</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/ui.css">
 </head>
-
 <body>
-  <canvas id="particleCanvas"></canvas>
-  <div id="container">
-    <div id="header">
-      <img id="logo" src="/blled.svg" alt="BLLED Logo">
-      <h1>Backup & Restore</h1>
+<main class="wrap page">
+  <header class="pagehead"><a href="/">← Lights</a><h1>Back up and restore</h1></header>
+
+  <section aria-labelledby="h-backup">
+    <h2 id="h-backup">Back up</h2>
+    <div class="card">
+      <p>Saves every setting to a file: lights, Wi-Fi, printer and login.</p>
+      <p class="warn">The file holds your Wi-Fi password and the printer's access code. Keep it somewhere private.</p>
+      <div class="inline"><button type="button" class="primary" id="download">Download a backup</button></div>
+      <p class="status-line" id="downState" role="status" aria-live="polite"></p>
     </div>
-    <div class="form-container">
-      <div class="downloadConfigButton">
-        <button onclick="location.href='/configfile.json'">Download Config</button>
-      </div>
-      <hr>
+  </section>
 
-      <form id="uploadForm">
-        <label for="configUpload">Upload config file:</label>
-        <input type="file" id="configUpload" accept=".json" />
-        <button type="submit">Upload Config</button>
-        <div style="margin-top: 10px;">
-          <button type="button" style="background-color: #6c757d;" onclick="location.href='/'">Back</button>
-        </div>
-      </form>
+  <section aria-labelledby="h-restore">
+    <h2 id="h-restore">Restore</h2>
+    <form class="card" id="form" novalidate>
+      <p>Replaces every setting with the ones in a backup, then restarts. A backup from an older version is updated as it loads.</p>
+      <div class="field"><label for="file">Backup file (<code>.json</code>)</label>
+        <input type="file" id="file" accept=".json,application/json">
+        <p class="err" id="fileErr" hidden></p></div>
+      <div class="inline"><button type="submit" id="go" disabled>Restore and restart</button></div>
+      <p class="status-line" id="state" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const two = n => String(n).padStart(2, "0");
+  // The controller has no clock, so the browser names the file: blled-backup-2026-10-18-1655.json
+  function fileName() {
+    const d = new Date();
+    return `blled-backup-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.json`;
+  }
+  $("download").addEventListener("click", async () => {
+    const st = $("downState"); st.className = "status-line"; st.textContent = "Downloading…";
+    try {
+      const r = await fetch("/configfile.json", { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const url = URL.createObjectURL(await r.blob()), a = document.createElement("a");
+      a.href = url; a.download = fileName(); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      st.className = "status-line good"; st.textContent = "Saved as " + a.download + ".";
+    } catch (e) { st.className = "status-line bad"; st.textContent = "Couldn't download the backup (" + e.message + ")."; }
+  });
 
-      <p id="status"></p>
-    </div>
-  </div>
-
-  <script src="particleCanvas.js"></script>
-  <script>
-    const uploadForm = document.getElementById('uploadForm');
-    const configUpload = document.getElementById('configUpload');
-    const status = document.getElementById('status');
-
-    uploadForm.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const file = configUpload.files[0];
-      if (!file) {
-        status.textContent = "Please select a file.";
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("config", file);
-
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/configrestore", true);
-
-      xhr.onload = function () {
-        if (xhr.status === 200) {
-          status.textContent = "Upload successful. Waiting for device...";
-          tryReconnect();
-        } else {
-          status.textContent = "Upload failed.";
-        }
-      };
-
-      xhr.onerror = function () {
-        status.textContent = "Upload failed (connection error).";
-      };
-
-      xhr.send(formData);
-    });
-
-    function tryReconnect() {
-      let attempts = 0;
-      const maxAttempts = 30;
-
-      const interval = setInterval(() => {
-        fetch("/")
-          .then(response => {
-            if (response.ok) {
-              clearInterval(interval);
-              status.textContent = "Device is back online. Redirecting...";
-              setTimeout(() => {
-                location.href = "/";
-              }, 1000);
-            }
-          })
-          .catch(() => {
-            attempts++;
-            if (attempts >= maxAttempts) {
-              clearInterval(interval);
-              status.textContent = "Device did not come back online.";
-            }
-          });
-      }, 2000);
+  const say = (text, cls) => { $("state").className = "status-line" + (cls ? " " + cls : ""); $("state").textContent = text; };
+  // Check it's a backup before the controller sees it (the controller checks again).
+  async function checkFile(f) {
+    if (!f) return "Choose a backup file.";
+    if (f.size > 16384) return "That file is too big to be a backup.";
+    try { const j = JSON.parse(await f.text()); if (!j || typeof j.ssid !== "string") return "That isn't a backup from this controller."; }
+    catch (e) { return "That file isn't a backup (it isn't valid JSON)."; }
+    return "";
+  }
+  $("file").addEventListener("change", async () => {
+    const problem = await checkFile($("file").files[0]);
+    $("fileErr").textContent = problem; $("fileErr").hidden = !problem; $("file").setAttribute("aria-invalid", String(!!problem));
+    $("go").disabled = !!problem; say("");
+  });
+  async function waitForRestart() {
+    await new Promise(r => setTimeout(r, 5000));
+    for (let i = 0; i < 30; i++) {
+      try { const r = await fetch("/api/status", { cache: "no-store" }); if (r.ok) { say("Restored. ", "good"); const a = document.createElement("a"); a.href = "/"; a.textContent = "Back to the lights"; $("state").appendChild(a); return; } } catch (e) {}
+      await new Promise(r => setTimeout(r, 2000));
     }
-  </script>
+    say("It hasn't come back yet. If the backup is from another network, the controller is now on that network (or its setup hotspot, BLLED_AP).", "bad");
+  }
+  $("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = $("file").files[0], problem = await checkFile(f);
+    if (problem) { $("fileErr").textContent = problem; $("fileErr").hidden = false; $("file").focus(); return; }
+    $("go").disabled = $("file").disabled = true; say("Uploading…");
+    const fd = new FormData(); fd.append("config", f, f.name);
+    try {
+      const r = await fetch("/configrestore", { method: "POST", body: fd });
+      if (!r.ok) { say((await r.text()) || "Not restored (HTTP " + r.status + ").", "bad"); $("go").disabled = $("file").disabled = false; return; }
+      say("Restored. The controller is restarting…"); waitForRestart();
+    } catch (e2) { say("The upload was cut off; nothing was changed. Try again.", "bad"); $("go").disabled = $("file").disabled = false; }
+  });
+})();
+</script>
 </body>
-
 </html>

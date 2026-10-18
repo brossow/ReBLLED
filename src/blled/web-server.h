@@ -53,17 +53,6 @@ void handleUpdatePage(AsyncWebServerRequest *request)
     request->send(response);
 }
 
-void handleGetIcon(AsyncWebServerRequest *request)
-{
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-    AsyncWebServerResponse *response = request->beginResponse(200, blled_svg_gz_mime, blled_svg_gz, blled_svg_gz_len);
-    response->addHeader("Content-Encoding", "gzip");
-    request->send(response);
-}
-
 void handleGetfavicon(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
@@ -71,17 +60,6 @@ void handleGetfavicon(AsyncWebServerRequest *request)
         return request->requestAuthentication();
     }
     AsyncWebServerResponse *response = request->beginResponse(200, favicon_png_gz_mime, favicon_png_gz, favicon_png_gz_len);
-    response->addHeader("Content-Encoding", "gzip");
-    request->send(response);
-}
-
-void handleGetPCC(AsyncWebServerRequest *request)
-{
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-    AsyncWebServerResponse *response = request->beginResponse(200, particleCanvas_js_gz_mime, (const uint8_t *)particleCanvas_js_gz, particleCanvas_js_gz_len);
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
 }
@@ -110,13 +88,14 @@ void handlePrinterConfigJson(AsyncWebServerRequest *request)
     request->send(200, "application/json", json);
 }
 
-void handleStyleCss(AsyncWebServerRequest *request)
+// The stylesheet every page shares (src/www/ui.css).
+void handleUiCss(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
     {
         return request->requestAuthentication();
     }
-    AsyncWebServerResponse *response = request->beginResponse(200, style_css_gz_mime, style_css_gz, style_css_gz_len);
+    AsyncWebServerResponse *response = request->beginResponse(200, ui_css_gz_mime, ui_css_gz, ui_css_gz_len);
     response->addHeader("Content-Encoding", "gzip");
     request->send(response);
 }
@@ -298,7 +277,9 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
     String ssid = param("ssid");
     String pass = param("pass");
     String bssid = param("bssid");
-    if (ssid.length() > 0 && ssid != globalVariables.SSID && pass.length() == 0)
+    // open=1: the page says the chosen network has no password.
+    const bool openNetwork = param("open") == "1";
+    if (ssid.length() > 0 && ssid != globalVariables.SSID && pass.length() == 0 && !openNetwork)
     {
         // The stored password belongs to the old network; don't silently reuse it.
         request->send(400, "text/plain", "Enter the WiFi password for the new network.");
@@ -310,7 +291,9 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
         LogSerial.println(ssid);
         strlcpy(globalVariables.SSID, ssid.c_str(), sizeof(globalVariables.SSID));
     }
-    if (pass.length() > 0)
+    if (openNetwork && pass.length() == 0)
+        globalVariables.APPW[0] = '\0';
+    else if (pass.length() > 0)
     {
         LogSerial.println(F("[WiFiSetup] WiFi password updated"));
         strlcpy(globalVariables.APPW, pass.c_str(), sizeof(globalVariables.APPW));
@@ -509,14 +492,12 @@ void setupWebserver()
     } });
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
     setupApiRoutes();
-    webServer.on("/blled.svg", HTTP_GET, handleGetIcon);
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
-    webServer.on("/particleCanvas.js", HTTP_GET, handleGetPCC);
     webServer.on("/config.json", HTTP_GET, handlePrinterConfigJson);
     webServer.on("/wifi", HTTP_GET, handleWiFiSetupPage);
     webServer.on("/wifiScan", HTTP_GET, handleWiFiScan);
     webServer.on("/submitWiFi", HTTP_POST, handleSubmitWiFi);
-    webServer.on("/style.css", HTTP_GET, handleStyleCss);
+    webServer.on("/ui.css", HTTP_GET, handleUiCss);
     webServer.on("/backuprestore", HTTP_GET, handleConfigPage);
     webServer.on("/configfile.json", HTTP_GET, handleDownloadConfigFile);
     webServer.on("/webserial", HTTP_GET, handleWebSerialPage);

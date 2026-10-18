@@ -85,9 +85,9 @@ void setup()
     lightsStatusColour(255, 165, 0); // orange: joining Wi-Fi
     setupSerial();
 
-    if (strlen(globalVariables.SSID) == 0 || strlen(globalVariables.APPW) == 0)
+    if (strlen(globalVariables.SSID) == 0) // (an empty password is an open network)
     {
-        Serial.println(F("SSID or password is missing. Please configure both by going to: https://dutchdevelop.com/blled-configuration-setup/"));
+        Serial.println(F("No Wi-Fi network set up: join the BLLED_AP hotspot to choose one."));
         lightsStatusColour(255, 0, 255); // pink: no Wi-Fi configured, setup hotspot on
         startAPMode();
         setupWebserver();

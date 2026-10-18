@@ -1,157 +1,96 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="en-US">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>BLLED OTA Update</title>
-    <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Firmware update</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/ui.css">
 </head>
-
 <body>
-    <canvas id="particleCanvas"></canvas>
+<main class="wrap page">
+  <header class="pagehead"><a href="/">← Lights</a><h1>Firmware update</h1></header>
 
-    <div id="container">
-        <div id="header">
-            <img id="logo" src="/blled.svg" alt="BLLED Logo">
-            <h1>BLLED OTA Update</h1>
-        </div>
+  <section aria-labelledby="h-now">
+    <h2 id="h-now" class="visually-hidden">Installed</h2>
+    <p id="current">Installed: checking…</p>
+    <p class="hint">Settings are kept through an update. A backup first is still wise: <a href="/backuprestore">Back up and restore</a>.</p>
+  </section>
 
-        <div class="form-container">
-            <form enctype="multipart/form-data" id="upload_form" method="post">
-                <label for="file1">Select .bin.ota File</label>
-                <input accept='.bin.ota' id="file1" name='firmware' type="file">
-                <progress id="progressBar" max="100" value="0"></progress>
-                <button id="button-send" type="submit" disabled>Update Firmware</button>
+  <section aria-labelledby="h-up">
+    <h2 id="h-up">Install a new version</h2>
+    <form class="card" id="form" novalidate>
+      <div class="field"><label for="file">Firmware file (<code>.bin.ota</code>)</label>
+        <input type="file" id="file" accept=".ota" aria-describedby="fileHint">
+        <p class="hint" id="fileHint">The over-the-air file, e.g. <code>BLLC_V2.3.0-br.3.bin.ota</code>, not the larger <code>.bin</code> for USB.</p>
+        <p class="err" id="fileErr" hidden></p></div>
+      <progress id="progress" max="100" value="0" hidden aria-label="Upload progress"></progress>
+      <div class="inline"><button type="submit" class="primary" id="go" disabled>Install</button></div>
+      <p class="status-line" id="state" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  let before = "";
+  async function version() { const r = await fetch("/api/status", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return (await r.json()).firmware || ""; }
+  version().then(v => { before = v; $("current").textContent = "Installed: " + (v || "unknown"); }).catch(() => { $("current").textContent = "Installed: couldn't ask the controller."; });
 
-                <div style="margin-top: 10px;">
-                    <button type="button" style="background-color: #6c757d;" onclick="location.href='/'">Back</button>
-                </div>
-            </form>
-            <p id="status">Status: Ready</p>
-        </div>
-    </div>
+  const say = (text, cls) => { $("state").className = "status-line" + (cls ? " " + cls : ""); $("state").textContent = text; };
+  // An ESP32 firmware image starts with 0xE9; catches the wrong file before it's uploaded.
+  async function checkFile(f) {
+    if (!f) return "Choose a firmware file.";
+    if (!/\.ota$/i.test(f.name)) return "That isn't a .bin.ota file.";
+    const b = new Uint8Array(await f.slice(0, 1).arrayBuffer());
+    if (b[0] !== 0xE9) return "That file isn't firmware for this controller.";
+    return "";
+  }
+  $("file").addEventListener("change", async () => {
+    const problem = await checkFile($("file").files[0]);
+    $("fileErr").textContent = problem; $("fileErr").hidden = !problem; $("file").setAttribute("aria-invalid", String(!!problem));
+    $("go").disabled = !!problem; say("");
+  });
 
-    <script src="particleCanvas.js"></script>
-    <script>
+  async function waitForReboot() {
+    await new Promise(r => setTimeout(r, 6000));
+    for (let i = 0; i < 40; i++) {
+      try {
+        const v = await version();
+        $("current").textContent = "Installed: " + v;
+        say(v && v !== before ? `Updated to ${v}.` : `It's back (version ${v || "unknown"}).`, "good");
+        const a = document.createElement("a"); a.href = "/"; a.textContent = " Back to the lights"; $("state").appendChild(a);
+        return;
+      } catch (e) {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    say("It hasn't come back yet. Wait a minute and reload. If it never does, the USB recovery is in the project's README.", "bad");
+  }
 
-        function alertToast(type, message) {
-            const toast = document.getElementById("toast");
-            const icon = document.getElementById("toast-icon");
-            const msg = document.getElementById("toast-msg");
-
-            let iconChar = "ℹ️";
-            let color = "#333";
-
-            switch (type.toLowerCase()) {
-                case "success":
-                    iconChar = "✅";
-                    color = "#28a745";
-                    break;
-                case "error":
-                    iconChar = "❌";
-                    color = "#dc3545";
-                    break;
-                case "warning":
-                    iconChar = "⚠️";
-                    color = "#ffc107";
-                    break;
-                case "info":
-                default:
-                    iconChar = "ℹ️";
-                    color = "#17a2b8";
-            }
-
-            toast.style.backgroundColor = color;
-            icon.textContent = iconChar;
-            msg.textContent = message;
-
-            toast.classList.add("show");
-            setTimeout(() => toast.classList.remove("show"), 3000);
-        }
-
-        function _(el) { return document.getElementById(el); }
-
-        function uploadFile() {
-            var file = _("file1").files[0];
-            var formdata = new FormData();
-            formdata.append("firmware", file, file.name);
-            var ajax = new XMLHttpRequest();
-            ajax.upload.addEventListener("progress", progressHandler, false);
-            ajax.addEventListener("load", completeHandler, false);
-            ajax.addEventListener("loadstart", startHandler, false);
-            ajax.addEventListener("error", errorHandler, false);
-            ajax.addEventListener("abort", abortHandler, false);
-            ajax.open("POST", "/update");
-            ajax.send(formdata);
-        }
-
-        function progressHandler(event) {
-            var percent = Math.round((event.loaded / event.total) * 100);
-            _("progressBar").value = percent;
-        }
-
-        function completeHandler(event) {
-            _("progressBar").value = 0;
-            if (event.target.status !== 200) {
-                // The device answers 401/500 when the upload was refused or the update failed;
-                // it does not reboot, so don't report success.
-                _('status').textContent = event.target.responseText || ("Update failed (HTTP " + event.target.status + ")");
-                alertToast("error", "Firmware update failed!");
-                return;
-            }
-            _('status').textContent = "Upload complete. Rebooting...";
-            alertToast("success", "Firmware uploaded successfully!");
-
-            let attempts = 0;
-            let maxAttempts = 30;
-            const interval = setInterval(() => {
-                fetch("/")
-                    .then(response => {
-                        if (response.ok) {
-                            clearInterval(interval);
-                            alertToast("success", "Device is back online!");
-                            location.href = "/";
-                        }
-                    })
-                    .catch(() => {
-                        attempts++;
-                        if (attempts >= maxAttempts) {
-                            clearInterval(interval);
-                            alertToast("error", "Device did not come back online.");
-                        }
-                    });
-            }, 2000);
-        }
-
-        function startHandler(event) {
-            _('status').textContent = "Uploading...";
-            alertToast("info", "Uploading firmware...");
-        }
-
-        function errorHandler(event) {
-            _('status').textContent = "Upload failed.";
-            alertToast("error", "Firmware upload failed!");
-        }
-
-        function abortHandler(event) {
-            _('status').textContent = "Upload aborted.";
-            alertToast("warning", "Firmware upload aborted.");
-        }
-
-
-        _('upload_form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            uploadFile();
-        });
-
-        _('file1').addEventListener('change', function (e) {
-            _('button-send').disabled = !_("file1").files.length;
-            _('progressBar').value = 0;
-            _('status').textContent = "Firmware Upload!";
-        });
-    </script>
-    <div id="toast"><span id="toast-icon">ℹ️</span><span id="toast-msg">Placeholder</span></div>
+  $("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const f = $("file").files[0], problem = await checkFile(f);
+    if (problem) { $("fileErr").textContent = problem; $("fileErr").hidden = false; $("file").focus(); return; }
+    $("go").disabled = $("file").disabled = true;
+    const fd = new FormData(); fd.append("firmware", f, f.name);
+    const x = new XMLHttpRequest();
+    $("progress").hidden = false; $("progress").value = 0;
+    say("Uploading… Keep this page open.");
+    x.upload.onprogress = ev => { if (ev.lengthComputable) $("progress").value = Math.round(ev.loaded / ev.total * 100); };
+    x.onload = () => {
+      $("progress").hidden = true;
+      if (x.status !== 200) {   // refused or failed: the controller keeps running the old version
+        say((x.responseText || "Update failed (HTTP " + x.status + ").") + " The installed version is unchanged.", "bad");
+        $("go").disabled = $("file").disabled = false; return;
+      }
+      say("Uploaded. The controller is restarting with the new version…");
+      waitForReboot();
+    };
+    x.onerror = () => { $("progress").hidden = true; say("The upload was cut off. The installed version is unchanged; try again.", "bad"); $("go").disabled = $("file").disabled = false; };
+    x.open("POST", "/update"); x.send(fd);
+  });
+})();
+</script>
 </body>
-
 </html>

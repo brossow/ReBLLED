@@ -56,7 +56,7 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 - [ ] **LED mode:** choosing Color Test or RGB Cycle and then Replicate State works with one click each; only one is ever selected.
 - [ ] **Clickable labels:** clicking the words beside a switch toggles it.
 
-## v2 redesign (`2.3.0-br.3`)
+## v2 redesign (`2.3.0-br.3`, then `br.4` with the other pages redone)
 
 The settings file changes format on the first boot (the old one is kept on the device as
 `/blledconfig.v1.json`), so the backup below matters more than usual.
@@ -119,6 +119,20 @@ The settings file changes format on the first boot (the old one is kept on the d
       shows as the boot banner reappearing). The web server's task got a bigger stack for the
       autosave; this is where a shortfall would show.
 
+### The other pages (br.4)
+
+- [ ] **Wi-Fi and login:** your network is preselected and the password says "Saved"; the
+      followed printer is shown with a link to Run setup again (it opens the setup dialog).
+      Saving without changes restarts and the page says "It's back".
+- [ ] **Firmware update:** shows the installed version; picking the `.bin` (USB) file instead of
+      `.bin.ota` is refused before uploading; installing the next build shows its version after
+      the restart.
+- [ ] **Back up and restore:** Download a backup saves `blled-backup-<date>-<time>.json`.
+      Restoring that same file restarts and comes back with everything as it was.
+- [ ] **Log:** lines appear live; scrolling up pauses, scrolling to the bottom resumes;
+      Download saves a `.txt`.
+- [ ] Every page: light and dark mode, and a phone.
+
 ### Going back to br.2
 
 Upload `BLLC_V2.3.0-br.2.bin.ota` (Firmware update page or `tools/flash.sh`), then **restore
@@ -140,6 +154,7 @@ colours, so without the restore the strip stays dark. The restore is required, n
 | Door, idle, print colours | |
 | Restart keeps settings | |
 | No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
+| Other pages (br.4) | |
 
 ## If something goes wrong
 

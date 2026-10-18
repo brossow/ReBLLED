@@ -234,13 +234,12 @@ web page you visit when no WebUI login is set (as in br.2; the JSON API needs
 settings" boot colour uses the board labels (it's shown before the settings that hold the
 wiring load).
 
-## The other pages (next, before br.3 is finalised)
+## The other pages (done in br.4)
 
-Wi-Fi and printer setup (`wifiSetup.html`, also the `BLLED_AP` hotspot page), Firmware update
-(`updatePage.html`), Back up and restore (`backupRestore.html`) and the Web Serial log
-(`webSerialPage.html`) are still the v1 design (`style.css`, particle background). Redo them in
-the setup page's design (same tokens, light/dark, phone width, accessible) so the device feels
-like one thing:
+Wi-Fi (`wifiSetup.html`, also the `BLLED_AP` hotspot page), Firmware update (`updatePage.html`),
+Back up and restore (`backupRestore.html`) and the log (`webSerialPage.html`) are redone in the
+setup page's design. All pages share `/ui.css` (split out of the setup page); `style.css`,
+`particleCanvas.js` and `blled.svg` are gone. What was planned:
 
 - **Names, one style everywhere** (sentence case): "Wi-Fi and printer connection", "Firmware
   update", "Back up and restore" (verb form; the file is "a backup"), "Log". The current page
@@ -252,6 +251,25 @@ like one thing:
 - Wi-Fi page: it's the first-run page in hotspot mode, so it should lead into the setup dialog's
   later steps once the controller is on the network.
 - When `style.css` and `particleCanvas.js` have no users left, drop them (saves flash).
+
+What was built:
+
+- **Wi-Fi and login:** networks with signal strength (several access points of one network
+  are told apart), another/hidden network, password (blank keeps it), controller name, the
+  WebUI login. In hotspot mode it's titled "Set up the controller" and asks for the printer's
+  address, serial and access code; on the network it shows the followed printer and sends you
+  to "Run setup again" (`/#setup` opens the dialog), so the printer has one owner. After saving
+  it waits for the restart, or says where to find the controller when the network changed.
+- **Open networks** now work: the page sends `open=1` for a network without a password, and the
+  controller no longer treats an empty password as "not set up" at boot.
+- **Firmware update:** shows the installed version, checks the file is firmware (`.ota`, starts
+  with 0xE9) before uploading, progress, then waits for the restart and shows the new version.
+- **Back up and restore:** timestamped download `blled-backup-YYYY-MM-DD-HHMM.json` (browser
+  time), a warning that it holds the Wi-Fi password and access code, and a restore that checks
+  the file is a backup first.
+- **Log:** connection state, pause scrolling (also pauses when you scroll up), times on/off,
+  download (`blled-log-….txt`), clear; keeps the last 3,000 lines; reconnects by itself. The
+  unused command box is gone.
 
 ## Open questions for review
 

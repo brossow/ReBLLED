@@ -141,10 +141,19 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._send(200, open(f"{WWW}/setupPage.html", "rb").read(), "text/html")
         if p == "/fwupdate":
             return self._send(200, open(f"{WWW}/updatePage.html", "rb").read(), "text/html")
-        if p == "/style.css":
-            return self._send(200, open(f"{WWW}/style.css", "rb").read(), "text/css")
+        if p == "/ui.css":
+            return self._send(200, open(f"{WWW}/ui.css", "rb").read(), "text/css")
+        if p == "/backuprestore":
+            return self._send(200, open(f"{WWW}/backupRestore.html", "rb").read(), "text/html")
+        if p == "/webserial":
+            return self._send(200, open(f"{WWW}/webSerialPage.html", "rb").read(), "text/html")
+        if p == "/configfile.json":   # like the device: the whole config, secrets included (example values)
+            return self._send(200, json.dumps({"ssid": "HomeNet", "appw": "example-pass", "host": "BLLED",
+                "printerIp": state["conn"]["printerIP"], "accessCode": "12345678", "serialNumber": state["conn"]["printerSerial"],
+                "HTTPUser": "", "HTTPPass": "", "bssi": "", "leds": state["settings"]}, indent=2))
         if p == "/config.json":
-            return self._send(200, json.dumps(dict(state["conn"], hasPass=True, host="BLLED", webUser="", hasWebPass=False, isAPMode=False)))
+            return self._send(200, json.dumps(dict(state["conn"], hasPass=True, host="BLLED", webUser=state.get("webUser", ""),
+                hasWebPass=bool(state.get("webUser")), isAPMode=state.get("apMode", False))))
         if p == "/wifiScan":
             state["scan_calls"] += 1
             if state["scan_calls"] == 1:  # radio busy (e.g. WiFi reconnect attempt)
@@ -163,8 +172,17 @@ class H(http.server.BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length", 0)); body = self.rfile.read(n)
         p = urllib.parse.urlparse(self.path).path
         if p == "/submitWiFi":
-            state["submits"].append(urllib.parse.parse_qs(body.decode(), keep_blank_values=True))
+            f = urllib.parse.parse_qs(body.decode(), keep_blank_values=True)
+            state["submits"].append(f)
+            if f.get("ssid", [""])[0] not in ("", "HomeNet") and not f.get("pass", [""])[0] and f.get("open", [""])[0] != "1":
+                return self._send(400, "Enter the WiFi password for the new network.", "text/plain")
+            state["downUntil"] = time.time() + 6
             return self._send(200, "Settings saved, restarting...", "text/plain")
+        if p == "/configrestore":   # multipart upload; like the device, accept JSON with an ssid
+            state["restores"] = state.get("restores", 0) + 1
+            ok = b'"ssid"' in body
+            if ok: state["downUntil"] = time.time() + 6
+            return self._send(200 if ok else 400, "Config uploaded. Restarting..." if ok else "Config file rejected (not valid BLLED JSON). Nothing was changed.", "text/plain")
         if p.startswith("/api/"):
             try: j = json.loads(body or b"{}")
             except ValueError: return self._send(400, '{"error":"bad json"}')
@@ -202,12 +220,15 @@ class H(http.server.BaseHTTPRequestHandler):
         if p == "/_sim":
             j = json.loads(body or b"{}")
             with lock:
-                for k in ("tool", "check"):
+                for k in ("tool", "check", "apMode", "webUser"):
                     if k in j: state[k] = j.pop(k)
                 state["sim"].update(j)
             return self._send(200, json.dumps(state["sim"]))
-        if p == "/update":
-            return self._send(500, "Update failed - see the Web Serial log. The current firmware is still installed.", "text/plain")
+        if p == "/update":   # set "updateFails" with /_sim to see the failure path
+            if state["sim"].get("updateFails"):
+                return self._send(500, "Update failed - see the Web Serial log. The current firmware is still installed.", "text/plain")
+            state["downUntil"] = time.time() + 6
+            return self._send(200, "OK", "text/plain")
         return self._send(404, "", "text/plain")
 
 http.server.ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
