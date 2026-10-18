@@ -117,6 +117,17 @@ from **Run setup again** under More.
    a small strip preview inside the dialog).
 4. **How it looks:** Look and brightness.
 
+**Choosing the printer:** step 1 lists every printer the controller has heard announce itself
+(up to 10), each with its model, the name given to it in Bambu's app (if the announcement
+carries it; to confirm) and the end of its serial. One controller follows one printer; it's
+remembered by serial, so a changed IP is followed. If none are found (a printer on another
+network or VLAN), manual entry is preselected. **Typing an IP looks up the serial**: the
+controller connects to the printer's MQTT port and reads the name on its TLS certificate, which
+is the serial (seen on the author's X1C; `WiFiClientSecure::getPeerCertificate()` exists in core
+2.0.17). No access code is needed for that. If nothing answers, the serial is typed by hand.
+The same certificate can be remembered and checked on later connections (pinning), closing the
+SSDP-spoofing gap properly.
+
 Each step saves when you move on (the page's autosave model). **Finish later** keeps what's
 been chosen so far; Esc does the same. Errors are written next to the field and focus moves to
 the first one; each step's heading takes focus as you move. Everything else stays on the main

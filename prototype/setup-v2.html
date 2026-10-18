@@ -173,7 +173,7 @@ code { font-family: var(--mono); font-size: .9em; }
 <div class="statusbar">
   <div class="wrap" style="padding-block:0">
     <div class="row">
-      <h1>X1C lights</h1>
+      <h1 id="pageTitle">Workshop X1C lights</h1>
       <span class="inline"><button type="button" id="stopTool" class="primary" hidden>Stop</button><span class="conn" id="conn">Printer connected</span></span>
     </div>
     <div class="strip" id="strip" role="img" aria-labelledby="statusText"></div>
@@ -210,8 +210,12 @@ code { font-family: var(--mono); font-size: .9em; }
         <select id="simLight"><option value="on">On</option><option value="off">Off</option></select>
       </div>
       <div class="field">
-        <label for="simModel">Printer reports itself as</label>
+        <label for="simModel">Your printer reports itself as</label>
         <select id="simModel"></select>
+      </div>
+      <div class="field">
+        <label class="check"><input type="checkbox" id="simSecond"><span>A second printer on the network</span><span class="d">"Workshop X2D", so setup has two to choose from.</span></label>
+        <label class="check"><input type="checkbox" id="simDiscovery" checked><span>Printers announce themselves</span><span class="d">Off: as if the printer were on another network, so setup finds nothing.</span></label>
       </div>
       <div class="field">
         <label for="simStrip">Your physical strip</label>
@@ -420,18 +424,20 @@ code { font-family: var(--mono); font-size: .9em; }
         <select id="wzSsid"><option value="">Choose a network…</option><option>HomeNet-IoT</option><option>HomeNet</option><option>Neighbours-5G</option></select>
         <p class="err" id="wzSsidErr" hidden>Choose the Wi-Fi network the controller should join.</p></div>
       <div class="field"><label for="wzPass">Wi-Fi password</label><input type="password" id="wzPass" autocomplete="new-password"></div>
-      <fieldset><legend>Printer</legend>
-        <label class="choice"><input type="radio" name="wzPrinter" value="found" checked><span class="t" id="wzFoundName">X1 Carbon, found on your network</span><span class="d">Serial ending 4821 (example)</span></label>
-        <label class="choice"><input type="radio" name="wzPrinter" value="manual"><span class="t">Enter its address by hand</span><span class="d">If the printer isn't found automatically.</span></label>
+      <fieldset id="wzPrinterSet"><legend>Which printer should this controller follow?</legend>
+        <p class="hint" id="wzNoneFound" hidden>No printers found on this network. If the printer is on a different network (or VLAN), enter its address by hand.</p>
+        <div class="modes" id="wzPrinters"></div>
+        <label class="choice"><input type="radio" name="wzPrinter" value="manual" id="wzPrinterManual"><span class="t">Enter its address by hand</span><span class="d">If the printer isn't listed.</span></label>
       </fieldset>
       <div class="manual" id="wzManual" hidden>
         <div class="field"><label for="wzIp">Printer IP address</label>
-          <input type="text" id="wzIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" aria-describedby="wzIpHint">
+          <span class="inline"><input type="text" id="wzIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" aria-describedby="wzIpHint"><button type="button" id="wzLookupBtn">Look up</button></span>
+          <p class="hint" id="wzLookup" aria-live="polite"></p>
           <p class="hint" id="wzIpHint">On the printer: Settings → Network.</p>
           <p class="err" id="wzIpErr" hidden>Enter an address like 192.168.1.50.</p></div>
         <div class="field"><label for="wzSerial">Printer serial number</label>
           <input type="text" id="wzSerial" autocomplete="off" spellcheck="false" aria-describedby="wzSerialHint">
-          <p class="hint" id="wzSerialHint">On the printer: Settings → Device. The controller uses it to talk to the printer; when the printer is found automatically it reads it for you.</p>
+          <p class="hint" id="wzSerialHint">Filled in by Look up (the controller reads it from the printer). Otherwise: on the printer, Settings → Device.</p>
           <p class="err" id="wzSerialErr" hidden>Enter the printer's serial number.</p></div>
       </div>
       <div class="field"><label for="wzCode">Printer access code</label>
@@ -610,7 +616,13 @@ code { font-family: var(--mono); font-size: .9em; }
 
   // ---------- simulated printer ----------
   const sim = { state: "idle", light: "on", idleMin: 0, finishMin: 0, finishDone: false, previewUntil: 0, preview: null,
-                strip: "rgbw", wiring: "ok", check: null, detected: "X1C" };
+                strip: "rgbw", wiring: "ok", check: null, detected: "X1C",
+                // Example printers on documentation-only addresses (192.0.2.x), never real ones.
+                printers: [{ name: "Workshop X1C", model: "X1C", serial: "01S00A0000X4821", ip: "192.0.2.10" },
+                           { name: "Workshop X2D", model: "X2D", serial: "0SX00B0000Y7730", ip: "192.0.2.11" }],
+                secondOn: false, discovery: true, chosen: 0 };
+  const reachablePrinters = () => sim.printers.slice(0, sim.secondOn ? 2 : 1);   // on the network at all
+  const foundPrinters = () => sim.discovery ? reachablePrinters() : [];           // announced themselves
   // The simulated physical strip: which real light each controller output drives.
   function simWires() {
     const w = { rgbww: { R: "r", G: "g", B: "b", WW: "ww", CW: "cw" }, rgbw: { R: "r", G: "g", B: "b", WW: "w" },
@@ -693,6 +705,7 @@ code { font-family: var(--mono); font-size: .9em; }
     const mini = $("wzStrip");
     if (mini) { mini.className = strip.className + " mini"; mini.style.background = strip.style.background; mini.style.filter = strip.style.filter;
       mini.style.setProperty("--glow", strip.style.getPropertyValue("--glow")); }
+    $("pageTitle").textContent = sim.printers[sim.chosen].name + " lights";   // names the printer this controller follows
     $("stopTool").hidden = !S.tool;
     if (S.tool) $("stopTool").textContent = "Stop " + { test: "colour test", cycle: "colour cycle", wifi: "Wi-Fi strength" }[S.tool];
     summaries();
@@ -900,10 +913,13 @@ code { font-family: var(--mono); font-size: .9em; }
     for (const [k, M] of Object.entries(MODELS)) { const o = document.createElement("option"); o.value = k; o.textContent = M.name + (M.tested ? "" : k === "other" ? "" : " (not tested)"); sel.appendChild(o); }
     sel.value = S.model;
     const sm = $("simModel"); if (!sm.options.length) for (const [k, M] of Object.entries(MODELS)) if (k !== "other") { const o = document.createElement("option"); o.value = k; o.textContent = M.name; sm.appendChild(o); }
-    sm.value = sim.detected;
+    sm.value = sim.printers[0].model;
   }
   $("model").addEventListener("change", () => { S.model = $("model").value; applyModel(); buildLooks(); saved("Model"); });
-  $("simModel").addEventListener("change", () => { sim.detected = $("simModel").value; fillModelSelects(); applyModel(); buildLooks(); render(); logSim("The printer now reports itself as " + MODELS[sim.detected].name + "."); });
+  $("simSecond").addEventListener("change", () => { sim.secondOn = $("simSecond").checked; if (!sim.secondOn && sim.chosen === 1) { sim.chosen = 0; sim.detected = sim.printers[0].model; fillModelSelects(); applyModel(); buildLooks(); }
+    logSim(sim.secondOn ? "Workshop X2D is now on the network too. Run setup again to see both." : "Only your X1C is on the network."); render(); });
+  $("simDiscovery").addEventListener("change", () => { sim.discovery = $("simDiscovery").checked; logSim(sim.discovery ? "Printers announce themselves again." : "Printers no longer announce themselves: setup will find none. Look up by address still works."); });
+  $("simModel").addEventListener("change", () => { sim.printers[0].model = $("simModel").value; if (sim.chosen !== 0) return; sim.detected = $("simModel").value; fillModelSelects(); applyModel(); buildLooks(); render(); logSim("The printer now reports itself as " + MODELS[sim.detected].name + "."); });
   $("hmsIgnore").addEventListener("change", () => { S.hmsIgnore = $("hmsIgnore").value; saved("HMS codes to ignore"); });
   $("debugLog").addEventListener("change", () => { S.debugLog = $("debugLog").checked; saved("Detailed log"); });
   $("mqttLog").addEventListener("change", () => { S.mqttLog = $("mqttLog").checked; saved("Printer message log"); });
@@ -926,7 +942,8 @@ code { font-family: var(--mono); font-size: .9em; }
   function applyModel() {
     const m = MODELS[modelNow()];
     $("modelNote").textContent = m.note;
-    $("modelDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
+    const fp = sim.printers[sim.chosen];
+    $("modelDetected").textContent = `Following ${fp.name} (serial ending ${fp.serial.slice(-4)}). It reports itself as: ${MODELS[sim.detected].name}.`;
     const doorRadio = document.querySelector('input[name=finishEnds][value=door]');
     const eitherRadio = document.querySelector('input[name=finishEnds][value=either]');
     doorRadio.disabled = eitherRadio.disabled = !m.door; $("lightDoor").disabled = !m.door;
@@ -1090,16 +1107,51 @@ code { font-family: var(--mono); font-size: .9em; }
     }
   }
   function wzShowCustom() { const on = $("wzLook").value === "custom"; $("wzCustom").hidden = !on; if (on) wzBuildCustomRows(); }
+  function wzBuildPrinters() {
+    const host = $("wzPrinters"); host.textContent = "";
+    const found = foundPrinters();
+    found.forEach((p, i) => {
+      const lab = document.createElement("label"); lab.className = "choice";
+      lab.innerHTML = `<input type="radio" name="wzPrinter" value="${i}" id="wz-printer-${i}"><span class="t"></span><span class="d"></span>`;
+      lab.querySelector(".t").textContent = `${p.name} · ${MODELS[p.model].name}`;
+      lab.querySelector(".d").textContent = `Serial ending ${p.serial.slice(-4)} · ${p.ip}`;
+      host.appendChild(lab);
+    });
+    $("wzNoneFound").hidden = found.length > 0;
+    const pick = found[sim.chosen] ? $("wz-printer-" + sim.chosen) : found.length ? $("wz-printer-0") : $("wzPrinterManual");
+    pick.checked = true;
+    $("wzManual").hidden = pick !== $("wzPrinterManual");
+  }
+  function wzStep2Text() {
+    $("wzDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
+    const ms = $("wzModel"); ms.innerHTML = $("model").innerHTML; ms.value = S.model;
+    $("wzModelNote").textContent = MODELS[ms.value === "auto" ? sim.detected : ms.value].note;
+  }
+  // Serial from the address: the controller connects to the printer's MQTT port and reads the
+  // name on its TLS certificate, which is the serial (no access code needed for that).
+  function wzLookup() {
+    const ip = $("wzIp").value.trim(), out = $("wzLookup");
+    if (!/^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(ip)) { out.textContent = ""; return; }
+    out.textContent = "Looking up the printer at " + ip + "…";
+    $("wzLookupBtn").disabled = true;
+    setTimeout(() => {
+      $("wzLookupBtn").disabled = false;
+      const p = reachablePrinters().find(x => x.ip === ip);
+      if (p) { $("wzSerial").value = p.serial; wzError($("wzSerial"), $("wzSerialErr"), false);
+        out.textContent = `Found ${p.name} (${MODELS[p.model].name}). Serial read from the printer: ending ${p.serial.slice(-4)}.`; }
+      else out.textContent = `No printer answered at ${ip}. Check the address, or type the serial number below.`;
+    }, 700);
+  }
   function wzFill() {
     // A draft of the custom set: edited here, saved only when the step is saved.
     wz.custom = clone(S.preset === "custom" ? snapshotLooks() : S.customLooks);
-    $("wzFoundName").textContent = MODELS[sim.detected].name + ", found on your network";
-    $("wzDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
+    wzBuildPrinters();
+    wzStep2Text();
     const ms = $("wzModel"); ms.innerHTML = $("model").innerHTML; ms.value = S.model;
     $("wzModelNote").textContent = MODELS[ms.value === "auto" ? sim.detected : ms.value].note;
     wzBuildStripTypes();
     $("wzLook").value = S.preset; $("wzLookHint").textContent = LOOK_TEXT[S.preset][1]; wzShowCustom();
-    document.querySelector('input[name=wzPrinter][value=found]').checked = true; $("wzManual").hidden = true;
+    $("wzIp").value = ""; $("wzSerial").value = ""; $("wzLookup").textContent = "";
     $("wzBrightness").value = S.brightness; $("wzBrightnessOut").textContent = S.brightness;
   }
   function wzShow(i) {
@@ -1125,6 +1177,10 @@ code { font-family: var(--mono); font-size: .9em; }
       ].find(([isBad]) => isBad);
       if (!manual) { wzError($("wzIp"), $("wzIpErr"), false); wzError($("wzSerial"), $("wzSerialErr"), false); }
       if (bad) { bad[1].focus(); return false; }
+      if (!manual) sim.chosen = +document.querySelector("input[name=wzPrinter]:checked").value;
+      else { const i = sim.printers.findIndex(x => x.serial === $("wzSerial").value.trim() || x.ip === $("wzIp").value.trim()); if (i >= 0) sim.chosen = i; }
+      sim.detected = sim.printers[sim.chosen].model;
+      fillModelSelects(); applyModel(); buildLooks(); wzStep2Text(); render();
       saved("Wi-Fi and printer connection (prototype: nothing sent)");
     } else if (step === "printer") {
       S.model = $("wzModel").value; fillModelSelects(); applyModel(); buildLooks(); saved("Printer model");
@@ -1156,8 +1212,11 @@ code { font-family: var(--mono); font-size: .9em; }
   wz.dlg.addEventListener("cancel", () => finishSetup(false));          // Esc
   $("wzModel").addEventListener("change", () => { const v = $("wzModel").value; $("wzModelNote").textContent = MODELS[v === "auto" ? sim.detected : v].note; });
   $("wzLook").addEventListener("change", () => { $("wzLookHint").textContent = LOOK_TEXT[$("wzLook").value][1]; wzShowCustom(); });
-  document.querySelectorAll("input[name=wzPrinter]").forEach(r => r.addEventListener("change", () => {
-    const manual = r.value === "manual" && r.checked; $("wzManual").hidden = !manual; if (manual) $("wzIp").focus(); }));
+  $("wzPrinterSet").addEventListener("change", e => {
+    if (e.target.name !== "wzPrinter") return;
+    const manual = $("wzPrinterManual").checked; $("wzManual").hidden = !manual; if (manual) $("wzIp").focus(); });
+  $("wzLookupBtn").addEventListener("click", wzLookup);
+  $("wzIp").addEventListener("change", wzLookup);
   $("wzBrightness").addEventListener("input", () => { S.brightness = +$("wzBrightness").value; $("wzBrightnessOut").textContent = S.brightness; render(); });
   $("wzCheckBtn").addEventListener("click", () => wiringCheck($("wzCheckArea"), $("wzCheckBtn"), wzBuildStripTypes));
   ["wzSsid", "wzCode", "wzIp", "wzSerial"].forEach(id => $(id).addEventListener("input", () => $(id).removeAttribute("aria-invalid")));
@@ -1175,7 +1234,7 @@ code { font-family: var(--mono); font-size: .9em; }
     $("finishMin").value = S.finishMin; $("offlineSec").value = String(S.offlineSec);
     for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).checked = S[id];
     fillModelSelects();
-    $("simState").value = sim.state; $("simLight").value = sim.light; $("simStrip").value = sim.strip; $("simWiring").value = sim.wiring;
+    $("simState").value = sim.state; $("simLight").value = sim.light; $("simStrip").value = sim.strip; $("simWiring").value = sim.wiring; $("simSecond").checked = sim.secondOn; $("simDiscovery").checked = sim.discovery;
   }
   syncControls(); buildStrip(); buildMap(); applyModel(); buildLooks(); render();
   let seen = false; try { seen = localStorage.getItem("blled-proto-setup-seen") === "1"; } catch (e) {}
