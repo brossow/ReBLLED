@@ -170,8 +170,11 @@ the prototype, and why:
 - **Preview** uses the colour test with the state's rhythm for 5 seconds (`seconds` in
   `POST /api/tool`), so it ends even if the page is closed.
 - **Colour cycle** is disabled on strips without colours (the firmware cycles red, green and blue).
-- **Printer without a door sensor:** a finish set to end "when the door opens" ends on the timer
-  instead (firmware and page agree), as the prototype described.
+- **Printer without a door sensor:** door-only options are hidden, not greyed out (the prototype
+  greyed them): the finish just ends after the set minutes, and "turn the printer's light on when
+  the door opens" and the door help aren't shown. Saved choices are left alone, so they come back
+  with a model that has a door. As a safety net (a backup restored from another printer, a model
+  detected after the setting was saved), the firmware treats "door" as the timer on such a printer.
 - **Language:** written in US English; British spelling is applied when the browser's first
   language is en-GB, en-AU, en-NZ, en-IE, en-ZA or en-IN.
 - Removed endpoints: `/getConfig`, `/submitConfig`, `/setBrightness`. Added: `POST /api/printer`,
