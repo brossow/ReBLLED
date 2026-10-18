@@ -52,8 +52,8 @@ bool modelHasLidar()
     return strcmp(m, "X1") == 0 || strcmp(m, "X1C") == 0 || strcmp(m, "X1E") == 0 || strcmp(m, "other") == 0;
 }
 
-// Open-frame and door-less models (docs/REDESIGN.md); unknown = assume a door.
-bool modelHasDoor()
+// Models without a door sensor (some have a door, e.g. the P1S); unknown = assume one.
+bool modelHasDoorSensor()
 {
     const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
     return !(strcmp(m, "P1P") == 0 || strcmp(m, "P1S") == 0 || strcmp(m, "A1") == 0 || strcmp(m, "A1M") == 0);
@@ -61,7 +61,7 @@ bool modelHasDoor()
 // How the finished colour ends on this printer: without a door sensor, "door" means the timer.
 v2::FinishEnds finishEnds()
 {
-    return !modelHasDoor() && settings.finishEnds == v2::FIN_DOOR ? v2::FIN_TIMER : settings.finishEnds;
+    return !modelHasDoorSensor() && settings.finishEnds == v2::FIN_DOOR ? v2::FIN_TIMER : settings.finishEnds;
 }
 
 v2::Snapshot printerSnapshot()
