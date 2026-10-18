@@ -50,7 +50,7 @@ inline void freshDevice(v2::Settings s = v2::defaults()) {
   printerVariables = PrinterVariables{};
   printerConfig = PrinterConfig{};
   settings = s;
-  activeTool = v2::TOOL_NONE; checkOutput = -1; lastDecision = v2::Decision{};
+  activeTool = v2::TOOL_NONE; checkOutput = -1; testRhythm = v2::R_STEADY; toolEndsMs = 0; lastDecision = v2::Decision{};
   finishShowing = false; finishStartMs = 0; printerLightOnByUs = false; idleOffActive = false;
   shown = Shown{};
   for (auto &d : fake::duty) d = 0;

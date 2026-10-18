@@ -16,6 +16,8 @@
 v2::Settings settings = v2::defaults();
 v2::Tool activeTool = v2::TOOL_NONE;        // temporary, never saved
 v2::LookColour testColour = v2::rgb(255, 0, 0);
+v2::Rhythm testRhythm = v2::R_STEADY;       // a Status colours preview shows the rhythm too
+unsigned long toolEndsMs = 0;               // 0 = runs until Stop
 v2::Decision lastDecision;
 int8_t checkOutput = -1;                    // wiring check: the one output lit, or -1
 // Set by the web server's task; the loop applies it. A fade takes 500 ms and must not run
@@ -48,6 +50,18 @@ bool modelHasLidar()
     const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
     if (!m[0]) return true;
     return strcmp(m, "X1") == 0 || strcmp(m, "X1C") == 0 || strcmp(m, "X1E") == 0 || strcmp(m, "other") == 0;
+}
+
+// Open-frame and door-less models (docs/REDESIGN.md); unknown = assume a door.
+bool modelHasDoor()
+{
+    const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
+    return !(strcmp(m, "P1P") == 0 || strcmp(m, "P1S") == 0 || strcmp(m, "A1") == 0 || strcmp(m, "A1M") == 0);
+}
+// How the finished colour ends on this printer: without a door sensor, "door" means the timer.
+v2::FinishEnds finishEnds()
+{
+    return !modelHasDoor() && settings.finishEnds == v2::FIN_DOOR ? v2::FIN_TIMER : settings.finishEnds;
 }
 
 v2::Snapshot printerSnapshot()
@@ -109,6 +123,12 @@ void lightsUpdate(bool force = false)
 {
     StateLock lock;
     v2::Decision d = v2::decide(settings, printerSnapshot(), activeTool);
+    if (activeTool == v2::TOOL_TEST)
+    {
+        d.colour = testColour;
+        d.show = testColour.kind == v2::CK_OFF ? v2::SHOW_OFF : v2::SHOW_COLOUR;
+        d.rhythm = d.show == v2::SHOW_OFF ? v2::R_STEADY : testRhythm;
+    }
 
     // Idle-off just started: the printer's light rules that hang off it.
     const bool idleOff = d.reason == v2::RS_IDLE_OFF;
@@ -123,7 +143,7 @@ void lightsUpdate(bool force = false)
     next.show = d.show; next.rhythm = d.rhythm; next.check = checkOutput; next.tool = activeTool;
     v2::OutputLevels o;
     if (checkOutput >= 0) o.v[checkOutput] = 255;                         // wiring check
-    else if (d.show == v2::SHOW_COLOUR) o = outputsFor(activeTool == v2::TOOL_TEST ? testColour : d.colour);
+    else if (d.show == v2::SHOW_COLOUR) o = outputsFor(d.colour);
     else if (d.show == v2::SHOW_WIFI) o = outputsFor(wifiColour());
     memcpy(next.out, o.v, 5);
 
@@ -175,9 +195,15 @@ void lightsOnDoor(bool open)
 void lightsTimers()
 {
     StateLock lock;
+    if (toolEndsMs && (long)(millis() - toolEndsMs) >= 0)
+    {
+        activeTool = v2::TOOL_NONE; // a preview ran its time
+        toolEndsMs = 0;
+        lightsRefresh = true;
+    }
     if (printerVariables.gcodeState == "RUNNING" || printerVariables.gcodeState == "PAUSE")
         lightsActivity(); // never idle during a print
-    if (finishShowing && settings.finishEnds != v2::FIN_DOOR &&
+    if (finishShowing && finishEnds() != v2::FIN_DOOR &&
         millis() - finishStartMs >= (unsigned long)settings.finishMin * 60000UL)
     {
         finishShowing = false;
@@ -187,11 +213,15 @@ void lightsTimers()
 }
 
 // ---- tools and the wiring check (setup page; web server task) ----
-void lightsSetTool(v2::Tool t, const v2::LookColour *colour = nullptr)
+// `seconds` > 0 ends the tool by itself (a preview); 0 runs it until Stop.
+void lightsSetTool(v2::Tool t, const v2::LookColour *colour = nullptr, v2::Rhythm rhythm = v2::R_STEADY, unsigned seconds = 0)
 {
     StateLock lock;
     activeTool = t;
     if (colour) testColour = *colour;
+    testRhythm = rhythm;
+    toolEndsMs = seconds ? millis() + seconds * 1000UL : 0;
+    if (!toolEndsMs && seconds) toolEndsMs = 1; // (millis() wrapped to exactly 0)
     lightsRefresh = true;
 }
 void lightsCheckOutput(int8_t output)
