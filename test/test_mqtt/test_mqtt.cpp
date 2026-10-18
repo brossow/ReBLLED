@@ -30,7 +30,7 @@ void test_hms_override_clears_with_debug_logging_off() {
   TEST_ASSERT_EQUAL(999, printerVariables.overridestage); // was stuck at 17 in 2.3.0
 }
 void test_hms_ignore_list_from_the_settings_is_respected() {
-  settings.hmsIgnore = "HMS_0300-1200-0002-0001"; lightsSettingsChanged();
+  settings.hmsIgnore = "HMS_0300-1200-0002-0001"; lightsSettingsChanged(); lightsLoop();
   msg("{\"print\":{\"hms\":[{\"attr\":50336256,\"code\":131073}]}}");
   TEST_ASSERT_EQUAL(999, printerVariables.overridestage);
   TEST_ASSERT_EQUAL_STRING("", printerVariables.parsedHMSlevel.c_str());
