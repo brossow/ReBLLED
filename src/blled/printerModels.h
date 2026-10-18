@@ -35,14 +35,16 @@ namespace bblssdp
         return false;
     }
 
-    // DevModel codes mapped to the setup page's model keys. BL-P001 is confirmed on the author's X1
-    // Carbon (2026-10-18); the others are from public integrations.
-    // Other codes are passed through as they are, so the page shows them and keeps every option
-    // (add a code here once it's confirmed on a real printer).
+    // DevModel is the printer's model_id from Bambu Studio's printer profiles
+    // (resources/profiles/BBL/machine/*.json, read 2026-10-18); BL-P001 confirmed on the author's X1
+    // Carbon. Mapped to the setup page's model keys. A code not listed (a newer printer) is passed
+    // through as it is, so the page shows it and keeps every option.
     struct ModelCode { const char *code, *key; };
     static const ModelCode MODEL_CODES[] = {
-        {"BL-P001", "X1C"}, {"3DPrinter-X1-Carbon", "X1C"}, {"3DPrinter-X1", "X1"}, {"C13", "X1E"},
-        {"C11", "P1P"}, {"C12", "P1S"}, {"N1", "A1M"}, {"N2S", "A1"}, {"O1D", "H2D"},
+        {"BL-P001", "X1C"}, {"BL-P002", "X1"}, {"C13", "X1E"},
+        {"C11", "P1P"}, {"C12", "P1S"}, {"N7", "P2S"},
+        {"N2S", "A1"}, {"N1", "A1M"}, {"N9", "A2L"},
+        {"O1D", "H2D"}, {"O1E", "H2DPRO"}, {"O1S", "H2S"}, {"O1C2", "H2C"}, {"N6", "X2D"},
     };
     inline void modelKey(const char *code, char *out, size_t n)
     {
