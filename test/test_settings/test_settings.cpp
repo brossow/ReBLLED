@@ -202,6 +202,13 @@ void test_patch_rejects_bad_values_and_stays_v2() {
     TEST_ASSERT_EQUAL(s.brightness, applyPatch(s, q.as<JsonVariantConst>()).brightness);   // not an object
 }
 
+void test_white_levels_are_clamped() {
+  JsonDocument d; deserializeJson(d, R"({"kind":"custom","hex":"#000000","ww":300,"cw":-5})");
+  LookColour c = colourFromJson(d.as<JsonVariantConst>(), colour(CK_OFF));
+  TEST_ASSERT_EQUAL(255, c.ww);
+  TEST_ASSERT_EQUAL(0, c.cw);
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_defaults_are_standard_look);
@@ -216,5 +223,6 @@ int main() {
     RUN_TEST(test_v2_is_not_migrated_again);
     RUN_TEST(test_patch_changes_only_what_is_sent);
     RUN_TEST(test_patch_rejects_bad_values_and_stays_v2);
+    RUN_TEST(test_white_levels_are_clamped);
     return UNITY_END();
 }

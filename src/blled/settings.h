@@ -159,7 +159,8 @@ namespace v2
         if (c.kind == CK_CUSTOM)
         {
             if (!hexIn(v["hex"] | (const char *)nullptr, c.r, c.g, c.b)) return fallback;
-            c.ww = v["ww"] | 0; c.cw = v["cw"] | 0;
+            int ww = v["ww"] | 0, cw = v["cw"] | 0;
+            c.ww = ww < 0 ? 0 : ww > 255 ? 255 : ww; c.cw = cw < 0 ? 0 : cw > 255 ? 255 : cw;
         }
         return c;
     }

@@ -38,7 +38,7 @@ void test_preparing_without_lidar_keeps_the_printing_colour() {
   TEST_ASSERT_TRUE(showingWhite());
 }
 void test_brightness_scales_and_applies_live() {
-  settings.brightness = 50; lightsSettingsChanged();
+  settings.brightness = 50; lightsSettingsChanged(); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 127, 127));
   settings.brightness = 100; setBrightness(100);
   TEST_ASSERT_TRUE(ledsWhite());
@@ -46,24 +46,24 @@ void test_brightness_scales_and_applies_live() {
 
 // ---- strip types and the wiring check ----
 void test_rgbw_single_white_drives_both_white_outputs_until_pinned() {
-  settings.strip = v2::STRIP_RGBW; lightsSettingsChanged();
+  settings.strip = v2::STRIP_RGBW; lightsSettingsChanged(); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 255));
-  settings.wiring[v2::L_W] = v2::OUT_WW; lightsSettingsChanged();
+  settings.wiring[v2::L_W] = v2::OUT_WW; lightsSettingsChanged(); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 255, 0));
 }
 void test_wiring_lets_a_swapped_red_and_green_show_true_colours() {
   settings.wiring[v2::L_R] = v2::OUT_G; settings.wiring[v2::L_G] = v2::OUT_R;
-  lightsSettingsChanged();
+  lightsSettingsChanged(); lightsLoop();
   v2::LookColour red = v2::rgb(255, 0, 0);
-  lightsSetTool(v2::TOOL_TEST, &red);
+  lightsSetTool(v2::TOOL_TEST, &red); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 255, 0, 0, 0)); // red light is on the G output
 }
 void test_wiring_check_lights_one_output_then_restores() {
-  lightsCheckOutput(v2::OUT_B);
+  lightsCheckOutput(v2::OUT_B); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 255, 0, 0));
-  lightsCheckOutput(v2::OUT_CW);
+  lightsCheckOutput(v2::OUT_CW); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 0, 255));
-  lightsCheckOutput(-1);
+  lightsCheckOutput(-1); lightsLoop();
   TEST_ASSERT_TRUE(ledsWhite());
 }
 
@@ -207,10 +207,10 @@ void test_not_following_keeps_the_strip_on() {
   TEST_ASSERT_TRUE(showingWhite());
 }
 void test_modes_on_and_off_override_the_printer() {
-  settings.mode = v2::MODE_OFF; lightsSettingsChanged();
+  settings.mode = v2::MODE_OFF; lightsSettingsChanged(); lightsLoop();
   gcode("RUNNING", 0);
   TEST_ASSERT_TRUE(showingOff());
-  settings.mode = v2::MODE_ON; lightsSettingsChanged();
+  settings.mode = v2::MODE_ON; lightsSettingsChanged(); lightsLoop();
   printerLight(false);
   TEST_ASSERT_TRUE(showingWhite());
 }
@@ -233,27 +233,27 @@ void test_rejected_access_code_shows_dim_red() {
 // ---- tools ----
 void test_test_colour_overrides_the_printer_and_stops() {
   v2::LookColour c = v2::rgb(0x3f, 0x3c, 0xfb);
-  lightsSetTool(v2::TOOL_TEST, &c);
+  lightsSetTool(v2::TOOL_TEST, &c); lightsLoop();
   gcode("RUNNING", 0);
   TEST_ASSERT_TRUE(showing(0x3f, 0x3c, 0xfb, 0, 0));
-  lightsSetTool(v2::TOOL_NONE);
+  lightsSetTool(v2::TOOL_NONE); lightsLoop();
   TEST_ASSERT_TRUE(showingWhite());
 }
 void test_colour_cycle_uses_the_rgb_outputs_and_respects_brightness() {
-  settings.brightness = 50; lightsSettingsChanged();
-  lightsSetTool(v2::TOOL_CYCLE);
+  settings.brightness = 50; lightsSettingsChanged(); lightsLoop();
+  lightsSetTool(v2::TOOL_CYCLE); lightsLoop();
   for (int i = 0; i < 500; i++) {
     lightsLoop();
     Duty d = leds();
     TEST_ASSERT_TRUE(d.r <= 127 && d.g <= 127 && d.b <= 127);
     TEST_ASSERT_EQUAL(0, d.ww); TEST_ASSERT_EQUAL(0, d.cw);
   }
-  lightsSetTool(v2::TOOL_NONE);
+  lightsSetTool(v2::TOOL_NONE); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 127, 127));
 }
 void test_colour_cycle_follows_the_wiring() {
   settings.wiring[v2::L_R] = v2::OUT_G; settings.wiring[v2::L_G] = v2::OUT_R;
-  lightsSettingsChanged();
+  lightsSettingsChanged(); lightsLoop();
   hue = 0; lightsSetTool(v2::TOOL_CYCLE); lightsLoop();   // hue ~0: red
   TEST_ASSERT_TRUE(leds().g > 250);
   TEST_ASSERT_EQUAL(0, leds().r);
@@ -263,12 +263,12 @@ void test_steady_after_a_rhythm_in_the_same_colour_is_not_left_dark() {
   for (int i = 0; i < 200 && leds().r != 0; i++) lightsLoop();
   TEST_ASSERT_EQUAL(0, leds().r);              // caught in the dark half
   v2::LookColour red = v2::rgb(255, 0, 0);
-  lightsSetTool(v2::TOOL_TEST, &red);          // same colour, steady: the fade has nothing to do
+  lightsSetTool(v2::TOOL_TEST, &red); lightsLoop();          // same colour, steady: the fade has nothing to do
   TEST_ASSERT_TRUE(ledsAre(255, 0, 0, 0, 0));
 }
 void test_wifi_tool_shows_signal_strength() {
   WiFi.rssi = -75;
-  lightsSetTool(v2::TOOL_WIFI);
+  lightsSetTool(v2::TOOL_WIFI); lightsLoop();
   TEST_ASSERT_TRUE(showing(255, 128, 0, 0, 0));
   WiFi.rssi = -45; lightsUpdate();
   TEST_ASSERT_TRUE(showing(0, 255, 0, 0, 0));
