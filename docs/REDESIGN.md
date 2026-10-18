@@ -1,8 +1,8 @@
 # Setup page and behaviour redesign (draft)
 
 Status: **built on `main`, not yet tested on a device.** Settings and migration (stage 1), the LED
-rules (2), the web API (3) and the setup page (4, `src/www/setupPage.html`) are in. Model detection
-and serial lookup by address (stage 5) come next. The clickable prototype stays in
+rules (2), the web API (3), the setup page (4, `src/www/setupPage.html`) and model detection,
+serial lookup and the printer certificate check (5) are in. Stage 6 is the device test. The clickable prototype stays in
 `prototype/setup-v2.html`.
 
 ## Principles
@@ -147,7 +147,8 @@ All endpoints need the WebUI login when one is set. Bodies and replies are JSON.
 | `GET /api/status` | What the strip shows and why: `reason` (`idle`, `idle_off`, `finished`, `error`, …), `show`, `state`/`detail`, `colour`, `rhythm`, `outputs`, `tool`, `check`, countdowns (`idleOffIn`, `finishEndsIn`, `idleFor`, seconds) and `printer` (connected, door, light, model, …). The page turns these into the status sentence in its own language. The same object is pushed every second on `/ws` as `lights`. |
 | `POST /api/tool` | `{"tool":"test","colour":{…}}`, `{"tool":"cycle"}`, `{"tool":"wifi"}`, `{"tool":"none"}` (Stop). Never saved. |
 | `POST /api/check` | `{"output":"R"}` … `"CW"` lights just that output; `{"output":null}` ends the check. The answer is saved with `POST /api/settings` (`wiring`). |
-| `GET /api/printers` | Printers heard on the network (IP, serial, which one is followed). Model and name come in stage 5. |
+| `GET /api/printers` | Printers heard on the network: IP, serial, `model`, `name` (from Bambu's app), which one is followed. |
+| `GET /api/lookup?ip=` | Setup's "Look up": 202 `{"looking":true}` while the controller connects; then 200 with `answered`, `trusted` (signed by Bambu Lab) and `serial`. |
 
 Changes from the page never fade the LEDs on the web server's task (a fade takes 500 ms);
 they're shown by the main loop on its next pass. A config restore or factory reset cancels
@@ -179,6 +180,30 @@ the prototype, and why:
   language is en-GB, en-AU, en-NZ, en-IE, en-ZA or en-IN.
 - Removed endpoints: `/getConfig`, `/submitConfig`, `/setBrightness`. Added: `POST /api/printer`,
   `POST /api/wifi-rescan`; `/api/status` also gives `firmware`, `rssi` and `preview`.
+
+## Printer model, serial lookup and certificate check (stage 5)
+
+- **Model and name** come from the printer's discovery message (`DevModel.bambu.com`,
+  `DevName.bambu.com`, `src/blled/printerModels.h`). Codes confirmed in public integrations map to
+  the page's models (`3DPrinter-X1-Carbon` → X1C, `3DPrinter-X1`, `C13` X1E, `C11` P1P, `C12` P1S,
+  `N1` A1 mini, `N2S` A1, `O1D` H2D); other codes pass through as they are, and the page treats
+  them as unknown (every option shown, lidar and door sensor assumed). Add codes as they're
+  confirmed on real printers.
+- **The certificate check** (`src/blled/printerCert.h`). The author's X1 Carbon presents a certificate
+  issued to its serial and signed by Bambu Lab's own authority, "BBL CA" (valid 2022-2032;
+  checked 2026-10-18). The controller embeds that public CA certificate and, before sending the
+  access code, opens TLS itself and checks both: signed by BBL CA, issued to the configured serial.
+  Dates are ignored (the controller has no clock). If the check fails the code isn't sent, the
+  strip shows dim red and the status says "couldn't prove it's your printer". This also closes
+  the gap where anything on the network could answer discovery with the printer's serial and
+  collect the code when the controller followed an IP change. Advanced → "Check that it's really
+  your printer" turns it off for a printer that fails (other models may use another authority).
+- **Look up** connects to the typed address the same way and reads the serial from the
+  certificate, saying whether it's signed by Bambu Lab. The MQTT task does it (it owns TLS); the
+  web server only asks.
+- Tests: `test_ssdp` (parser), `test_mqtt` (the code is never sent to an unverified printer), and
+  `test_cert` against real mbedtls with generated certificates (`pio test -e native_tls`, needs
+  `brew install mbedtls`; separate so the other tests don't).
 
 ## Open questions for review
 

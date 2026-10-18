@@ -15,7 +15,8 @@ namespace v2
     struct Snapshot
     {
         bool connected = true;
-        bool accessRejected = false;       // the printer refused the access code
+        bool accessRejected = false;
+        bool certRejected = false;         // its certificate didn't check out (code not sent)       // the printer refused the access code
         unsigned long unreachableMs = 0;   // how long the printer has been unreachable
         String gcodeState = "IDLE";        // IDLE, PREPARE, RUNNING, PAUSE, FINISH, FAILED
         int stage = -1;                    // stg_cur
@@ -30,14 +31,15 @@ namespace v2
     enum Reason : uint8_t
     {
         RS_MODE_OFF, RS_MODE_ON, RS_TOOL_TEST, RS_TOOL_CYCLE, RS_TOOL_WIFI,
-        RS_UNREACHABLE, RS_ACCESS_REJECTED, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
+        RS_UNREACHABLE, RS_ACCESS_REJECTED, RS_CERT_REJECTED, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
         RS_PRINTING, RS_LIGHT_OFF, RS_IDLE_OFF, RS_IDLE,
     };
     enum Show : uint8_t { SHOW_OFF, SHOW_COLOUR, SHOW_CYCLE, SHOW_WIFI };
     // Names for the web API (the page turns them into sentences, in its own language).
     static const char *const REASON_NAMES[] = {"mode_off", "mode_on", "tool_test", "tool_cycle", "tool_wifi",
-                                               "unreachable", "access_rejected", "error", "attention", "finished", "preparing", "preparing_no_lidar",
+                                               "unreachable", "access_rejected", "cert_rejected", "error", "attention", "finished", "preparing", "preparing_no_lidar",
                                                "printing", "light_off", "idle_off", "idle"};
+    static_assert(sizeof(REASON_NAMES) / sizeof(REASON_NAMES[0]) == RS_IDLE + 1, "REASON_NAMES out of step with Reason");
     static const char *const SHOW_NAMES[] = {"off", "colour", "cycle", "wifi"};
     static const char *const TOOL_NAMES[] = {"none", "test", "cycle", "wifi"};
 
@@ -113,6 +115,7 @@ namespace v2
 
         // Can't talk to the printer: dim red if it refused the access code (fix the code), else off.
         if (!p.connected && p.accessRejected) return lit(rgb(128, 0, 0), R_STEADY, RS_ACCESS_REJECTED);
+        if (!p.connected && p.certRejected) return lit(rgb(128, 0, 0), R_STEADY, RS_CERT_REJECTED);
         if (!p.connected && s.offlineOffSec && p.unreachableMs >= (unsigned long)s.offlineOffSec * 1000UL)
             return off(RS_UNREACHABLE);
 

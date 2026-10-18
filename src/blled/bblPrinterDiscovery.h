@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include "filesystem.h" // for saveFileSystem()
+#include "printerModels.h"
 
 #define BBL_SSDP_PORT 2021
 #define BBL_SSDP_MCAST_IP IPAddress(239, 255, 255, 250)
@@ -15,6 +16,8 @@ struct BBLPrinter
 {
   IPAddress ip;
   char usn[64];
+  char model[12]; // setup page model key, or the printer's own code when unknown
+  char name[33];  // the name given to it in Bambu's app
 };
 
 static WiFiUDP bblUdp;
@@ -59,14 +62,20 @@ void bblPrintKnownPrinters()
 // Handles one SSDP reply/notify that is already read into 'buffer'.
 static void bblHandleDiscoveryPacket(IPAddress senderIP, char *buffer)
 {
-  String response(buffer);
-  String usnStr = "";
-  int usnPos = response.indexOf("USN:");
-  if (usnPos >= 0)
+  char usn[64], code[32], name[33], model[12] = "";
+  bblssdp::header(buffer, "USN", usn, sizeof usn);
+  if (bblssdp::header(buffer, "DevModel.bambu.com", code, sizeof code))
+    bblssdp::modelKey(code, model, sizeof model);
+  bblssdp::header(buffer, "DevName.bambu.com", name, sizeof name);
+  String usnStr = usn;
+
+  // The followed printer says what model it is (docs/REDESIGN.md: detected, with an override).
+  if (model[0] && usnStr.length() > 0 && strcmp(printerConfig.serialNumber, usn) == 0 &&
+      strcmp(printerVariables.detectedModel, model) != 0)
   {
-    int end = response.indexOf("\r\n", usnPos);
-    usnStr = response.substring(usnPos + 4, end);
-    usnStr.trim();
+    StateLock lock;
+    strlcpy(printerVariables.detectedModel, model, sizeof(printerVariables.detectedModel));
+    LogSerial.printf("[BBLScan] The printer reports its model as %s (%s)\n", model, code);
   }
 
   // IP update check for stored USN
@@ -104,12 +113,21 @@ static void bblHandleDiscoveryPacket(IPAddress senderIP, char *buffer)
     LogSerial.println();
   }
 
-  if (isNewPrinter && bblKnownPrinterCount < BBL_MAX_PRINTERS)
+  BBLPrinter *printer = nullptr;
+  if (!isNewPrinter)
+    printer = &bblLastKnownPrinters[existingIndex];
+  else if (bblKnownPrinterCount < BBL_MAX_PRINTERS)
   {
-    BBLPrinter &printer = bblLastKnownPrinters[bblKnownPrinterCount++];
-    printer.ip = senderIP;
-    strncpy(printer.usn, usnStr.c_str(), sizeof(printer.usn) - 1);
-    printer.usn[sizeof(printer.usn) - 1] = 0;
+    printer = &bblLastKnownPrinters[bblKnownPrinterCount++];
+    printer->ip = senderIP;
+    printer->usn[0] = printer->model[0] = printer->name[0] = 0;
+  }
+  if (printer) // keep what's newest (a name can be changed in Bambu's app)
+  {
+    StateLock lock; // the web server reads the list
+    if (usn[0]) strlcpy(printer->usn, usn, sizeof(printer->usn));
+    if (model[0]) strlcpy(printer->model, model, sizeof(printer->model));
+    if (name[0]) strlcpy(printer->name, name, sizeof(printer->name));
   }
 }
 
@@ -156,7 +174,7 @@ void bblSearchPrinters()
     int size = bblUdp.parsePacket();
     if (size <= 0)
       break;
-    char buffer[512];
+    char buffer[768];
     int len = bblUdp.read(buffer, sizeof(buffer) - 1);
     if (len <= 0)
       continue;

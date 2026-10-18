@@ -22,6 +22,11 @@ stages; not yet tested on a device, so it isn't tagged. What it changes:
   network, or by address), model, strip, look. Brand-new devices still join Wi-Fi through the
   `BLLED_AP` hotspot page first.
 - **Status colours with rhythms**, a 5-second preview for each, and per-step / per-error colours.
+- **Knows your printer:** reads its model and name from its network announcement, and "Look up"
+  reads the serial from a typed address.
+- **The access code only goes to your printer.** Before logging in, the controller checks the
+  printer's certificate: issued to its serial and signed by Bambu Lab. Anything else answering at
+  the printer's address gets nothing (dim red, and the status says why).
 - **Spelling follows the browser:** US English, with British spelling for en-GB (and AU, NZ, IE,
   ZA, IN).
 - **Settings move to a new format** on first boot; the old file is kept as `/blledconfig.v1.json`.
@@ -34,7 +39,7 @@ What changed in `2.3.0-br.2` (on top of br.1):
 - **Brightness applies live** while dragging the slider and saves when released.
 - **Clearer setup page.** The LED modes are one labelled radio group (choosing test colour or RGB cycle used to silently switch off "replicate printer light"); the finish ending is a three-way choice; the text beside every switch is clickable and announced by screen readers; switches show keyboard focus.
 - **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
-- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (97 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
+- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (120 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
 
 What changed in `2.3.0-br.1` compared with 2.3.0:
 
@@ -52,7 +57,7 @@ What changed in `2.3.0-br.1` compared with 2.3.0:
 | Task | Command |
 |---|---|
 | Build | `pio run -e esp32dev` → `.firmware/BLLC_V<version>.bin.ota` (over the air) and `.firmware/BLLC_V<version>.bin` (full 4 MB image, USB) |
-| Run the tests | `pio test -e native` |
+| Run the tests | `pio test -e native`; the printer certificate check: `brew install mbedtls`, then `pio test -e native_tls` |
 | Update a device over the air | `tools/flash.sh <device-ip>` (reads the WebUI login from the macOS Keychain; see the script header) |
 | Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup. `POST /_sim` changes what the simulated printer is doing (see the script header) |
 | Check a device for main-loop freezes | `python3 tools/ws_timing.py <device-ip> 60` |

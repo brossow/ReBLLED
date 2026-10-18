@@ -66,6 +66,14 @@ void test_rejected_access_code_shows_dim_red() {
     Settings s = S0(); s.mode = MODE_OFF; TEST_ASSERT_EQUAL(RS_MODE_OFF, decide(s, p).reason);   // Off still wins
 }
 
+void test_unverified_printer_shows_dim_red_too() {
+    Snapshot p = idle(); p.connected = false; p.certRejected = true;
+    Decision d = decide(S0(), p);
+    assertLit(d, CK_CUSTOM, R_STEADY, RS_CERT_REJECTED); assertRgb(d, 128, 0, 0);
+    p.unreachableMs = 600000;                                   // not "unreachable": it answered
+    TEST_ASSERT_EQUAL(RS_CERT_REJECTED, decide(S0(), p).reason);
+}
+
 // ---- errors ----
 void test_errors_blink_red_and_resolve_per_kind() {
     Settings s = S0(); Snapshot p = printingNow();
@@ -196,6 +204,7 @@ int main() {
     RUN_TEST(test_tools_override_everything_and_are_not_settings);
     RUN_TEST(test_unreachable_turns_off_after_the_set_time_only);
     RUN_TEST(test_rejected_access_code_shows_dim_red);
+    RUN_TEST(test_unverified_printer_shows_dim_red_too);
     RUN_TEST(test_errors_blink_red_and_resolve_per_kind);
     RUN_TEST(test_errors_show_even_when_the_printers_light_is_off);
     RUN_TEST(test_pause_pulses_blue);

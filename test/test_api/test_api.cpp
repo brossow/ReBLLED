@@ -234,6 +234,47 @@ void test_set_printer_needs_a_code_the_first_time() {
   TEST_ASSERT_TRUE(changed);
 }
 
+static int lookup(const char *ip, JsonDocument &out) { return api::lookup(String(ip), out.to<JsonObject>()); }
+void test_lookup_asks_the_mqtt_task_then_answers() {
+  JsonDocument o;
+  TEST_ASSERT_EQUAL(400, lookup("192.0.2.256", o));
+  TEST_ASSERT_EQUAL(202, lookup(" 192.0.2.10 ", o));
+  TEST_ASSERT_TRUE(o["looking"].as<bool>());
+  TEST_ASSERT_EQUAL(1, printerLookup.state);                  // asked
+  TEST_ASSERT_EQUAL_STRING("192.0.2.10", printerLookup.ip);
+  printerLookup.state = 2;                                     // the MQTT task is on it
+  TEST_ASSERT_EQUAL(202, lookup("192.0.2.10", o));
+  TEST_ASSERT_EQUAL(2, printerLookup.state);                  // not restarted
+  // the MQTT task's answer
+  printerLookup.answered = true; printerLookup.trusted = true; strcpy(printerLookup.serial, "TESTSERIAL0001");
+  printerLookup.doneMs = millis(); printerLookup.state = 3;
+  JsonDocument r;
+  TEST_ASSERT_EQUAL(200, lookup("192.0.2.10", r));
+  TEST_ASSERT_TRUE(r["trusted"].as<bool>());
+  TEST_ASSERT_EQUAL_STRING("TESTSERIAL0001", r["serial"]);
+  advance(31000);                                              // stale: ask again
+  TEST_ASSERT_EQUAL(202, lookup("192.0.2.10", o));
+  TEST_ASSERT_EQUAL(1, printerLookup.state);
+}
+void test_lookup_of_another_address_starts_over() {
+  JsonDocument o;
+  lookup("192.0.2.10", o);
+  printerLookup.state = 3; printerLookup.doneMs = millis(); printerLookup.answered = false; printerLookup.serial[0] = 0;
+  TEST_ASSERT_EQUAL(200, lookup("192.0.2.10", o));
+  TEST_ASSERT_FALSE(o["answered"].as<bool>());
+  TEST_ASSERT_TRUE(o["serial"].isNull());
+  TEST_ASSERT_EQUAL(202, lookup("192.0.2.11", o));
+  TEST_ASSERT_EQUAL_STRING("192.0.2.11", printerLookup.ip);
+  TEST_ASSERT_EQUAL(1, printerLookup.state);
+}
+void test_status_says_when_the_printer_failed_its_certificate() {
+  printerVariables.online = false; printerVariables.certRejected = true; lightsLoop();
+  JsonDocument s = status();
+  TEST_ASSERT_EQUAL_STRING("cert_rejected", s["reason"]);
+  TEST_ASSERT_TRUE(s["printer"]["certRejected"].as<bool>());
+  TEST_ASSERT_TRUE(ledsAre(128, 0, 0, 0, 0));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_patch_replies_with_what_is_in_effect);
@@ -258,5 +299,8 @@ int main() {
   RUN_TEST(test_saving_the_wiring_answer_applies_it);
   RUN_TEST(test_set_printer_validates_and_keeps_a_blank_access_code);
   RUN_TEST(test_set_printer_needs_a_code_the_first_time);
+  RUN_TEST(test_lookup_asks_the_mqtt_task_then_answers);
+  RUN_TEST(test_lookup_of_another_address_starts_over);
+  RUN_TEST(test_status_says_when_the_printer_failed_its_certificate);
   return UNITY_END();
 }

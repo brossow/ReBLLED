@@ -17,6 +17,7 @@ extern "C"
         bool hmsstate = false;
         bool online = false;
         bool accessRejected = false;            // last connect refused the access code
+        bool certRejected = false;              // the printer's certificate didn't check out: code not sent
         unsigned long disconnectMQTTms = 0;     // when the connection to the printer was lost
         bool doorOpen = false;
         unsigned long lastdoorClosems = 0;
@@ -24,6 +25,18 @@ extern "C"
         char detectedModel[12] = "";            // model code the printer reports (stage 5); "" = unknown
     } PrinterVariables;
     PrinterVariables printerVariables;
+
+    // Serial lookup for setup ("Look up", GET /api/lookup): the web server asks, the MQTT task
+    // (which owns TLS) connects to the address and reads the printer's certificate.
+    typedef struct PrinterLookupStruct{
+        char ip[16];
+        volatile uint8_t state;                 // 0 idle, 1 asked, 2 running, 3 done
+        bool answered;                          // something accepted a TLS connection
+        bool trusted;                           // its certificate is signed by Bambu Lab
+        char serial[40];                        // the name on the certificate
+        unsigned long doneMs;
+    } PrinterLookup;
+    PrinterLookup printerLookup = {};
 
     typedef struct SecurityVariables{
                 // Security

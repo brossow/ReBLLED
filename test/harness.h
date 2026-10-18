@@ -59,7 +59,7 @@ inline void freshDevice(v2::Settings s = v2::defaults()) {
   LogSerial.out.clear();
   fake::published.clear(); fake::mqttConnected = true;
   pendingChamberLight = -1;
-  fake::saves = 0; api::dirty = false; api::frozen = false;
+  fake::saves = 0; api::dirty = false; api::frozen = false; printerLookup = PrinterLookup{};
   fake::now_ms = 1000000;              // far from 0 so "time since" checks behave
   lastMQTTupdate = 0;
   printerVariables.online = true;

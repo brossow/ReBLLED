@@ -59,6 +59,37 @@ void test_printer_changes_count_as_activity() {
   TEST_ASSERT_EQUAL(millis(), lastActivityMs);
 }
 
+static void tryToConnect() {
+  strcpy(printerConfig.printerIP, "192.0.2.10"); strcpy(printerConfig.serialNumber, "TESTSERIAL0001");
+  strcpy(printerConfig.accessCode, "12345678");
+  fake::mqttConnected = false; fake::mqttLogins = 0; printerVariables.online = false;
+  mqttattempt = 0; mqttRetryDelay = 0; advance(60000);
+  connectMqtt();
+}
+void test_access_code_not_sent_to_an_unverified_printer() {
+  fake::tlsAnswers = true;                       // something answers, its certificate doesn't verify
+  tryToConnect();
+  TEST_ASSERT_EQUAL(0, fake::mqttLogins);
+  TEST_ASSERT_TRUE(printerVariables.certRejected);
+  TEST_ASSERT_EQUAL(MQTT_RETRY_MIN_MS, mqttRetryDelay);   // backs off like any failed attempt
+  lightsUpdate();
+  TEST_ASSERT_EQUAL(v2::RS_CERT_REJECTED, lastDecision.reason);
+}
+void test_no_answer_is_not_a_failed_check() {
+  fake::tlsAnswers = false;
+  tryToConnect();
+  TEST_ASSERT_EQUAL(0, fake::mqttLogins);
+  TEST_ASSERT_FALSE(printerVariables.certRejected);
+  fake::tlsAnswers = true;
+}
+void test_with_the_check_off_the_code_is_sent() {
+  settings.checkPrinterCert = false;
+  printerVariables.certRejected = true;          // from an earlier attempt
+  tryToConnect();
+  TEST_ASSERT_EQUAL(1, fake::mqttLogins);
+  TEST_ASSERT_FALSE(printerVariables.certRejected);
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_door_bit_23_opens_and_closes);
@@ -69,5 +100,8 @@ int main() {
   RUN_TEST(test_chamber_light_publish_is_queued_for_the_mqtt_task);
   RUN_TEST(test_ignored_command_messages_change_nothing);
   RUN_TEST(test_printer_changes_count_as_activity);
+  RUN_TEST(test_access_code_not_sent_to_an_unverified_printer);
+  RUN_TEST(test_no_answer_is_not_a_failed_check);
+  RUN_TEST(test_with_the_check_off_the_code_is_sent);
   return UNITY_END();
 }

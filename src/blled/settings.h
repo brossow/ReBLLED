@@ -72,6 +72,7 @@ namespace v2
         // Advanced
         String hmsIgnore;
         bool debugLog = false, mqttLog = false;
+        bool checkPrinterCert = true; // send the access code only to a certificate-proven printer
         Settings() { for (auto &w : wiring) w = OUT_NONE; }
     };
 
@@ -220,6 +221,7 @@ namespace v2
         o["hmsIgnore"] = s.hmsIgnore;
         o["debugLog"] = s.debugLog;
         o["mqttLog"] = s.mqttLog;
+        o["checkPrinterCert"] = s.checkPrinterCert;
     }
     inline Settings fromJson(JsonVariantConst o)
     {
@@ -245,6 +247,7 @@ namespace v2
         s.hmsIgnore = o["hmsIgnore"] | "";
         s.debugLog = o["debugLog"] | false;
         s.mqttLog = o["mqttLog"] | false;
+        s.checkPrinterCert = o["checkPrinterCert"] | true;
         return s;
     }
 

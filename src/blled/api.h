@@ -107,6 +107,7 @@ namespace api
         JsonObject p = o["printer"].to<JsonObject>();
         p["connected"] = printerVariables.online;
         p["accessRejected"] = printerVariables.accessRejected;
+        p["certRejected"] = printerVariables.certRejected;
         p["gcodeState"] = printerVariables.gcodeState;
         p["stage"] = printerVariables.stage;
         p["door"] = printerVariables.doorOpen;
@@ -167,6 +168,34 @@ namespace api
         if (code.length()) strlcpy(printerConfig.accessCode, code.c_str(), sizeof(printerConfig.accessCode));
         out["restart"] = changed;
         return true;
+    }
+
+    // GET /api/lookup?ip=…: setup's "Look up". The first call asks the MQTT task to connect and
+    // read the printer's certificate (202, {"looking":true}); the page asks again until it has
+    // the answer (200): whether anything answered, whether it's signed by Bambu Lab, and the
+    // serial it was issued to. Returns the HTTP status.
+    const unsigned long LOOKUP_FRESH_MS = 30000;
+    int lookup(String ip, JsonObject out)
+    {
+        ip.trim();
+        IPAddress addr;
+        if (ip.length() > 15 || !addr.fromString(ip)) { out["error"] = "ip"; return 400; }
+        StateLock lock;
+        const bool same = strcmp(printerLookup.ip, ip.c_str()) == 0;
+        if (same && printerLookup.state == 3 && millis() - printerLookup.doneMs < LOOKUP_FRESH_MS)
+        {
+            out["answered"] = printerLookup.answered;
+            out["trusted"] = printerLookup.trusted;
+            if (printerLookup.answered && printerLookup.serial[0]) out["serial"] = printerLookup.serial;
+            return 200;
+        }
+        if (!same || printerLookup.state == 0 || printerLookup.state == 3)
+        {
+            strlcpy(printerLookup.ip, ip.c_str(), sizeof(printerLookup.ip));
+            printerLookup.state = 1;
+        }
+        out["looking"] = true;
+        return 202;
     }
 
     // POST /api/check {"output":"R"|"G"|"B"|"WW"|"CW"} lights just that output;
