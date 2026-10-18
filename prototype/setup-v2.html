@@ -145,6 +145,9 @@ dialog#setup::backdrop { background: rgb(0 0 0 / .45); }
 .wz-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
 .err { color: var(--err); font-size: .9rem; margin: 0; }
 [aria-invalid="true"] { border-color: var(--err) !important; }
+.manual { display: grid; gap: 10px; padding: 12px; border-left: 3px solid var(--accent); }
+.wz-looks .look { grid-template-columns: minmax(0, 1fr); }
+.wz-looks .look .controls { grid-column: 1; }
 table.map { border-collapse: collapse; font-size: .92rem; }
 table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
 table.map td.out { font-family: var(--mono); }
@@ -421,6 +424,16 @@ code { font-family: var(--mono); font-size: .9em; }
         <label class="choice"><input type="radio" name="wzPrinter" value="found" checked><span class="t" id="wzFoundName">X1 Carbon, found on your network</span><span class="d">Serial ending 4821 (example)</span></label>
         <label class="choice"><input type="radio" name="wzPrinter" value="manual"><span class="t">Enter its address by hand</span><span class="d">If the printer isn't found automatically.</span></label>
       </fieldset>
+      <div class="manual" id="wzManual" hidden>
+        <div class="field"><label for="wzIp">Printer IP address</label>
+          <input type="text" id="wzIp" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" aria-describedby="wzIpHint">
+          <p class="hint" id="wzIpHint">On the printer: Settings → Network.</p>
+          <p class="err" id="wzIpErr" hidden>Enter an address like 192.168.1.50.</p></div>
+        <div class="field"><label for="wzSerial">Printer serial number</label>
+          <input type="text" id="wzSerial" autocomplete="off" spellcheck="false" aria-describedby="wzSerialHint">
+          <p class="hint" id="wzSerialHint">On the printer: Settings → Device. The controller uses it to talk to the printer; when the printer is found automatically it reads it for you.</p>
+          <p class="err" id="wzSerialErr" hidden>Enter the printer's serial number.</p></div>
+      </div>
       <div class="field"><label for="wzCode">Printer access code</label>
         <input type="text" id="wzCode" inputmode="text" maxlength="8" autocomplete="off" aria-describedby="wzCodeHint">
         <p class="hint" id="wzCodeHint">8 characters. On the printer: Settings → Network → "Access Code" (LAN mode).</p>
@@ -447,6 +460,10 @@ code { font-family: var(--mono); font-size: .9em; }
       <div class="field"><label for="wzLook">Look</label>
         <select id="wzLook" aria-describedby="wzLookHint"><option value="standard">Standard colours</option><option value="white">White only</option><option value="custom">Custom</option></select>
         <p class="hint" id="wzLookHint"></p></div>
+      <div id="wzCustom" hidden>
+        <div class="looks wz-looks" id="wzCustomRows"></div>
+        <p class="hint">Finer options (a colour for each preparing step or kind of error) are under Status colours on the main page.</p>
+      </div>
       <div class="field"><label for="wzBrightness">Brightness: <span id="wzBrightnessOut">100</span>%</label><input type="range" id="wzBrightness" min="0" max="100" value="100"></div>
       <p class="hint">Everything else (timing, the printer's own light, tools) is on the main page, and you can run this setup again any time.</p>
     </section>
@@ -1054,13 +1071,35 @@ code { font-family: var(--mono); font-size: .9em; }
       host.appendChild(lab);
     }
   }
+  function wzBuildCustomRows() {
+    const host = $("wzCustomRows"); host.textContent = "";
+    for (const [key, L] of Object.entries(S.looks)) {
+      if (L.lidarOnly && !MODELS[modelNow()].lidar) continue;
+      const draft = wz.custom[key];
+      const row = document.createElement("div"); row.className = "look";
+      const name = document.createElement("h3"); name.className = "name"; name.textContent = L.label;
+      const controls = document.createElement("div"); controls.className = "controls";
+      const cc = colourControl("wz-look-" + key + "-colour", draft.colour, L.label + " colour", false);
+      const rs = document.createElement("select"); rs.id = "wz-look-" + key + "-rhythm"; rs.setAttribute("aria-label", L.label + " rhythm");
+      for (const [v, t] of Object.entries(RHYTHMS)) { const o = document.createElement("option"); o.value = v; o.textContent = t; rs.appendChild(o); }
+      rs.value = draft.rhythm;
+      cc.sel.addEventListener("change", () => { cc.pick.hidden = cc.sel.value !== "custom"; draft.colour = cc.sel.value === "custom" ? { kind: "custom", hex: cc.pick.value } : { kind: cc.sel.value }; });
+      cc.pick.addEventListener("input", () => { draft.colour = { kind: "custom", hex: cc.pick.value }; });
+      rs.addEventListener("change", () => { draft.rhythm = rs.value; });
+      controls.append(cc.wrap, rs); row.append(name, controls); host.appendChild(row);
+    }
+  }
+  function wzShowCustom() { const on = $("wzLook").value === "custom"; $("wzCustom").hidden = !on; if (on) wzBuildCustomRows(); }
   function wzFill() {
+    // A draft of the custom set: edited here, saved only when the step is saved.
+    wz.custom = clone(S.preset === "custom" ? snapshotLooks() : S.customLooks);
     $("wzFoundName").textContent = MODELS[sim.detected].name + ", found on your network";
     $("wzDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
     const ms = $("wzModel"); ms.innerHTML = $("model").innerHTML; ms.value = S.model;
     $("wzModelNote").textContent = MODELS[ms.value === "auto" ? sim.detected : ms.value].note;
     wzBuildStripTypes();
-    $("wzLook").value = S.preset; $("wzLookHint").textContent = LOOK_TEXT[S.preset][1];
+    $("wzLook").value = S.preset; $("wzLookHint").textContent = LOOK_TEXT[S.preset][1]; wzShowCustom();
+    document.querySelector('input[name=wzPrinter][value=found]').checked = true; $("wzManual").hidden = true;
     $("wzBrightness").value = S.brightness; $("wzBrightnessOut").textContent = S.brightness;
   }
   function wzShow(i) {
@@ -1076,9 +1115,16 @@ code { font-family: var(--mono); font-size: .9em; }
   function wzSaveStep() {
     const step = wz.steps[wz.i].dataset.step;
     if (step === "connection") {
-      const badSsid = wzError($("wzSsid"), $("wzSsidErr"), !$("wzSsid").value);
-      const badCode = wzError($("wzCode"), $("wzCodeErr"), $("wzCode").value.trim().length !== 8);
-      if (badSsid || badCode) { (badSsid ? $("wzSsid") : $("wzCode")).focus(); return false; }
+      const manual = document.querySelector("input[name=wzPrinter]:checked").value === "manual";
+      const ipOk = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test($("wzIp").value.trim());
+      const bad = [
+        [wzError($("wzSsid"), $("wzSsidErr"), !$("wzSsid").value), $("wzSsid")],
+        [manual && wzError($("wzIp"), $("wzIpErr"), !ipOk), $("wzIp")],
+        [manual && wzError($("wzSerial"), $("wzSerialErr"), !$("wzSerial").value.trim()), $("wzSerial")],
+        [wzError($("wzCode"), $("wzCodeErr"), $("wzCode").value.trim().length !== 8), $("wzCode")],
+      ].find(([isBad]) => isBad);
+      if (!manual) { wzError($("wzIp"), $("wzIpErr"), false); wzError($("wzSerial"), $("wzSerialErr"), false); }
+      if (bad) { bad[1].focus(); return false; }
       saved("Wi-Fi and printer connection (prototype: nothing sent)");
     } else if (step === "printer") {
       S.model = $("wzModel").value; fillModelSelects(); applyModel(); buildLooks(); saved("Printer model");
@@ -1087,7 +1133,12 @@ code { font-family: var(--mono); font-size: .9em; }
       if (t !== S.strip.type) { S.strip.type = t; if (S.strip.map) { const m = {}; for (const c of STRIP_TYPES[t].ch) if (S.strip.map[c]) m[c] = S.strip.map[c]; S.strip.map = Object.keys(m).length ? m : null; } }
       buildStrip(); buildMap(); buildLooks(); saved("Strip type: " + STRIP_TYPES[S.strip.type].label);
     } else if (step === "look") {
-      if ($("wzLook").value !== S.preset) applyPreset($("wzLook").value, false);
+      const choice = $("wzLook").value;
+      if (choice === "custom") {
+        S.customLooks = clone(wz.custom);
+        if (S.preset === "custom") { restoreLooks(S.customLooks); buildLooks(); }
+        else applyPreset("custom", false);          // restores from the saved custom set just written
+      } else if (choice !== S.preset) applyPreset(choice, false);
       S.brightness = +$("wzBrightness").value; syncControls(); saved("Look and brightness");
     }
     return true;
@@ -1104,10 +1155,12 @@ code { font-family: var(--mono); font-size: .9em; }
   $("wzLater").addEventListener("click", () => finishSetup(false));
   wz.dlg.addEventListener("cancel", () => finishSetup(false));          // Esc
   $("wzModel").addEventListener("change", () => { const v = $("wzModel").value; $("wzModelNote").textContent = MODELS[v === "auto" ? sim.detected : v].note; });
-  $("wzLook").addEventListener("change", () => { $("wzLookHint").textContent = LOOK_TEXT[$("wzLook").value][1]; });
+  $("wzLook").addEventListener("change", () => { $("wzLookHint").textContent = LOOK_TEXT[$("wzLook").value][1]; wzShowCustom(); });
+  document.querySelectorAll("input[name=wzPrinter]").forEach(r => r.addEventListener("change", () => {
+    const manual = r.value === "manual" && r.checked; $("wzManual").hidden = !manual; if (manual) $("wzIp").focus(); }));
   $("wzBrightness").addEventListener("input", () => { S.brightness = +$("wzBrightness").value; $("wzBrightnessOut").textContent = S.brightness; render(); });
   $("wzCheckBtn").addEventListener("click", () => wiringCheck($("wzCheckArea"), $("wzCheckBtn"), wzBuildStripTypes));
-  ["wzSsid", "wzCode"].forEach(id => $(id).addEventListener("input", () => $(id).removeAttribute("aria-invalid")));
+  ["wzSsid", "wzCode", "wzIp", "wzSerial"].forEach(id => $(id).addEventListener("input", () => $(id).removeAttribute("aria-invalid")));
   $("runSetup").addEventListener("click", openSetup);
 
   // Set every control from the settings on load. Browsers restore form state on reload,
