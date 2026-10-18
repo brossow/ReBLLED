@@ -205,6 +205,35 @@ the prototype, and why:
   `test_cert` against real mbedtls with generated certificates (`pio test -e native_tls`, needs
   `brew install mbedtls`; separate so the other tests don't).
 
+## Independent review before the device test (stage 6, 2026-10-18)
+
+No blockers. Fixed before flashing:
+
+- **The access code could still go unchecked, in a race:** if the checked TLS connection dropped
+  before the login, PubSubClient opened its own, unchecked one. The MQTT client is now a
+  `GuardedTlsClient` that refuses to connect unless the certificate check allowed it.
+- **Closing file descriptor 0:** in core 2.0.17, `WiFiClientSecure::stop()` leaves the socket
+  number at 0, so a second stop (or the destructor) closed descriptor 0, which can by then be an
+  open config file. `GuardedTlsClient::stop()` leaves it at -1.
+- **Web server task stack** 4 KB → 8 KB (autosave and printer changes now run more there).
+- Saving takes the lock, is refused after a restore or factory reset (`configFrozen`), and writes a
+  temporary file that replaces the config only when complete. A config that won't parse is kept
+  as `blledconfig.unreadable.json` instead of deleted.
+- Look up: 10 s TLS handshake limit (was 120 s) on the probe and the MQTT connection, and the
+  page waits up to ~30 s for an answer.
+- Serials are upper-cased (the certificate name and MQTT topic are case-sensitive).
+- A patch can't replace a section with a plain value (`{"custom":"x"}` used to reset it).
+- A v1 idle timeout under a minute migrates as 1 minute, not "never".
+- No fades on the MQTT task: printer reports are shown by the loop's next pass.
+- Cyan "connecting to the printer" now shows until the first connection after boot (then off
+  after the unreachable delay), as Help says; it was replaced by idle white at once.
+
+Left for later: `/factoryreset` (GET) and `/configrestore` (form post) can be triggered by any
+web page you visit when no WebUI login is set (as in br.2; the JSON API needs
+`application/json` and is safe); `/ws` status needs no login (no secrets); the red "loading
+settings" boot colour uses the board labels (it's shown before the settings that hold the
+wiring load).
+
 ## Open questions for review
 
 - The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check

@@ -324,7 +324,8 @@ namespace v2
         };
         s.look = sameLooks(L, presetLooks(LOOK_STANDARD)) ? LOOK_STANDARD : LOOK_CUSTOM;
 
-        s.idleOffMin = (o["inactivityEnabled"] | true) ? (uint16_t)((o["inactivityTimeOut"] | 600000L) / 60000L) : 0;
+        const long idleMs = o["inactivityTimeOut"] | 600000L;
+        s.idleOffMin = (o["inactivityEnabled"] | true) ? (uint16_t)(idleMs < 60000L ? 1 : idleMs / 60000L) : 0; // under a minute isn't "never"
         const bool door = o["finishExit"] | true;
         const bool timer = o["finishExitTimer"] | !door;
         s.finishEnds = door && timer ? FIN_EITHER : (timer ? FIN_TIMER : FIN_DOOR);
@@ -346,8 +347,12 @@ namespace v2
     {
         for (JsonPairConst kv : src)
         {
-            if (kv.value().is<JsonObjectConst>() && dst[kv.key()].is<JsonObject>())
-                mergeJson(dst[kv.key()].as<JsonObject>(), kv.value().as<JsonObjectConst>());
+            JsonVariant d = dst[kv.key()];
+            const bool dObj = d.is<JsonObject>(), sObj = kv.value().is<JsonObjectConst>();
+            if (dObj && sObj)
+                mergeJson(d.as<JsonObject>(), kv.value().as<JsonObjectConst>());
+            else if (dObj != sObj && !d.isNull() && !kv.value().isNull())
+                continue; // e.g. {"custom":"x"}: would reset the whole section to defaults
             else
                 dst[kv.key()] = kv.value();
         }

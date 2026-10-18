@@ -42,8 +42,14 @@ char *generateRandomString(int length)
     return randomString;
 }
 
+const char *configTmpPath = "/blledconfig.tmp.json";
+const char *configBadPath = "/blledconfig.unreadable.json";
+
 void saveFileSystem()
 {
+    StateLock lock; // the web server's task changes the settings
+    if (configFrozen)
+        return;
     LogSerial.println(F("[Filesystem] Saving config"));
 
     JsonDocument json;
@@ -60,14 +66,24 @@ void saveFileSystem()
     // LED settings (v2, docs/REDESIGN.md). Connection keys above keep their v1 names.
     v2::toJson(settings, json["leds"].to<JsonObject>());
 
-    File configFile = LittleFS.open(configPath, "w");
+    // Write a temporary file and swap it in only when it's complete: LittleFS commits a file on
+    // close, so a write that fails partway would otherwise leave a truncated config.
+    File configFile = LittleFS.open(configTmpPath, "w");
     if (!configFile)
     {
         LogSerial.println(F("[Filesystem] Failed to save config"));
         return;
     }
-    serializeJson(json, configFile);
+    const size_t want = measureJson(json), wrote = serializeJson(json, configFile);
     configFile.close();
+    if (wrote != want)
+    {
+        LittleFS.remove(configTmpPath);
+        LogSerial.println(F("[Filesystem] Failed to save config (disk full?); the previous one is kept"));
+        return;
+    }
+    LittleFS.remove(configPath);
+    LittleFS.rename(configTmpPath, configPath);
     LogSerial.println(F("[Filesystem] Config Saved"));
 }
 
@@ -138,9 +154,11 @@ void loadFileSystem()
     }
     else
     {
-        LogSerial.println(F("[Filesystem] Failed loading config"));
-        LogSerial.println(F("[Filesystem] Clearing config"));
-        LittleFS.remove(configPath);
+        // Keep it (for the log and a manual fix) rather than delete it; the device starts in setup mode.
+        LogSerial.println(F("[Filesystem] Failed loading config; kept as blledconfig.unreadable.json"));
+        configFile.close();
+        LittleFS.remove(configBadPath);
+        LittleFS.rename(configPath, configBadPath);
 
         // LogSerial.println(F("Generating new password"));
         // char* pw = generateRandomString(8);

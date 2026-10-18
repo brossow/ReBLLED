@@ -56,6 +56,91 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 - [ ] **LED mode:** choosing Color Test or RGB Cycle and then Replicate State works with one click each; only one is ever selected.
 - [ ] **Clickable labels:** clicking the words beside a switch toggles it.
 
+## v2 redesign (`2.3.0-br.3`)
+
+The settings file changes format on the first boot (the old one is kept on the device as
+`/blledconfig.v1.json`), so the backup below matters more than usual.
+
+### Before flashing
+
+- [ ] **Download a config backup** (Back up and restore → Download). It's your way back to br.2
+      with every setting intact.
+- [ ] USB cable and access to the board, in case it doesn't come back.
+- [ ] Web Serial log open in a second tab to watch the boot.
+
+### Flash and first look
+
+- [ ] `tools/flash.sh <device-ip>`; it reports `2.3.0-br.3` once the device is back.
+- [ ] The setup page is the new one; the bottom says **Firmware 2.3.0-br.3**.
+- [ ] The setup dialog does **not** open (your migrated settings count as set up).
+- [ ] Web Serial shows `[MQTT] connected`, and **no** "Access code not sent" line. (This is the
+      real test of the certificate check: the X1C's certificate passed on the Mac, but the
+      device's TLS library is a different version.)
+- [ ] During boot the strip goes cyan while it connects, then to its normal colour.
+- [ ] Status bar: "Printer connected", a status sentence, and a strip preview that matches the
+      real strip's colour.
+- [ ] Your settings came across: Look is **Custom** with your own colours (purple runout, green
+      finish); idle and finish timing as before; HMS ignore list kept.
+
+### Your strip and printer
+
+- [ ] **Your LED strip** → choose **RGB + one white**, then **Check the wiring**: answer what
+      you see for each output (R red, G green, B blue, WW or CW white, the other nothing). It
+      should say "Found: RGB + one white" and which white output it uses. **Use this.**
+- [ ] Tools → Color test with red, green, blue and white: each shows true. Stop.
+- [ ] **Your printer** says "It reports itself as: X1 Carbon" (can take up to a minute after
+      boot). If it shows a code instead, note it: that's a model code to add.
+- [ ] **Run setup again** → step 1 lists your printer by the name it has in Bambu's app, marked
+      "followed now". Choose "Enter its address by hand", type the printer's IP, **Look up**:
+      "Found a Bambu Lab printer … ending ____" with the right last four digits. Then **Finish
+      later** (nothing changes).
+- [ ] Optional, disruptive: Run setup again with a wrong serial (change the last digit), Next.
+      After the restart the status says the printer couldn't prove it's yours, the strip is
+      dim red, and the printer's MQTT never sees the access code. Run setup again with the right
+      serial to fix it.
+
+### Lights
+
+- [ ] Mode **Off**, **Always on**, **Follow the printer**: each applies at once, says "Saved",
+      and the status bar explains it.
+- [ ] Brightness: the strip follows while you drag; reload and it stuck.
+- [ ] Status colors: **Preview** each row: 5 seconds in that colour and rhythm, then back.
+- [ ] Color cycle: smooth, no pauses. Wi-Fi strength: a colour and the dBm in the status. Stop
+      returns to normal each time.
+- [ ] Door: quick open-and-close does nothing special. After the strip has gone idle (or set the
+      idle time to 5 min to wait less), opening the door wakes it.
+- [ ] Idle: the status counts down ("8 min left"), then "Off: no activity for 10 min".
+- [ ] A print: preparing steps off (or your colours), printing white, finished = slow green pulse
+      until the door opens. A pause = blue pulse.
+- [ ] Settings stick through a restart (unplug and replug).
+- [ ] No freezes: `python3 tools/ws_timing.py <device-ip> 60` → ~60 messages, no gap over 2 s.
+- [ ] On a phone: the page fits, nothing scrolls sideways.
+- [ ] Stability: after all of the above, Web Serial shows no restart you didn't cause (a crash
+      shows as the boot banner reappearing). The web server's task got a bigger stack for the
+      autosave; this is where a shortfall would show.
+
+### Going back to br.2
+
+Upload `BLLC_V2.3.0-br.2.bin.ota` (Firmware update page or `tools/flash.sh`), then **restore
+the backup you downloaded** (Back up and restore). br.2 reads the Wi-Fi and printer settings
+from the new file but not the LED settings: it reads their absence as brightness 0 and no
+colours, so without the restore the strip stays dark. The restore is required, not optional.
+
+### Results
+
+| Check | Result |
+|---|---|
+| Version, new page, no setup dialog | |
+| Connected through the certificate check | |
+| Settings migrated | |
+| Wiring check (RGBW) | |
+| Model detected | |
+| Look up | |
+| Modes, brightness, previews, tools | |
+| Door, idle, print colours | |
+| Restart keeps settings | |
+| No freezes | |
+
 ## If something goes wrong
 
 - Forgot the WebUI password: run the USB setup again (the web flasher's WiFi setup step). Setup over USB clears the WebUI login.

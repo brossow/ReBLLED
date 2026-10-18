@@ -61,6 +61,7 @@ public:
   String substring(unsigned from, unsigned to) const { if (from >= s.size() || to <= from) return String(); return String(s.substr(from, to - from)); }
   void trim() { auto b = s.find_first_not_of(" \t\r\n"); auto e = s.find_last_not_of(" \t\r\n"); s = b == std::string::npos ? "" : s.substr(b, e - b + 1); }
   long toInt() const { return std::strtol(s.c_str(), nullptr, 10); }
+  void toUpperCase() { for (auto &c : s) c = (char)toupper((unsigned char)c); }
   String &operator+=(const String &o) { s += o.s; return *this; }
   String &operator+=(const char *o) { s += o; return *this; }
   String &operator+=(char c) { s += c; return *this; }

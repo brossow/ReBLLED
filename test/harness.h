@@ -27,7 +27,8 @@ inline bool ledsWhite() { return ledsAre(0, 0, 0, 255, 255); } // neutral white 
 inline void advance(unsigned long ms) { fake::now_ms += ms; }
 
 // A printer report through the real parser.
-inline void msg(const char *json) { ParseCallback((char *)"device/TEST/report", (byte *)json, strlen(json)); }
+// The loop shows what a report changed on its next pass, as on the device.
+inline void msg(const char *json) { ParseCallback((char *)"device/TEST/report", (byte *)json, strlen(json)); lightsLoop(); }
 // gcode_state and lights_report are ignored for 3 s after a command; step past that.
 inline void gcode(const char *state, int stage = -1) {
   advance(3500);
@@ -58,11 +59,13 @@ inline void freshDevice(v2::Settings s = v2::defaults()) {
   currentEffect = EFFECT_SOLID; ledCycleActive = false;
   LogSerial.out.clear();
   fake::published.clear(); fake::mqttConnected = true;
+  fake::tlsAnswers = true; fake::dropsAfterHandshake = false; fake::certOk = false; fake::tlsConnects = fake::socketCloses = 0;
   pendingChamberLight = -1;
-  fake::saves = 0; api::dirty = false; api::frozen = false; printerLookup = PrinterLookup{};
+  fake::saves = 0; api::dirty = false; configFrozen = false; printerLookup = PrinterLookup{};
   fake::now_ms = 1000000;              // far from 0 so "time since" checks behave
   lastMQTTupdate = 0;
   printerVariables.online = true;
+  printerVariables.everConnected = true;
   printerVariables.gcodeState = "IDLE";
   printerVariables.printerledstate = true;
   lightsBegin();

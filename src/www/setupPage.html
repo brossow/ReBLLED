@@ -679,6 +679,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
       tool_wifi: `Wi-Fi strength (Tools): signal ${st.rssi} dBm.` + stop,
       unreachable: `The printer has been unreachable for over ${fmtSec(S.offlineOffSec)}.`,
       access_rejected: "The printer rejected the access code. Check it with Run setup again.",
+      connecting: "Connecting to the printer…",
       cert_rejected: "The device at the printer's address couldn't prove it's your printer, so the access code wasn't sent. Check the address with Run setup again.",
       error: `Error: ${(sub || "printer error").toLowerCase()}.`,
       attention: ATTN_TEXT[st.detail] || "The printer needs attention.",
@@ -724,7 +725,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     $("statusText").textContent = d.text;
     $("statusReason").textContent = d.reason;
     const p = ST.printer || {};
-    $("conn").textContent = p.connected ? "Printer connected" : p.accessRejected ? "Access code rejected" : p.certRejected ? "Printer not verified" : "Printer unreachable";
+    $("conn").textContent = p.connected ? "Printer connected" : p.accessRejected ? "Access code rejected" : p.certRejected ? "Printer not verified" : ST.reason === "connecting" ? "Connecting to the printer" : "Printer unreachable";
     $("conn").classList.toggle("down", !p.connected);
     const tool = ST.tool && ST.tool !== "none" ? ST.tool : null;
     $("stopTool").hidden = !tool && !ST.check;
@@ -1155,7 +1156,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     try {
       // The controller connects to the address and reads the printer's certificate; ask until it has.
       let r = { looking: true };
-      for (let i = 0; i < 15 && r.looking; i++) {
+      for (let i = 0; i < 40 && r.looking; i++) {   // up to ~30 s: it waits for a connect attempt in progress
         if (i) await new Promise(res => setTimeout(res, 800));
         r = await getJSON("/api/lookup?ip=" + encodeURIComponent(ip));
       }
@@ -1186,7 +1187,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     if (step === "connection") {
       const picked = document.querySelector("input[name=wzPrinter]:checked");
       const manual = !picked || picked.value === "manual";
-      const p = manual ? { ip: $("wzIp").value.trim(), serial: $("wzSerial").value.trim() } : wz.found[+picked.value];
+      if (manual) $("wzSerial").value = $("wzSerial").value.trim().toUpperCase();
+      const p = manual ? { ip: $("wzIp").value.trim(), serial: $("wzSerial").value } : wz.found[+picked.value];
       const code = $("wzCode").value.trim();
       const bad = [
         [manual && wzError($("wzIp"), $("wzIpErr"), !IP_RE.test(p.ip)), $("wzIp")],

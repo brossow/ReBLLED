@@ -73,6 +73,7 @@ v2::Snapshot printerSnapshot()
     p.connected = printerVariables.online;
     p.accessRejected = printerVariables.accessRejected;
     p.certRejected = printerVariables.certRejected;
+    p.everConnected = printerVariables.everConnected;
     p.unreachableMs = (!printerVariables.online && printerVariables.disconnectMQTTms) ? millis() - printerVariables.disconnectMQTTms : 0;
     p.gcodeState = printerVariables.gcodeState;
     p.stage = printerVariables.stage;

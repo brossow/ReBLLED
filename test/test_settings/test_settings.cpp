@@ -206,6 +206,18 @@ void test_patch_rejects_bad_values_and_stays_v2() {
     TEST_ASSERT_EQUAL(s.brightness, applyPatch(s, q.as<JsonVariantConst>()).brightness);   // not an object
 }
 
+void test_patch_cannot_swap_a_section_for_a_value() {
+    Settings s = defaults(); s.look = LOOK_CUSTOM; s.custom.state[ST_ERROR].rhythm = R_PULSE; s.lightOnDoor = true;
+    JsonDocument p; deserializeJson(p, R"({"custom":"x","printerLight":0,"brightness":{"a":1}})");
+    Settings n = applyPatch(s, p.as<JsonVariantConst>());
+    TEST_ASSERT_EQUAL(R_PULSE, n.custom.state[ST_ERROR].rhythm);   // Custom set kept
+    TEST_ASSERT_TRUE(n.lightOnDoor);
+    TEST_ASSERT_EQUAL(s.brightness, n.brightness);
+}
+void test_v1_timeout_under_a_minute_is_one_minute() {
+    JsonDocument d; deserializeJson(d, R"({"ssid":"x","inactivityEnabled":true,"inactivityTimeOut":30000})");
+    TEST_ASSERT_EQUAL(1, migrateV1(d.as<JsonVariantConst>()).idleOffMin);   // not 0 = never
+}
 void test_white_levels_are_clamped() {
   JsonDocument d; deserializeJson(d, R"({"kind":"custom","hex":"#000000","ww":300,"cw":-5})");
   LookColour c = colourFromJson(d.as<JsonVariantConst>(), colour(CK_OFF));
@@ -227,6 +239,8 @@ int main() {
     RUN_TEST(test_v2_is_not_migrated_again);
     RUN_TEST(test_patch_changes_only_what_is_sent);
     RUN_TEST(test_patch_rejects_bad_values_and_stays_v2);
+    RUN_TEST(test_patch_cannot_swap_a_section_for_a_value);
+    RUN_TEST(test_v1_timeout_under_a_minute_is_one_minute);
     RUN_TEST(test_white_levels_are_clamped);
     return UNITY_END();
 }
