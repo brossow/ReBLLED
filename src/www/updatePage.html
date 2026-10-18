@@ -88,7 +88,7 @@
       waitForReboot();
     };
     x.onerror = () => { $("progress").hidden = true; say("The upload was cut off. The installed version is unchanged; try again.", "bad"); $("go").disabled = $("file").disabled = false; };
-    x.open("POST", "/update"); x.send(fd);
+    x.open("POST", "/update"); x.setRequestHeader("X-BLLED", "1"); x.send(fd);
   });
 })();
 </script>

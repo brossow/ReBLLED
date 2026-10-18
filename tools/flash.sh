@@ -48,12 +48,17 @@ fi
 
 curl_auth() { printf '%s\n' "$AUTH" | curl -K - "$@"; }
 
-before=$(curl_auth -s --max-time 5 "http://$HOST/getConfig" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("firmwareversion","?"))' 2>/dev/null || echo "?")
+# The running version: /api/status (v2). Older firmware: /getConfig.
+version() {
+  curl_auth -s --max-time "$1" "http://$HOST/api/status" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("firmware",""))' 2>/dev/null ||
+  curl_auth -s --max-time "$1" "http://$HOST/getConfig" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("firmwareversion",""))' 2>/dev/null || true
+}
+before=$(version 5); before=${before:-?}
 echo "Device $HOST runs: $before"
 echo "Uploading $FW ($(stat -f %z "$FW") bytes)..."
 
 code=$(curl_auth -s -o /tmp/blled-flash.$$ -w '%{http_code}' --max-time 180 \
-  -F "firmware=@${FW};filename=$(basename "$FW")" "http://$HOST/update" || echo 000)
+  -H "X-BLLED: 1" -F "firmware=@${FW};filename=$(basename "$FW")" "http://$HOST/update" || echo 000)
 body=$(cat /tmp/blled-flash.$$ 2>/dev/null || true); rm -f /tmp/blled-flash.$$
 if [ "$code" != "200" ]; then
   echo "Upload refused or failed (HTTP $code): $body" >&2
@@ -64,7 +69,7 @@ echo "Upload accepted. Waiting for the device to restart..."
 
 sleep 5
 for _ in $(seq 1 45); do
-  after=$(curl_auth -s --max-time 3 "http://$HOST/getConfig" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("firmwareversion",""))' 2>/dev/null || true)
+  after=$(version 3)
   if [ -n "$after" ]; then
     echo "Device $HOST is back, running: $after (was $before)"
     exit 0

@@ -231,11 +231,16 @@ No blockers. Fixed before flashing:
 - Cyan "connecting to the printer" now shows until the first connection after boot (then off
   after the unreachable delay), as Help says; it was replaced by idle white at once.
 
-Left for later: `/factoryreset` (GET) and `/configrestore` (form post) can be triggered by any
-web page you visit when no WebUI login is set (as in br.2; the JSON API needs
-`application/json` and is safe); `/ws` status needs no login (no secrets); the red "loading
-settings" boot colour uses the board labels (it's shown before the settings that hold the
-wiring load).
+Left for later: `/ws` status needs no login (no secrets); the red "loading settings" boot
+colour uses the board labels (it's shown before the settings that hold the wiring load).
+
+**Cross-site requests (fixed in br.5).** In br.2–br.4, with no WebUI login set, any web page
+you visited could post to the controller: factory reset (it was even a GET), config restore,
+Wi-Fi change, firmware upload. Now every request that changes something needs an `X-BLLED`
+header, which the controller's own pages and `tools/flash.sh` send. A page on another site can't
+add a custom header without the browser asking this server first (a CORS preflight), which it
+never allows. `/factoryreset` is POST only. The JSON API was already covered: it only accepts
+`application/json`, which needs the same permission.
 
 ## The other pages (done in br.4)
 

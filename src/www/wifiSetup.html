@@ -180,7 +180,7 @@
     $("saveBtn").disabled = true;
     const st = $("saveState"); st.className = "status-line"; st.textContent = "Saving…";
     try {
-      const r = await fetch("/submitWiFi", { method: "POST", body });
+      const r = await fetch("/submitWiFi", { method: "POST", body, headers: { "X-BLLED": "1" } });
       if (!r.ok) { st.className = "status-line bad"; st.textContent = "Not saved: " + ((await r.text()) || "HTTP " + r.status); $("saveBtn").disabled = false; return; }
       waitForRestart(ssidChanged, host);
     } catch (e2) { waitForRestart(ssidChanged, host); }   // it may already be restarting

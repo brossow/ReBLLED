@@ -133,6 +133,14 @@ The settings file changes format on the first boot (the old one is kept on the d
       Download saves a `.txt`.
 - [ ] Every page: light and dark mode, and a phone.
 
+### br.5
+
+- [ ] Everything from the other pages above still works (they now send an `X-BLLED` header).
+- [ ] From a terminal, a request without it is refused and changes nothing:
+      `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://<device-ip>/factoryreset` → 401
+      with a login set (403 without one).
+- [ ] `tools/flash.sh` prints the version before and after (it used a removed endpoint).
+
 ### Going back to br.2
 
 Upload `BLLC_V2.3.0-br.2.bin.ota` (Firmware update page or `tools/flash.sh`), then **restore
