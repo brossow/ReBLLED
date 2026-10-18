@@ -135,8 +135,6 @@ class H(http.server.BaseHTTPRequestHandler):
             hit = next((x for x in PRINTERS if x["ip"] == ip), None)
             if hit: return self._send(200, json.dumps({"answered": True, "trusted": True, "serial": hit["serial"]}))
             return self._send(200, json.dumps({"answered": ip == "192.0.2.99", "trusted": False} | ({"serial": "FAKE0001"} if ip == "192.0.2.99" else {})))
-        if p == "/factoryreset":
-            return self._send(200, "Factory reset complete. Restarting...", "text/plain")
         if p == "/setup":
             return self._send(200, open(f"{WWW}/setupPage.html", "rb").read(), "text/html")
         if p == "/fwupdate":
@@ -171,6 +169,10 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get("Content-Length", 0)); body = self.rfile.read(n)
         p = urllib.parse.urlparse(self.path).path
+        if p in ("/submitWiFi", "/configrestore", "/update", "/factoryreset", "/api/wifi-rescan") and not self.headers.get("X-BLLED"):
+            return self._send(403, "Refused: use the controller's own pages.", "text/plain")
+        if p == "/factoryreset":
+            return self._send(200, "Factory reset complete. Restarting...", "text/plain")
         if p == "/submitWiFi":
             f = urllib.parse.parse_qs(body.decode(), keep_blank_values=True)
             state["submits"].append(f)

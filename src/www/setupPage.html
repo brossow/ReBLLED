@@ -322,7 +322,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     return r.json();
   }
   async function postJSON(path, body) {
-    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-BLLED": "1" }, body: JSON.stringify(body) });
     let j = {}; try { j = await r.json(); } catch (e) {}
     if (!r.ok) { const e = new Error(j.error || "HTTP " + r.status); e.code = j.error; throw e; }
     return j;
@@ -847,7 +847,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     no.addEventListener("click", () => showResetButton().focus());
     yes.addEventListener("click", async () => {
       yes.disabled = no.disabled = true;
-      try { const r = await fetch("/factoryreset", { cache: "no-store" }); p.textContent = r.ok ? "Erased. The controller is restarting; join the BLLED_AP Wi-Fi hotspot to set it up again." : "Couldn't erase (HTTP " + r.status + ")."; }
+      try { const r = await fetch("/factoryreset", { method: "POST", headers: { "X-BLLED": "1" } }); p.textContent = r.ok ? "Erased. The controller is restarting; join the BLLED_AP Wi-Fi hotspot to set it up again." : "Couldn't erase (HTTP " + r.status + ")."; }
       catch (e) { p.textContent = "Couldn't reach the controller."; }
     });
   }

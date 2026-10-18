@@ -31,6 +31,20 @@ bool isAuthorized(AsyncWebServerRequest *request)
     return request->authenticate(securityVariables.HTTPUser, securityVariables.HTTPPass);
 }
 
+// Requests that change something must come from the controller's own pages (or flash.sh): they
+// carry an X-BLLED header. A web page on another site can't add a custom header without the
+// browser first asking this server, which never agrees, so it can't reset, restore, re-flash or
+// re-point the controller from someone's browser (matters most when no login is set). The JSON
+// API is covered by its application/json content type, which needs the same permission.
+bool fromOwnPage(AsyncWebServerRequest *request)
+{
+    return request->hasHeader("X-BLLED");
+}
+void refuseForeign(AsyncWebServerRequest *request)
+{
+    request->send(403, "text/plain", "Refused: use the controller's own pages.");
+}
+
 void handleSetup(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
@@ -190,6 +204,7 @@ void setupApiRoutes()
     // Re-pick the strongest access point of the configured network (Advanced).
     webServer.on("/api/wifi-rescan", HTTP_POST, [](AsyncWebServerRequest *r) {
         if (!isAuthorized(r)) return r->requestAuthentication();
+        if (!fromOwnPage(r)) return refuseForeign(r);
         printerConfig.rescanWiFiNetwork = true; // the loop scans, then reconnects
         r->send(200, "application/json", "{}");
     });
@@ -264,6 +279,8 @@ void handleSubmitWiFi(AsyncWebServerRequest *request)
     {
         return request->requestAuthentication();
     }
+    if (!fromOwnPage(request))
+        return refuseForeign(request);
 
     auto param = [request](const char *name) -> String
     {
@@ -434,6 +451,8 @@ void handleFactoryReset(AsyncWebServerRequest *request)
 {
     if (!isAuthorized(request))
         return request->requestAuthentication();
+    if (!fromOwnPage(request))
+        return refuseForeign(request);
 
     LogSerial.println(F("[FactoryReset] Performing full reset..."));
 
@@ -502,13 +521,16 @@ void setupWebserver()
     webServer.on("/configfile.json", HTTP_GET, handleDownloadConfigFile);
     webServer.on("/webserial", HTTP_GET, handleWebSerialPage);
     webServer.on("/printerList", HTTP_GET, handlePrinterList);
-    webServer.on("/factoryreset", HTTP_GET, handleFactoryReset);
+    webServer.on("/factoryreset", HTTP_POST, handleFactoryReset);
     // Uploads: the upload callback runs before the completion handler, so the login has
     // to be checked there too or the data is written before anyone is authenticated.
     webServer.on("/configrestore", HTTP_POST, [](AsyncWebServerRequest *request)
                  {
         if (!isAuthorized(request)) {
             return request->requestAuthentication();
+        }
+        if (!fromOwnPage(request)) {
+            return refuseForeign(request);
         }
         if (!configUploadOk) {
             request->send(400, "text/plain", "Config file rejected (not valid BLLED JSON). Nothing was changed.");
@@ -523,9 +545,9 @@ void setupWebserver()
 
         if (!index) {
             configUploadOk = false;
-            uploadAuthorized = isAuthorized(request);
+            uploadAuthorized = isAuthorized(request) && fromOwnPage(request);
             if (!uploadAuthorized) {
-                LogSerial.println(F("[ConfigUpload] Rejected: not authorized"));
+                LogSerial.println(F("[ConfigUpload] Rejected: not authorized, or not from the controller's pages"));
                 return;
             }
             LogSerial.printf("[ConfigUpload] Start: %s\n", filename.c_str());
@@ -558,6 +580,9 @@ void setupWebserver()
         if (!isAuthorized(request)) {
             return request->requestAuthentication();
         }
+        if (!fromOwnPage(request)) {
+            return refuseForeign(request);
+        }
         if (!otaOk) {
             request->send(500, "text/plain", "Update failed - see the Web Serial log. The current firmware is still installed.");
             return;
@@ -571,9 +596,9 @@ void setupWebserver()
 
         if (!index) {
             otaOk = false;
-            otaAuthorized = isAuthorized(request);
+            otaAuthorized = isAuthorized(request) && fromOwnPage(request);
             if (!otaAuthorized) {
-                LogSerial.println(F("[OTA] Rejected: not authorized"));
+                LogSerial.println(F("[OTA] Rejected: not authorized, or not from the controller's pages"));
                 return;
             }
             LogSerial.printf("[OTA] Start: %s\n", filename.c_str());

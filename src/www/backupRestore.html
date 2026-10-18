@@ -84,7 +84,7 @@
     $("go").disabled = $("file").disabled = true; say("Uploading…");
     const fd = new FormData(); fd.append("config", f, f.name);
     try {
-      const r = await fetch("/configrestore", { method: "POST", body: fd });
+      const r = await fetch("/configrestore", { method: "POST", body: fd, headers: { "X-BLLED": "1" } });
       if (!r.ok) { say((await r.text()) || "Not restored (HTTP " + r.status + ").", "bad"); $("go").disabled = $("file").disabled = false; return; }
       say("Restored. The controller is restarting…"); waitForRestart();
     } catch (e2) { say("The upload was cut off; nothing was changed. Try again.", "bad"); $("go").disabled = $("file").disabled = false; }
