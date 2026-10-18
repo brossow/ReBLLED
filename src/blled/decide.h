@@ -34,6 +34,12 @@ namespace v2
         RS_PRINTING, RS_LIGHT_OFF, RS_IDLE_OFF, RS_IDLE,
     };
     enum Show : uint8_t { SHOW_OFF, SHOW_COLOUR, SHOW_CYCLE, SHOW_WIFI };
+    // Names for the web API (the page turns them into sentences, in its own language).
+    static const char *const REASON_NAMES[] = {"mode_off", "mode_on", "tool_test", "tool_cycle", "tool_wifi",
+                                               "unreachable", "access_rejected", "error", "attention", "finished", "preparing", "preparing_no_lidar",
+                                               "printing", "light_off", "idle_off", "idle"};
+    static const char *const SHOW_NAMES[] = {"off", "colour", "cycle", "wifi"};
+    static const char *const TOOL_NAMES[] = {"none", "test", "cycle", "wifi"};
 
     struct Decision
     {

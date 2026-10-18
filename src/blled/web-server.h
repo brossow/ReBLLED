@@ -7,8 +7,10 @@
 #include <ESPmDNS.h>
 #include <Update.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
 #include "lights.h"
 #include "filesystem.h"
+#include "api.h"
 
 AsyncWebServer webServer(80);
 AsyncWebSocket ws("/ws");
@@ -221,6 +223,73 @@ void handleSetBrightness(AsyncWebServerRequest *request)
     request->send(200, "text/plain", "OK");
 }
 
+// ---- v2 JSON API (api.h) ----
+void sendJson(AsyncWebServerRequest *request, int code, JsonDocument &doc)
+{
+    String json;
+    serializeJson(doc, json);
+    request->send(code, "application/json", json);
+}
+void handleApiGetSettings(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request)) return request->requestAuthentication();
+    JsonDocument doc;
+    api::getSettings(doc.to<JsonObject>());
+    sendJson(request, 200, doc);
+}
+void handleApiStatus(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request)) return request->requestAuthentication();
+    JsonDocument doc;
+    api::status(doc.to<JsonObject>());
+    sendJson(request, 200, doc);
+}
+// Every printer heard announcing itself (up to 10), for choosing which one to follow.
+void handleApiPrinters(AsyncWebServerRequest *request)
+{
+    if (!isAuthorized(request)) return request->requestAuthentication();
+    JsonDocument doc;
+    JsonArray arr = doc["printers"].to<JsonArray>();
+    for (int i = 0; i < bblKnownPrinterCount; i++)
+    {
+        JsonObject o = arr.add<JsonObject>();
+        o["ip"] = bblLastKnownPrinters[i].ip.toString();
+        o["serial"] = bblLastKnownPrinters[i].usn;
+        o["current"] = strcmp(bblLastKnownPrinters[i].usn, printerConfig.serialNumber) == 0;
+    }
+    doc["followingSerial"] = printerConfig.serialNumber;
+    doc["followingIp"] = printerConfig.printerIP;
+    sendJson(request, 200, doc);
+}
+// POST handlers with a JSON body. The body is parsed before this runs, but nothing acts on
+// it without the login.
+typedef bool (*ApiBodyFn)(JsonVariantConst, JsonObject);
+void apiPost(AsyncWebServerRequest *request, JsonVariant &json, ApiBodyFn fn)
+{
+    if (!isAuthorized(request)) return request->requestAuthentication();
+    JsonDocument doc;
+    bool ok = fn(json, doc.to<JsonObject>());
+    sendJson(request, ok ? 200 : 400, doc);
+}
+bool apiPatch(JsonVariantConst body, JsonObject out)
+{
+    if (!body.is<JsonObjectConst>()) { out["error"] = "expected a JSON object"; return false; }
+    api::patchSettings(body, out);
+    return true;
+}
+void setupApiRoutes()
+{
+    webServer.on("/api/settings", HTTP_GET, handleApiGetSettings);
+    webServer.on("/api/status", HTTP_GET, handleApiStatus);
+    webServer.on("/api/printers", HTTP_GET, handleApiPrinters);
+    webServer.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, apiPatch); })
+        .setMaxContentLength(4096);
+    webServer.on("/api/tool", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, api::tool); })
+        .setMaxContentLength(512);
+    webServer.on("/api/check", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, api::check); })
+        .setMaxContentLength(256);
+}
+
 void sendJsonToAll(JsonDocument &doc)
 {
     String jsonString;
@@ -368,6 +437,7 @@ void websocketLoop()
         doc["printerConnection"] = printerVariables.online;
         doc["clients"] = ws.count();
         doc["stg_cur"] = printerVariables.stage;
+        api::status(doc["lights"].to<JsonObject>()); // what the strip shows and why
         sendJsonToAll(doc);
     }
 }
@@ -456,6 +526,7 @@ void handleFactoryReset(AsyncWebServerRequest *request)
 
     LogSerial.println(F("[FactoryReset] Performing full reset..."));
 
+    api::freeze();      // a pending autosave must not recreate it
     deleteFileSystem(); // delete LittleFS config
     request->send(200, "text/plain", "Factory reset complete. Restarting...");
 
@@ -509,6 +580,7 @@ void setupWebserver()
         handleSetup(request);
     } });
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
+    setupApiRoutes();
     webServer.on("/getConfig", HTTP_GET, handleGetConfig);
     webServer.on("/submitConfig", HTTP_POST, handleSubmitConfig);
     webServer.on("/setBrightness", HTTP_POST, handleSetBrightness);
@@ -566,6 +638,7 @@ void setupWebserver()
             }
             configUploadOk = isValidConfigFile(configUploadPath);
             if (configUploadOk) {
+                api::freeze(); // a pending autosave must not overwrite the restored file
                 LittleFS.remove(configPath);
                 configUploadOk = LittleFS.rename(configUploadPath, configPath);
             } else {

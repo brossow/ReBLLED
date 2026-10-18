@@ -10,6 +10,10 @@
 inline CaptureSerial LogSerial;
 
 #include "../src/blled/mqttmanager.h" // brings in lights.h and leds.h
+// The config file isn't on the host; count the saves instead.
+namespace fake { inline int saves = 0; }
+void saveFileSystem() { fake::saves++; }
+#include "../src/blled/api.h"
 
 // Output duties as last written, board-label order (R, G, B, WW, CW).
 struct Duty { uint32_t r, g, b, ww, cw; };
@@ -55,6 +59,7 @@ inline void freshDevice(v2::Settings s = v2::defaults()) {
   LogSerial.out.clear();
   fake::published.clear(); fake::mqttConnected = true;
   pendingChamberLight = -1;
+  fake::saves = 0; api::dirty = false; api::frozen = false;
   fake::now_ms = 1000000;              // far from 0 so "time since" checks behave
   lastMQTTupdate = 0;
   printerVariables.online = true;

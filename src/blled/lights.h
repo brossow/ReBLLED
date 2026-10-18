@@ -18,6 +18,9 @@ v2::Tool activeTool = v2::TOOL_NONE;        // temporary, never saved
 v2::LookColour testColour = v2::rgb(255, 0, 0);
 v2::Decision lastDecision;
 int8_t checkOutput = -1;                    // wiring check: the one output lit, or -1
+// Set by the web server's task; the loop applies it. A fade takes 500 ms and must not run
+// on the web server's task (it would stall every request and hold the lock).
+volatile bool lightsRefresh = false;
 
 unsigned long lastActivityMs = 0;           // door, printer events, a print running
 bool finishShowing = false;                 // a print finished and its ending hasn't happened
@@ -183,27 +186,30 @@ void lightsTimers()
     }
 }
 
-// ---- tools and the wiring check (setup page) ----
+// ---- tools and the wiring check (setup page; web server task) ----
 void lightsSetTool(v2::Tool t, const v2::LookColour *colour = nullptr)
 {
     StateLock lock;
     activeTool = t;
     if (colour) testColour = *colour;
-    lightsUpdate(true);
+    lightsRefresh = true;
 }
 void lightsCheckOutput(int8_t output)
 {
     StateLock lock;
-    checkOutput = output;
-    lightsUpdate(true);
+    checkOutput = output >= 0 && output < v2::OUT_COUNT ? output : -1;
+    lightsRefresh = true;
 }
 
-// After settings change (setup page, restore): re-apply everything.
+// After settings change (setup page, restore). Brightness applies at once (it's only a
+// rescale); anything else is shown by the loop.
 void lightsSettingsChanged()
 {
     StateLock lock;
+    const bool brightnessChanged = ledBrightness != settings.brightness;
     lightsSyncMirrors();
-    lightsUpdate(true);
+    if (brightnessChanged) setBrightness(settings.brightness);
+    lightsRefresh = true;
 }
 
 void lightsLoop()
@@ -211,7 +217,9 @@ void lightsLoop()
     {
         StateLock lock;
         lightsTimers();
-        lightsUpdate();
+        const bool force = lightsRefresh;
+        lightsRefresh = false;
+        lightsUpdate(force);
         // red/green/blue outputs for the colour cycle, honouring the wiring check
         int8_t rgbOut[3];
         for (int i = 0; i < 3; i++) { int8_t outs[2]; v2::outputsFor(settings, i, outs); rgbOut[i] = outs[0]; }
@@ -224,6 +232,7 @@ void lightsLoop()
 void lightsBegin()
 {
     lightsSyncMirrors();
+    lightsRefresh = false;
     lastActivityMs = millis();
 }
 

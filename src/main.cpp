@@ -140,6 +140,7 @@ void loop()
     {
         websocketLoop();
         lightsLoop();
+        api::loop(); // autosave
 
         // Paced so a dropped connection doesn't hammer disconnect/reconnect every loop pass.
         if (WiFi.status() != WL_CONNECTED && millis() - lastWifiReconnectAttempt > 10000)
@@ -184,6 +185,7 @@ void loop()
     }
     if (shouldRestart && millis() - restartRequestTime > 1500)
     {
+        api::flush(); // unsaved changes (no-op after a restore or factory reset)
         LogSerial.println(F("[WiFiSetup] Restarting now..."));
         ESP.restart();
     }

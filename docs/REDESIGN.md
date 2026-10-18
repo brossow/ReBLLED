@@ -133,6 +133,23 @@ been chosen so far; Esc does the same. Errors are written next to the field and 
 the first one; each step's heading takes focus as you move. Everything else stays on the main
 page.
 
+## Web API (stage 3, `src/blled/api.h`)
+
+All endpoints need the WebUI login when one is set. Bodies and replies are JSON.
+
+| Endpoint | Does |
+| --- | --- |
+| `GET /api/settings` | The v2 settings. |
+| `POST /api/settings` | Partial update: only the keys sent change; objects merge (`{"custom":{"error":{"rhythm":"pulse"}}}`). Bad values fall back or clamp. Replies with the settings now in effect. Applies at once; saved 1.5 s after changes stop (and before any restart). |
+| `GET /api/status` | What the strip shows and why: `reason` (`idle`, `idle_off`, `finished`, `error`, …), `show`, `state`/`detail`, `colour`, `rhythm`, `outputs`, `tool`, `check`, countdowns (`idleOffIn`, `finishEndsIn`, `idleFor`, seconds) and `printer` (connected, door, light, model, …). The page turns these into the status sentence in its own language. The same object is pushed every second on `/ws` as `lights`. |
+| `POST /api/tool` | `{"tool":"test","colour":{…}}`, `{"tool":"cycle"}`, `{"tool":"wifi"}`, `{"tool":"none"}` (Stop). Never saved. |
+| `POST /api/check` | `{"output":"R"}` … `"CW"` lights just that output; `{"output":null}` ends the check. The answer is saved with `POST /api/settings` (`wiring`). |
+| `GET /api/printers` | Printers heard on the network (IP, serial, which one is followed). Model and name come in stage 5. |
+
+Changes from the page never fade the LEDs on the web server's task (a fade takes 500 ms);
+they're shown by the main loop on its next pass. A config restore or factory reset cancels
+any pending autosave so it can't overwrite the new file.
+
 ## Open questions for review
 
 - The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check
