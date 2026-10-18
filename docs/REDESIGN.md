@@ -29,11 +29,33 @@ Status: **prototype for review** (`prototype/setup-v2.html`). Nothing here is in
 | Timing | `finishEnds` + `finishMinutes` | `door`, `timer`, `either` | finish exit |
 | Timing | `offlineOffSeconds` | seconds before the strip turns off when the printer is unreachable (was a fixed 30 s) | hidden constant |
 | Printer's light | `lightOnAtPrintStart`, `lightOnWhenDoorOpens`, `lightOffWhenIdle`, `lightOffWhenFinishTimerEnds` | on/off each | the single "Control Chamber Light" switch |
+| LED strip | `stripType` | `rgbww` (RGB + warm + cool white), `rgbw` (RGB + one white), `rgb`, `wwcw` (warm + cool white only), `w` (single white) | nothing (every colour assumed all five channels) |
+| LED strip | `channelMap` | which controller output (R, G, B, WW, CW) drives each strip channel; set by the wiring check | rewiring (red/green swapped on the author's strip, 2026-10-17) |
 | Printer | `model` | X1C, X1E, P1S, P1P, A1, A1 mini, X2D (untested), H2D (untested) | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
 | Advanced | `hmsIgnore`, `debug`, `mqttLog` | | same |
 
 The firmware migrates a v1 config to v2 on first boot. Every v1 value has a v2 home; the dead
 settings are dropped.
+
+## LED strip and wiring check
+
+The controller has five outputs, labelled R, G, B, WW and CW on the board. Strips use some of
+them, and the wires aren't always in that order.
+
+- **Wiring check:** the page lights one output at a time and asks "What do you see?" (red,
+  green, blue, white, warm white, cool white, nothing). The answers set `channelMap` and
+  suggest `stripType`; both can be changed by hand.
+- **Colour choices follow the strip:**
+  - `rgbww`: warm, neutral and cool white, custom colour, off.
+  - `rgbw`: white (the white channel), warm or cool white (white mixed with a little RGB), custom, off.
+  - `rgb`: white, warm and cool white mixed from RGB, custom, off.
+  - `wwcw`: warm, neutral and cool white, off. There are no colours, so states are told apart
+    by rhythm.
+  - `w`: white or off, with states told apart by rhythm.
+- **Saved colours are never rewritten** when the type changes. A choice the strip can't show
+  (custom red on a white-only strip) is shown as the nearest it can, and the row says so.
+- **Firmware:** one mapping step in the function that writes the PWM (logical channel → output),
+  plus white mixing for `rgb`. Host tests cover each type.
 
 ## Behaviour rules
 
@@ -51,6 +73,15 @@ settings are dropped.
 
 ## Open questions for review
 
+- The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check
+  answers this.
 - Autosave every change, or live preview plus an explicit Save?
 - Should `off` stay off until changed, or until the next print starts?
 - Model list: which models matter beyond the X1C and the coming X2D?
+
+## Language
+
+All page text goes in one string table. US English is the default (the original page uses US
+spelling); the page switches to British English (colour, grey, …) when the browser's language
+is `en-GB`, and the table leaves room for other languages later. The prototype isn't localised
+yet.

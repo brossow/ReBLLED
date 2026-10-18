@@ -110,6 +110,12 @@ details.more[open] > summary { margin-bottom: 8px; }
 .sub { display: grid; gap: 8px; padding-left: 4px; }
 .sub .inline label { min-width: 12em; }
 
+table.map { border-collapse: collapse; font-size: .92rem; }
+table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
+table.map td.out { font-family: var(--mono); }
+.checkbox { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-soft); }
+.answers { display: flex; gap: 6px; flex-wrap: wrap; }
+.note { color: var(--warn); font-size: .88rem; grid-column: 2 / 4; }
 .legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .legend li { display: grid; grid-template-columns: 22px 9em minmax(0, 1fr); gap: 10px; align-items: center; }
 .legend b { font-weight: 600; }
@@ -165,6 +171,14 @@ code { font-family: var(--mono); font-size: .9em; }
         <label for="simLight">Printer's own light</label>
         <select id="simLight"><option value="on">On</option><option value="off">Off</option></select>
       </div>
+      <div class="field">
+        <label for="simStrip">Your physical strip</label>
+        <select id="simStrip"><option value="rgbw" selected>RGB + one white</option><option value="rgbww">RGB + warm + cool white</option><option value="rgb">RGB only</option><option value="w">One white only</option></select>
+      </div>
+      <div class="field">
+        <label for="simWiring">How it's wired</label>
+        <select id="simWiring"><option value="ok" selected>As the board labels</option><option value="rg">Red and green swapped</option><option value="wcw">White on the CW output</option></select>
+      </div>
       <div class="btns">
         <button type="button" id="simDoor">Open and close the door</button>
         <button type="button" id="simSkip">Skip ahead 10 min</button>
@@ -193,6 +207,23 @@ code { font-family: var(--mono); font-size: .9em; }
       <div class="field">
         <label for="brightness">Brightness: <span id="brightnessOut">100</span>%</label>
         <input type="range" id="brightness" min="0" max="100" value="100">
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-strip">
+    <div><h2 id="h-strip">Your LED strip</h2><p class="hint">Which lights your strip has and how it's wired, so colours come out right.</p></div>
+    <div class="card">
+      <fieldset>
+        <legend>Strip type</legend>
+        <div class="modes" id="stripTypes"></div>
+      </fieldset>
+      <div class="field">
+        <h3>Wiring</h3>
+        <p class="hint">The controller has five outputs, marked R, G, B, WW and CW on the board. If the strip's wires aren't in that order, fix it here instead of rewiring.</p>
+        <div style="overflow-x:auto"><table class="map" id="mapTable"></table></div>
+        <div class="inline"><button type="button" id="checkBtn">Check the wiring</button><button type="button" id="mapReset">Reset to the board labels</button></div>
+        <div id="checkArea" aria-live="polite"></div>
       </div>
     </div>
   </section>
@@ -299,7 +330,9 @@ code { font-family: var(--mono); font-size: .9em; }
   const NAMED = [["#ff0000","Red"],["#00ff00","Green"],["#0000ff","Blue"],["#ffa500","Orange"],["#ff00ff","Pink"],["#00ffff","Cyan"],["#ffff00","Yellow"],["#ffffff","White"],["#800000","Dim red"]];
   function colourName(c) {
     if (c.kind === "off") return "Off";
-    if (WHITES[c.kind]) return WHITES[c.kind][0];
+    const T = STRIP_TYPES[S.strip.type];
+    if (c.kind === "custom" && !T.custom) return S.strip.type === "w" ? "White" : "Neutral white";
+    if (c.kind !== "custom") return (T.whites[c.kind] || "White").replace(" (mixed)", "");
     const hit = NAMED.find(n => n[0] === c.hex.toLowerCase());
     return hit ? hit[1] : describeHex(c.hex);
   }
@@ -318,7 +351,64 @@ code { font-family: var(--mono); font-size: .9em; }
     if (prefix === "Light " && name === "red") return "Pink";
     return prefix ? prefix + name : name.charAt(0).toUpperCase() + name.slice(1);
   }
-  function colourCss(c) { return c.kind === "off" ? null : (WHITES[c.kind] ? WHITES[c.kind][1] : c.hex); }
+  // ---------- LED strip: type, wiring, and what a colour turns into ----------
+  const STRIP_TYPES = {
+    rgbww: { label: "RGB + warm + cool white", d: "Red, green, blue, warm white and cool white.", ch: ["r","g","b","ww","cw"],
+             whites: { warm: "Warm white", neutral: "Neutral white", cool: "Cool white" }, custom: true },
+    rgbw:  { label: "RGB + one white", d: "Red, green, blue and a single white.", ch: ["r","g","b","w"],
+             whites: { neutral: "White", warm: "Warm white (mixed)", cool: "Cool white (mixed)" }, custom: true },
+    rgb:   { label: "RGB only", d: "Red, green and blue. Whites are mixed from all three.", ch: ["r","g","b"],
+             whites: { neutral: "White (mixed)", warm: "Warm white (mixed)", cool: "Cool white (mixed)" }, custom: true },
+    wwcw:  { label: "Warm + cool white", d: "No colours. States are told apart by rhythm.", ch: ["ww","cw"],
+             whites: { warm: "Warm white", neutral: "Neutral white", cool: "Cool white" }, custom: false },
+    w:     { label: "One white only", d: "A single white. States are told apart by rhythm.", ch: ["w"],
+             whites: { neutral: "White" }, custom: false },
+  };
+  const CH_NAMES = { r: "Red", g: "Green", b: "Blue", w: "White", ww: "Warm white", cw: "Cool white" };
+  const OUTPUTS = ["R", "G", "B", "WW", "CW"];
+  const LIGHT = { r: [255,0,0], g: [0,255,0], b: [0,0,255], w: [255,244,229], ww: [255,196,130], cw: [210,226,255] };
+  const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+
+  // Strip channel levels (0-255) for a colour on the CONFIGURED strip type, plus a note when
+  // the strip can't show it exactly.
+  function toChannels(c, type) {
+    type = type || S.strip.type;
+    if (!c || c.kind === "off") return { ch: {}, note: "" };
+    const T = STRIP_TYPES[type];
+    if (c.kind === "custom" && !T.custom)
+      return { ch: type === "w" ? { w: 255 } : { ww: 255, cw: 255 }, note: "This strip has no colours, so it shows " + (type === "w" ? "white" : "neutral white") + " instead." };
+    if (c.kind !== "custom" && !T.whites[c.kind])
+      return { ch: { w: 255 }, note: "This strip has one white, so it shows that." };
+    if (c.kind === "custom") { const [r, g, b] = hexRgb(c.hex); return { ch: { r, g, b }, note: "" }; }
+    const W = {
+      rgbww: { warm: { ww: 255 }, neutral: { ww: 255, cw: 255 }, cool: { cw: 255 } },
+      rgbw:  { neutral: { w: 255 }, warm: { w: 255, r: 90, g: 35 }, cool: { w: 255, b: 70 } },
+      rgb:   { neutral: { r: 255, g: 235, b: 210 }, warm: { r: 255, g: 170, b: 90 }, cool: { r: 200, g: 220, b: 255 } },
+      wwcw:  { warm: { ww: 255 }, neutral: { ww: 255, cw: 255 }, cool: { cw: 255 } },
+      w:     { neutral: { w: 255 } },
+    };
+    return { ch: W[type][c.kind], note: "" };
+  }
+  // What a mix of strip channels looks like (for swatches and the virtual strip)
+  function mixCss(ch) {
+    let rgb = [0, 0, 0], any = false;
+    for (const [k, v] of Object.entries(ch)) { if (!v) continue; any = true; LIGHT[k].forEach((x, i) => rgb[i] += x * v / 255); }
+    if (!any) return null;
+    const m = Math.max(255, ...rgb); return `rgb(${rgb.map(x => Math.round(x * 255 / m)).join(",")})`;
+  }
+  function colourCss(c) { return mixCss(toChannels(c).ch); }             // what the setting means
+  // What the PHYSICAL strip lights up: settings -> controller outputs (map) -> real wires (sim)
+  function physicalCss(c) {
+    const outs = {};
+    for (const [k, v] of Object.entries(toChannels(c).ch)) { const o = S.strip.map[k]; if (o) outs[o] = Math.max(outs[o] || 0, v); }
+    return outputsCss(outs);
+  }
+  function outputsCss(outs) {
+    const wires = simWires(), ch = {};
+    for (const [o, v] of Object.entries(outs)) { const real = wires[o]; if (real) ch[real] = Math.max(ch[real] || 0, v); }
+    return mixCss(ch);
+  }
+  function colourLabel(kind, type) { const T = STRIP_TYPES[type || S.strip.type]; return kind === "custom" ? "Custom colour" : kind === "off" ? "Off" : (T.whites[kind] || WHITES[kind][0]); }
 
   // ---------- settings (the v2 model) ----------
   const S = {
@@ -336,7 +426,9 @@ code { font-family: var(--mono); font-size: .9em; }
     idleOff: 10, finishEnds: "door", finishMin: 10, offlineSec: 30,
     lightPrintStart: false, lightDoor: false, lightIdle: false, lightFinishTimer: false,
     model: "X1C",
+    strip: { type: "rgbw", map: { r: "R", g: "G", b: "B", w: "WW" } },   // map: strip channel -> controller output
   };
+  const LABEL_MAP = { r: "R", g: "G", b: "B", ww: "WW", cw: "CW", w: "WW" };
   const MODELS = {
     X1C: { door: true, lidar: true, note: "Has a door sensor and lidar." },
     X1E: { door: true, lidar: true, note: "Has a door sensor and lidar." },
@@ -349,7 +441,17 @@ code { font-family: var(--mono); font-size: .9em; }
   };
 
   // ---------- simulated printer ----------
-  const sim = { state: "idle", light: "on", idleMin: 0, finishMin: 0, finishDone: false, previewUntil: 0, preview: null };
+  const sim = { state: "idle", light: "on", idleMin: 0, finishMin: 0, finishDone: false, previewUntil: 0, preview: null,
+                strip: "rgbw", wiring: "ok", check: null };
+  // The simulated physical strip: which real light each controller output drives.
+  function simWires() {
+    const w = { rgbww: { R: "r", G: "g", B: "b", WW: "ww", CW: "cw" }, rgbw: { R: "r", G: "g", B: "b", WW: "w" },
+                rgb: { R: "r", G: "g", B: "b" }, w: { WW: "w" } }[sim.strip];
+    const out = Object.assign({}, w);
+    if (sim.wiring === "rg" && out.R && out.G) [out.R, out.G] = [out.G, out.R];
+    if (sim.wiring === "wcw" && out.WW && !out.CW) { out.CW = out.WW; delete out.WW; }
+    return out;
+  }
 
   // ---------- decide what the strip shows, and why ----------
   function stateColour(key, subKey) {
@@ -359,12 +461,14 @@ code { font-family: var(--mono); font-size: .9em; }
   }
   function decide() {
     const m = MODELS[S.model];
+    if (sim.check) return { css: outputsCss({ [sim.check]: 255 }) || null, rhythm: "steady", text: `Wiring check: output ${sim.check} is on`, reason: "What colour does the strip show?", raw: true };
     if (sim.preview) return sim.preview;
     switch (S.mode) {
       case "off": return look(null, "steady", "Off", "Lights mode is Off. Choose another mode to turn them on.");
       case "on": return look(S.looks.printing.colour, "steady", null, "Lights mode is Always on.");
       case "test": return look({ kind: "custom", hex: S.testColor }, "steady", null, "Lights mode is Colour test.");
-      case "cycle": return { css: "cycle", rhythm: "steady", text: "Cycling through colours", reason: "Lights mode is Colour cycle." };
+      case "cycle": return STRIP_TYPES[S.strip.type].custom ? { css: "cycle", rhythm: "steady", text: "Cycling through colours", reason: "Lights mode is Colour cycle." }
+                                                           : look({ kind: "neutral" }, "slow", null, "Lights mode is Colour cycle, but this strip has no colours, so it pulses white.");
       case "wifi": return look({ kind: "custom", hex: "#00ff00" }, "steady", "Green: strong Wi-Fi", "Lights mode is Wi-Fi strength (signal −47 dBm).");
     }
     const st = sim.state;
@@ -391,11 +495,14 @@ code { font-family: var(--mono); font-size: .9em; }
     if (printing) return look(S.looks.printing.colour, S.looks.printing.rhythm, null, "Printing.");
     return look(S.looks.idle.colour, S.looks.idle.rhythm, null, "Printer idle." + (S.idleOff ? ` Turns off after ${S.idleOff} min without activity (${Math.max(0, S.idleOff - sim.idleMin)} min left).` : " Stays on."));
   }
+  // The status line says what the controller SENDS (it can't see the strip); the virtual strip
+  // shows what the wires physically do. If they disagree, the wiring check fixes it.
   function look(colour, rhythm, text, reason) {
-    const css = colour ? colourCss(colour) : null;
-    const name = colour ? colourName(colour) : "Off";
-    const r = css ? (rhythm === "steady" ? "steady" : RHYTHMS[rhythm].toLowerCase()) : "";
-    return { css, rhythm: css ? rhythm : "steady", text: text || (css ? `${name}, ${r}` : "Off"), reason };
+    const lit = !!(colour && colourCss(colour));
+    const css = lit ? physicalCss(colour) : null;
+    const name = lit ? colourName(colour) : "Off";
+    const r = lit ? (rhythm === "steady" ? "steady" : RHYTHMS[rhythm].toLowerCase()) : "";
+    return { css, rhythm: lit ? rhythm : "steady", text: text || (lit ? `${name}, ${r}` : "Off"), reason };
   }
   function fmtSec(s) { return s >= 60 ? (s / 60) + " min" : s + " s"; }
 
@@ -434,7 +541,10 @@ code { font-family: var(--mono); font-size: .9em; }
   function colourControl(id, colour, label, allowSame) {
     const wrap = document.createElement("span"); wrap.className = "inline";
     const sel = document.createElement("select"); sel.id = id; sel.setAttribute("aria-label", label);
-    const opts = (allowSame ? [["same", "Same as group"]] : []).concat([["warm","Warm white"],["neutral","Neutral white"],["cool","Cool white"],["custom","Custom colour"],["off","Off"]]);
+    const T = STRIP_TYPES[S.strip.type];
+    const kinds = Object.keys(T.whites).concat(T.custom ? ["custom"] : [], ["off"]);
+    const opts = (allowSame ? [["same", "Same as group"]] : []).concat(kinds.map(k => [k, colourLabel(k)]));
+    if (colour && !kinds.includes(colour.kind)) opts.push([colour.kind, colourLabel(colour.kind, "rgbww") + " (not on this strip)"]);
     for (const [v, t] of opts) { const o = document.createElement("option"); o.value = v; o.textContent = t; sel.appendChild(o); }
     const pick = document.createElement("input"); pick.type = "color"; pick.id = id + "-hex"; pick.setAttribute("aria-label", label + ": custom colour");
     sel.value = colour ? colour.kind : "same"; pick.value = colour && colour.hex ? colour.hex : "#ffffff"; pick.hidden = sel.value !== "custom";
@@ -458,8 +568,11 @@ code { font-family: var(--mono); font-size: .9em; }
       controls.append(cc.wrap, rs);
       const when = document.createElement("p"); when.className = "when"; when.textContent = L.when;
       row.append(sw, name, prev, controls, when);
+      const note = document.createElement("p"); note.className = "note"; note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent;
+      row.appendChild(note);
       cc.sel.addEventListener("change", () => { cc.pick.hidden = cc.sel.value !== "custom"; L.colour = cc.sel.value === "custom" ? { kind: "custom", hex: cc.pick.value } : { kind: cc.sel.value };
-        const c = colourCss(L.colour); sw.style.background = c || ""; saved(L.label + " colour"); });
+        const c = colourCss(L.colour); sw.style.background = c || "";
+        note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent; saved(L.label + " colour"); });
       cc.pick.addEventListener("input", () => { L.colour = { kind: "custom", hex: cc.pick.value }; sw.style.background = cc.pick.value; render(); });
       cc.pick.addEventListener("change", () => saved(L.label + " colour"));
       rs.addEventListener("change", () => { L.rhythm = rs.value; saved(L.label + " rhythm"); });
@@ -495,6 +608,99 @@ code { font-family: var(--mono); font-size: .9em; }
     li.querySelector("b").textContent = name; li.querySelector("span:last-child").textContent = what;
     $("legend").appendChild(li);
   }
+
+  // ---------- LED strip section ----------
+  function labelMap(type) { const m = {}; for (const c of STRIP_TYPES[type].ch) m[c] = LABEL_MAP[c]; return m; }
+  function buildStrip() {
+    const host = $("stripTypes"); host.textContent = "";
+    for (const [k, T] of Object.entries(STRIP_TYPES)) {
+      const lab = document.createElement("label"); lab.className = "choice";
+      lab.innerHTML = `<input type="radio" name="stripType" value="${k}" id="strip-${k}"><span class="t"></span><span class="d"></span>`;
+      lab.querySelector(".t").textContent = T.label; lab.querySelector(".d").textContent = T.d;
+      const r = lab.querySelector("input"); r.checked = S.strip.type === k;
+      r.addEventListener("change", () => {
+        S.strip.type = k;
+        // keep wiring the check found where it still applies; fill the rest from the board labels
+        const m = labelMap(k); for (const c of T.ch) if (S.strip.map[c]) m[c] = S.strip.map[c];
+        if (k === "rgbw" || k === "w") { const single = S.strip.map.w || S.strip.map.ww || S.strip.map.cw; if (single) m.w = single; }
+        S.strip.map = m; buildMap(); buildLooks(); saved("Strip type: " + T.label);
+      });
+      host.appendChild(lab);
+    }
+  }
+  function buildMap() {
+    const t = $("mapTable"); t.textContent = "";
+    t.innerHTML = "<caption class='visually-hidden'>Which controller output drives each light on the strip</caption><thead><tr><th scope='col'>Light on the strip</th><th scope='col'>Controller output</th><th scope='col'></th></tr></thead><tbody></tbody>";
+    const tb = t.querySelector("tbody");
+    for (const c of STRIP_TYPES[S.strip.type].ch) {
+      const tr = document.createElement("tr");
+      const out = S.strip.map[c], moved = out && out !== LABEL_MAP[c] && !(c === "w" && (out === "WW" || out === "CW"));
+      tr.innerHTML = "<th scope='row'></th><td class='out'></td><td class='hint'></td>";
+      tr.children[0].textContent = CH_NAMES[c]; tr.children[1].textContent = out || "not connected";
+      tr.children[2].textContent = moved ? "Differs from the board label; corrected in software." : "";
+      tb.appendChild(tr);
+    }
+  }
+  $("mapReset").addEventListener("click", () => { S.strip.map = labelMap(S.strip.type); buildMap(); saved("Wiring reset to the board labels"); });
+
+  const ANSWERS = [["r","Red"],["g","Green"],["b","Blue"],["w","White"],["ww","Warm white"],["cw","Cool white"],["", "Nothing"]];
+  function wiringCheck() {
+    const area = $("checkArea"), answers = {};
+    $("checkBtn").disabled = true;
+    const step = i => {
+      sim.check = OUTPUTS[i]; render();
+      area.textContent = "";
+      const box = document.createElement("div"); box.className = "checkbox"; box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", "checkQ");
+      const q = document.createElement("p"); q.id = "checkQ";
+      q.innerHTML = `<b>Step ${i + 1} of ${OUTPUTS.length}.</b> Output <code>${OUTPUTS[i]}</code> is on by itself. What do you see on the strip?`;
+      const row = document.createElement("div"); row.className = "answers";
+      for (const [v, t] of ANSWERS) {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+        b.addEventListener("click", () => { answers[OUTPUTS[i]] = v; i + 1 < OUTPUTS.length ? step(i + 1) : finish(); });
+        row.appendChild(b);
+      }
+      const cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+      cancel.addEventListener("click", stop);
+      box.append(q, row, cancel); area.appendChild(box); row.firstChild.focus();
+    };
+    const stop = () => { sim.check = null; area.textContent = ""; $("checkBtn").disabled = false; render(); $("checkBtn").focus(); };
+    const finish = () => {
+      sim.check = null; render();
+      const map = {}; for (const o of OUTPUTS) if (answers[o]) map[answers[o]] = o;
+      const has = c => !!map[c], rgb = has("r") && has("g") && has("b");
+      const whites = ["w", "ww", "cw"].filter(has);
+      let type = null;
+      if (rgb && has("ww") && has("cw")) type = "rgbww";
+      else if (rgb && whites.length === 1) type = "rgbw";
+      else if (rgb && whites.length === 0) type = "rgb";
+      else if (!rgb && has("ww") && has("cw") && !has("w")) type = "wwcw";
+      else if (!has("r") && !has("g") && !has("b") && whites.length === 1) type = "w";
+      if (whites.length === 1 && (type === "rgbw" || type === "w")) { const o = map[whites[0]]; delete map.ww; delete map.cw; map.w = o; }
+      area.textContent = "";
+      const box = document.createElement("div"); box.className = "checkbox";
+      const p = document.createElement("p");
+      if (!type) {
+        p.textContent = "Those answers don't match a strip the controller knows (each light should appear once). Try again, or choose the strip type by hand.";
+        const again = document.createElement("button"); again.type = "button"; again.textContent = "Start again"; again.addEventListener("click", () => step(0));
+        const cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel"; cancel.addEventListener("click", stop);
+        box.append(p, again, cancel); area.appendChild(box); again.focus(); return;
+      }
+      const lines = STRIP_TYPES[type].ch.map(c => `${CH_NAMES[c]} is on output ${map[c]}`);
+      const moved = STRIP_TYPES[type].ch.filter(c => map[c] !== LABEL_MAP[c] && !(c === "w" && (map[c] === "WW" || map[c] === "CW")));
+      p.innerHTML = `<b>Found: ${STRIP_TYPES[type].label}.</b> `;
+      p.appendChild(document.createTextNode(lines.join(", ") + ". " + (moved.length ? `${moved.map(c => CH_NAMES[c]).join(" and ")} ${moved.length > 1 ? "are" : "is"} not where the board labels say; the controller will correct for it, no rewiring needed.` : "Everything matches the board labels.")));
+      const use = document.createElement("button"); use.type = "button"; use.className = "primary"; use.textContent = "Use this";
+      use.addEventListener("click", () => { S.strip.type = type; S.strip.map = map; buildStrip(); buildMap(); buildLooks(); saved("Strip type and wiring"); stop(); });
+      const again = document.createElement("button"); again.type = "button"; again.textContent = "Start again"; again.addEventListener("click", () => step(0));
+      const cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel"; cancel.addEventListener("click", stop);
+      const btns = document.createElement("div"); btns.className = "inline"; btns.append(use, again, cancel);
+      box.append(p, btns); area.appendChild(box); use.focus();
+    };
+    step(0);
+  }
+  $("checkBtn").addEventListener("click", wiringCheck);
+  $("simStrip").addEventListener("change", () => { sim.strip = $("simStrip").value; logSim("Physical strip changed. Run the wiring check to see what the controller finds."); render(); });
+  $("simWiring").addEventListener("change", () => { sim.wiring = $("simWiring").value; logSim("Wiring changed. The strip now shows what these wires would really do; run the wiring check to correct it."); render(); });
 
   // ---------- wire up settings ----------
   document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener("change", () => {
@@ -571,6 +777,19 @@ code { font-family: var(--mono); font-size: .9em; }
     logSim(notes.join(" ")); render();
   });
 
-  applyModel(); buildLooks(); render();
+  // Set every control from the settings on load. Browsers restore form state on reload,
+  // which would otherwise leave the page showing one thing while the settings say another.
+  function syncControls() {
+    document.querySelectorAll('input[name=mode]').forEach(r => r.checked = r.value === S.mode);
+    $("testColorRow").hidden = S.mode !== "test"; $("testColor").value = S.testColor;
+    $("brightness").value = S.brightness; $("brightnessOut").textContent = S.brightness;
+    $("followLight").checked = S.followLight; $("idleOff").value = String(S.idleOff);
+    document.querySelectorAll('input[name=finishEnds]').forEach(r => r.checked = r.value === S.finishEnds);
+    $("finishMin").value = S.finishMin; $("offlineSec").value = String(S.offlineSec);
+    for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).checked = S[id];
+    $("model").value = S.model;
+    $("simState").value = sim.state; $("simLight").value = sim.light; $("simStrip").value = sim.strip; $("simWiring").value = sim.wiring;
+  }
+  syncControls(); buildStrip(); buildMap(); applyModel(); buildLooks(); render();
 })();
 </script>
