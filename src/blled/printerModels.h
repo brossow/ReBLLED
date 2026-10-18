@@ -35,12 +35,13 @@ namespace bblssdp
         return false;
     }
 
-    // DevModel codes confirmed in public integrations, mapped to the setup page's model keys.
+    // DevModel codes mapped to the setup page's model keys. BL-P001 is confirmed on the author's X1
+    // Carbon (2026-10-18); the others are from public integrations.
     // Other codes are passed through as they are, so the page shows them and keeps every option
     // (add a code here once it's confirmed on a real printer).
     struct ModelCode { const char *code, *key; };
     static const ModelCode MODEL_CODES[] = {
-        {"3DPrinter-X1-Carbon", "X1C"}, {"3DPrinter-X1", "X1"}, {"C13", "X1E"},
+        {"BL-P001", "X1C"}, {"3DPrinter-X1-Carbon", "X1C"}, {"3DPrinter-X1", "X1"}, {"C13", "X1E"},
         {"C11", "P1P"}, {"C12", "P1S"}, {"N1", "A1M"}, {"N2S", "A1"}, {"O1D", "H2D"},
     };
     inline void modelKey(const char *code, char *out, size_t n)
