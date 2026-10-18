@@ -184,11 +184,14 @@ the prototype, and why:
 ## Printer model, serial lookup and certificate check (stage 5)
 
 - **Model and name** come from the printer's discovery message (`DevModel.bambu.com`,
-  `DevName.bambu.com`, `src/blled/printerModels.h`). Codes confirmed in public integrations map to
-  the page's models (`BL-P001` → X1C, confirmed on the author's X1 Carbon 2026-10-18; `3DPrinter-X1-Carbon` → X1C, `3DPrinter-X1`, `C13` X1E, `C11` P1P, `C12` P1S,
-  `N1` A1 mini, `N2S` A1, `O1D` H2D); other codes pass through as they are, and the page treats
-  them as unknown (every option shown, lidar and door sensor assumed). Add codes as they're
-  confirmed on real printers.
+  `DevName.bambu.com`, `src/blled/printerModels.h`). `DevModel` is the printer's `model_id` from
+  Bambu Studio's printer profiles (`resources/profiles/BBL/machine/*.json`, read 2026-10-18):
+  `BL-P001` X1 Carbon (confirmed on the author's), `BL-P002` X1, `C13` X1E, `C11` P1P, `C12` P1S,
+  `N7` P2S, `N2S` A1, `N1` A1 mini, `N9` A2L, `O1D` H2D, `O1E` H2D Pro, `O1S` H2S, `O1C2` H2C,
+  `N6` X2D. A newer code passes through as it is, and the page treats it as unknown (every
+  option shown, lidar and door sensor assumed). When Bambu adds a printer, its profile there
+  gives the code. Capabilities (door sensor, lidar) for anything but the X1 Carbon are from
+  specs or assumed, and the page says so.
 - **The certificate check** (`src/blled/printerCert.h`). The author's X1 Carbon presents a certificate
   issued to its serial and signed by Bambu Lab's own authority, "BBL CA" (valid 2022-2032;
   checked 2026-10-18). The controller embeds that public CA certificate and, before sending the

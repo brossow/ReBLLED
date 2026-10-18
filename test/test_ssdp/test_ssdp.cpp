@@ -6,7 +6,7 @@
 static const char *NOTIFY =
   "NOTIFY * HTTP/1.1\r\nHOST: 239.255.255.250:1990\r\nServer: UPnP/1.0\r\nLocation: 192.0.2.10\r\n"
   "NT: urn:bambulab-com:device:3dprinter:1\r\nUSN: 01S00A0000X4821\r\nCache-Control: max-age=1800\r\n"
-  "DevModel.bambu.com: 3DPrinter-X1-Carbon\r\nDevName.bambu.com: Workshop X1C  \r\nDevSignal.bambu.com: -44\r\n"
+  "DevModel.bambu.com: BL-P001\r\nDevName.bambu.com: Workshop X1C  \r\nDevSignal.bambu.com: -44\r\n"
   "DevConnect.bambu.com: lan\r\nDevBind.bambu.com: free\r\nDevVersion.bambu.com: 01.08.02.00\r\n\r\n";
 
 void setUp() {}
@@ -17,7 +17,7 @@ void test_reads_serial_model_and_name() {
   TEST_ASSERT_TRUE(bblssdp::header(NOTIFY, "USN", v, sizeof v));
   TEST_ASSERT_EQUAL_STRING("01S00A0000X4821", v);
   TEST_ASSERT_TRUE(bblssdp::header(NOTIFY, "DevModel.bambu.com", v, sizeof v));
-  TEST_ASSERT_EQUAL_STRING("3DPrinter-X1-Carbon", v);
+  TEST_ASSERT_EQUAL_STRING("BL-P001", v);
   TEST_ASSERT_TRUE(bblssdp::header(NOTIFY, "DevName.bambu.com", v, sizeof v));
   TEST_ASSERT_EQUAL_STRING("Workshop X1C", v);              // trailing spaces trimmed
 }
@@ -45,8 +45,10 @@ void test_last_line_without_a_line_break() {
 void test_model_codes() {
   char k[12];
   bblssdp::modelKey("BL-P001", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1C", k);              // what an X1 Carbon sends
-  bblssdp::modelKey("3DPrinter-X1-Carbon", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1C", k);
-  bblssdp::modelKey("3DPrinter-X1", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1", k);
+  bblssdp::modelKey("BL-P002", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1", k);
+  bblssdp::modelKey("O1C2", k, sizeof k); TEST_ASSERT_EQUAL_STRING("H2C", k);
+  bblssdp::modelKey("O1E", k, sizeof k); TEST_ASSERT_EQUAL_STRING("H2DPRO", k);
+  bblssdp::modelKey("N6", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X2D", k);
   bblssdp::modelKey("C12", k, sizeof k); TEST_ASSERT_EQUAL_STRING("P1S", k);
   bblssdp::modelKey("N1", k, sizeof k); TEST_ASSERT_EQUAL_STRING("A1M", k);
   bblssdp::modelKey("Z9 <b>", k, sizeof k); TEST_ASSERT_EQUAL_STRING("Z9b", k);      // unknown: passed through, cleaned

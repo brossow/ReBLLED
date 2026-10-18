@@ -49,7 +49,7 @@ void lightsSyncMirrors()
 bool modelHasLidar()
 {
     const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
-    static const char *const noLidar[] = {"P1P", "P1S", "P2S", "A1", "A1M", "H2D", "H2S", "X2D"};
+    static const char *const noLidar[] = {"P1P", "P1S", "P2S", "A1", "A1M", "A2L", "H2D", "H2DPRO", "H2S", "H2C", "X2D"};
     for (const char *x : noLidar)
         if (strcmp(m, x) == 0) return false;
     return true;
@@ -59,7 +59,7 @@ bool modelHasLidar()
 bool modelHasDoorSensor()
 {
     const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
-    return !(strcmp(m, "P1P") == 0 || strcmp(m, "P1S") == 0 || strcmp(m, "A1") == 0 || strcmp(m, "A1M") == 0);
+    return !(strcmp(m, "P1P") == 0 || strcmp(m, "P1S") == 0 || strcmp(m, "A1") == 0 || strcmp(m, "A1M") == 0 || strcmp(m, "A2L") == 0);
 }
 // How the finished colour ends on this printer: without a door sensor, "door" means the timer.
 v2::FinishEnds finishEnds()
