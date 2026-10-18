@@ -240,12 +240,14 @@ button:disabled { opacity: .55; cursor: not-allowed; }
         </div>
         <p class="hint" style="margin-top:-6px">Never during a print. Opening the door, a new print or any printer event counts as activity.</p>
         <fieldset id="finishSet">
-          <legend>The finished color ends</legend>
-          <label class="choice"><input type="radio" name="finishEnds" value="door"><span class="t">When the door opens</span><span class="d" id="finishDoorNote">So it stays until you've seen it.</span></label>
+          <legend id="finishLegend">The finished color ends</legend>
+          <div id="finishChoices" class="field">
+          <label class="choice"><input type="radio" name="finishEnds" value="door"><span class="t">When the door opens</span><span class="d">So it stays until you've seen it.</span></label>
           <label class="choice"><input type="radio" name="finishEnds" value="timer"><span class="t">After a set time</span></label>
           <label class="choice"><input type="radio" name="finishEnds" value="either"><span class="t">Whichever comes first</span></label>
+          </div>
           <div class="inline" id="finishMinRow" hidden><label for="finishMin">Minutes</label><input type="number" id="finishMin" min="1" max="999" value="10"></div>
-          <p class="hint" id="finishFallback" hidden>This model has no door sensor, so the finished color ends after the set time instead. Your choice is kept for a model that has one.</p>
+          <p class="hint" id="finishNoDoor" hidden>This printer has no door sensor, so the finished color always ends on a timer.</p>
         </fieldset>
         <div class="inline">
           <label for="offlineSec">Turn the strip off when the printer is unreachable for</label>
@@ -325,9 +327,11 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     <h2 id="fh-help"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-help" data-fold="help"><span class="ft">Help</span><span class="sum" id="sum-help"></span></button></h2>
     <div class="fold-body" id="fb-help" hidden>
       <div class="card">
+        <div id="helpDoor" class="field">
         <h3>What the door does</h3>
         <p>Opening or closing the door wakes the strip and restarts the idle timer. If the finished color ends "when the door opens", it ends. That's all: the door never changes your settings.</p>
         <p class="hint">Replaces the old "open and close quickly to toggle the lights" gesture. To turn the strip off, choose the Off mode above.</p>
+        </div>
         <h3>Colors you may see while it starts</h3>
         <p class="hint">Shown before the printer is reachable.</p>
         <ul class="legend" id="legend"></ul>
@@ -1019,10 +1023,11 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     $("modelNote").textContent = m.note;
     const f = currentPrinter();
     $("modelDetected").textContent = (f.ip ? `Following the printer at ${f.ip}` + (f.serial ? ` (serial ending ${f.serial.slice(-4)})` : "") + ". " : "No printer set up yet. ") + `It reports itself as: ${detectedName()}.`;
-    const door = document.querySelector("input[name=finishEnds][value=door]"), either = document.querySelector("input[name=finishEnds][value=either]");
-    door.disabled = either.disabled = !m.door; $("lightDoor").disabled = !m.door;
-    $("finishDoorNote").textContent = m.door ? "So it stays until you've seen it." : "Not available: this model has no door sensor.";
-    $("finishFallback").hidden = m.door || S.finishEnds === "timer";
+    // Door-only options are hidden, not greyed out, on a printer without a door sensor. (The saved
+    // choice is left alone; the firmware treats "door" as the timer on such a printer.)
+    $("finishChoices").hidden = !m.door; $("finishNoDoor").hidden = m.door;
+    $("finishLegend").textContent = m.door ? "The finished color ends" : "The finished color ends after";
+    $("lightDoor").closest("label").hidden = !m.door; $("helpDoor").hidden = !m.door;
     $("finishMinRow").hidden = S.finishEnds === "door" && m.door;
     if (lidarBefore !== null && lidarBefore !== m.lidar) buildLooks();
   }
@@ -1036,9 +1041,11 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   function summaries() {
     if (!S || !DEFAULTS) return;
-    const finish = { door: "finished ends on the door", timer: `finished ends after ${S.finishMin} min`, either: `finished ends on the door or after ${S.finishMin} min` }[S.finishEnds];
+    const ends = modelInfo(modelKey()).door ? S.finishEnds : "timer";
+    const finish = { door: "finished ends on the door", timer: `finished ends after ${S.finishMin} min`, either: `finished ends on the door or after ${S.finishMin} min` }[ends];
     const pl = S.printerLight || {};
-    const lights = [["onPrintStart", "on at print start"], ["onDoor", "on when the door opens"], ["offIdle", "off when idle"], ["offFinishTimer", "off when the finish timer ends"]].filter(([k]) => pl[k]).map(([, t]) => t);
+    const lights = [["onPrintStart", "on at print start"], ["onDoor", "on when the door opens"], ["offIdle", "off when idle"], ["offFinishTimer", "off when the finish timer ends"]]
+      .filter(([k]) => pl[k] && (k !== "onDoor" || modelInfo(modelKey()).door)).map(([, t]) => t);
     const wiringMoved = stripType().ch.some(c => c !== "w" && S.wiring && S.wiring[c] && S.wiring[c] !== LABEL_MAP[c]);
     const rows = {
       looks: [`${LOOK_TEXT[S.look][0]} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, S.look === "custom" && !same(S.custom, DEFAULTS.custom) || S.followLight !== DEFAULTS.followLight],
