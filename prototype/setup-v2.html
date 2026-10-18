@@ -51,7 +51,8 @@ a { color: var(--accent); }
 .conn { font-size: .85rem; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .conn::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ok); }
 .conn.down::before { background: var(--err); }
-.strip { height: 18px; border-radius: 9px; margin: 10px 0 8px; background: var(--strip-off);
+.strip { height: 22px; border-radius: 11px; margin: 10px 0 8px; background: var(--strip-off);
+  border: 4px solid var(--strip-off); /* the dark channel a real strip sits in, so white shows on a light page */
   transition: background-color .5s, box-shadow .5s, filter .3s; }
 .strip.lit { box-shadow: 0 0 18px 2px var(--glow, transparent); }
 .strip.pulse { animation: pulse 1.5s ease-in-out infinite; }
@@ -110,6 +111,20 @@ details.more[open] > summary { margin-bottom: 8px; }
 .sub { display: grid; gap: 8px; padding-left: 4px; }
 .sub .inline label { min-width: 12em; }
 
+.fold > h2 { margin: 0; font-size: 1.05rem; }
+.fold-btn { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 12px 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); font-weight: 600; }
+.fold-btn::after { content: "Show"; grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: .85rem; font-weight: 600; color: var(--accent); }
+.fold-btn[aria-expanded="true"]::after { content: "Hide"; }
+.fold-btn .ft { font-size: 1.05rem; }
+.fold-btn .sum { grid-column: 1; font-weight: 400; color: var(--muted); font-size: .9rem; }
+.changed { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78rem; font-weight: 600;
+  color: var(--accent); border: 1px solid var(--accent); }
+.fold-body { display: grid; gap: 10px; margin-top: 10px; }
+section.fold { gap: 0; margin-top: 12px; }
+.tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tool:last-of-type { border-bottom: 0; }
+@media (max-width: 520px) { .tool { grid-template-columns: 1fr; } }
 table.map { border-collapse: collapse; font-size: .92rem; }
 table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
 table.map td.out { font-family: var(--mono); }
@@ -136,7 +151,7 @@ code { font-family: var(--mono); font-size: .9em; }
   <div class="wrap" style="padding-block:0">
     <div class="row">
       <h1>X1C lights</h1>
-      <span class="conn" id="conn">Printer connected</span>
+      <span class="inline"><button type="button" id="stopTool" class="primary" hidden>Stop</button><span class="conn" id="conn">Printer connected</span></span>
     </div>
     <div class="strip" id="strip" role="img" aria-labelledby="statusText"></div>
     <div aria-live="polite">
@@ -187,22 +202,24 @@ code { font-family: var(--mono); font-size: .9em; }
     <p class="hint" id="simLog" aria-live="polite" style="margin-top:8px"></p>
   </details>
 
-  <section aria-labelledby="h-lights">
-    <div><h2 id="h-lights">Lights</h2><p class="hint">What the strip does overall. Changes apply and save immediately.</p></div>
+    <section aria-labelledby="h-lights">
+    <div><h2 id="h-lights">Lights</h2><p class="hint">Changes apply and save immediately.</p></div>
     <div class="card">
       <fieldset>
         <legend>Mode</legend>
         <div class="modes">
-          <label class="choice"><input type="radio" name="mode" id="mode-follow" value="follow" checked><span class="t">Follow the printer</span><span class="d">Colours show what the printer is doing. The normal setting.</span></label>
-          <label class="choice"><input type="radio" name="mode" id="mode-on" value="on"><span class="t">Always on</span><span class="d">Printing colour, all the time. For maintenance.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-follow" value="follow" checked><span class="t">Follow the printer</span><span class="d">Shows what the printer is doing. The normal setting.</span></label>
+          <label class="choice"><input type="radio" name="mode" id="mode-on" value="on"><span class="t">Always on</span><span class="d">Printing colour all the time, for maintenance.</span></label>
           <label class="choice"><input type="radio" name="mode" id="mode-off" value="off"><span class="t">Off</span><span class="d">Stays off until you choose another mode.</span></label>
-          <label class="choice"><input type="radio" name="mode" id="mode-test" value="test"><span class="t">Colour test</span><span class="d">One colour of your choice, to check the wiring.</span></label>
-          <label class="choice"><input type="radio" name="mode" id="mode-cycle" value="cycle"><span class="t">Colour cycle</span><span class="d">Slowly cycles through all colours.</span></label>
-          <label class="choice"><input type="radio" name="mode" id="mode-wifi" value="wifi"><span class="t">Wi-Fi strength</span><span class="d">Green is strong, red is weak. For placing the controller.</span></label>
         </div>
       </fieldset>
-      <div class="inline" id="testColorRow" hidden>
-        <label for="testColor">Test colour</label><input type="color" id="testColor" value="#ff0000">
+      <div class="field">
+        <label for="lookPreset">Look</label>
+        <select id="lookPreset">
+          <option value="status">Status colours: white while printing, red errors, blue pauses, green when finished</option>
+          <option value="white">White, status by rhythm: always white; errors blink, pauses and finished prints pulse</option>
+          <option value="custom">Custom (set under "How each printer state looks")</option>
+        </select>
       </div>
       <div class="field">
         <label for="brightness">Brightness: <span id="brightnessOut">100</span>%</label>
@@ -211,34 +228,22 @@ code { font-family: var(--mono); font-size: .9em; }
     </div>
   </section>
 
-  <section aria-labelledby="h-strip">
-    <div><h2 id="h-strip">Your LED strip</h2><p class="hint">Which lights your strip has and how it's wired, so colours come out right.</p></div>
-    <div class="card">
-      <fieldset>
-        <legend>Strip type</legend>
-        <div class="modes" id="stripTypes"></div>
-      </fieldset>
-      <div class="field">
-        <h3>Wiring</h3>
-        <p class="hint">The controller has five outputs, marked R, G, B, WW and CW on the board. If the strip's wires aren't in that order, fix it here instead of rewiring.</p>
-        <div style="overflow-x:auto"><table class="map" id="mapTable"></table></div>
-        <div class="inline"><button type="button" id="checkBtn">Check the wiring</button><button type="button" id="mapReset">Reset to the board labels</button></div>
-        <div id="checkArea" aria-live="polite"></div>
-      </div>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-looks">
-    <div><h2 id="h-looks">How each printer state looks</h2><p class="hint">Used when the mode is "Follow the printer". Rhythms mean you don't have to tell colours apart.</p></div>
-    <div class="card">
+  <section class="fold" aria-labelledby="fh-looks">
+    <h2 id="fh-looks"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-looks" data-fold="looks"><span class="ft">How each printer state looks</span><span class="sum" id="sum-looks"></span></button></h2>
+    <div class="fold-body" id="fb-looks" hidden>
+      <p class="hint">Used when the mode is "Follow the printer". Rhythms mean you don't have to tell colours apart.</p>
+      <div class="card">
       <div class="looks" id="looks"></div>
       <label class="check"><input type="checkbox" id="followLight" checked><span>Turn the strip off when the printer's own light is off</span><span class="d">The strip mirrors the printer's chamber light. Errors and finished prints still show.</span></label>
     </div>
+    </div>
   </section>
 
-  <section aria-labelledby="h-timing">
-    <div><h2 id="h-timing">Timing</h2></div>
-    <div class="card">
+  <section class="fold" aria-labelledby="fh-timing">
+    <h2 id="fh-timing"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-timing" data-fold="timing"><span class="ft">Timing</span><span class="sum" id="sum-timing"></span></button></h2>
+    <div class="fold-body" id="fb-timing" hidden>
+      
+      <div class="card">
       <div class="inline">
         <label for="idleOff">Turn the strip off after no activity for</label>
         <select id="idleOff"><option value="0">Never</option><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">60 min</option></select>
@@ -257,21 +262,47 @@ code { font-family: var(--mono); font-size: .9em; }
         <select id="offlineSec"><option value="30" selected>30 s</option><option value="60">1 min</option><option value="300">5 min</option><option value="0">Never</option></select>
       </div>
     </div>
+    </div>
   </section>
 
-  <section aria-labelledby="h-plight">
-    <div><h2 id="h-plight">The printer's own light</h2><p class="hint">The controller can switch the printer's chamber light too. Each of these is separate.</p></div>
-    <div class="card">
+  <section class="fold" aria-labelledby="fh-plight">
+    <h2 id="fh-plight"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-plight" data-fold="plight"><span class="ft">The printer's own light</span><span class="sum" id="sum-plight"></span></button></h2>
+    <div class="fold-body" id="fb-plight" hidden>
+      <p class="hint">The controller can switch the printer's chamber light too. Each of these is separate.</p>
+      <div class="card">
       <label class="check"><input type="checkbox" id="lightPrintStart"><span>Turn it on when a print starts</span><span class="d">The camera and AI print monitoring need light.</span></label>
       <label class="check"><input type="checkbox" id="lightDoor"><span>Turn it on when the door opens</span><span class="d">Off again once the door is closed and the strip goes idle.</span></label>
       <label class="check"><input type="checkbox" id="lightIdle"><span>Turn it off when the strip goes idle</span></label>
       <label class="check"><input type="checkbox" id="lightFinishTimer"><span>Turn it off when the finished colour ends on its timer</span></label>
     </div>
+    </div>
   </section>
 
-  <section aria-labelledby="h-printer">
-    <div><h2 id="h-printer">Your printer</h2></div>
-    <div class="card">
+  <section class="fold" aria-labelledby="fh-strip">
+    <h2 id="fh-strip"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-strip" data-fold="strip"><span class="ft">Your LED strip</span><span class="sum" id="sum-strip"></span></button></h2>
+    <div class="fold-body" id="fb-strip" hidden>
+      <p class="hint">Which lights your strip has and how it's wired, so colours come out right.</p>
+      <div class="card">
+      <fieldset>
+        <legend>Strip type</legend>
+        <div class="modes" id="stripTypes"></div>
+      </fieldset>
+      <div class="field">
+        <h3>Wiring</h3>
+        <p class="hint">The controller has five outputs, marked R, G, B, WW and CW on the board. If the strip's wires aren't in that order, the wiring check finds out and corrects for it, so you don't have to rewire. A single white is driven on both WW and CW until the check shows which one it's on.</p>
+        <div style="overflow-x:auto"><table class="map" id="mapTable"></table></div>
+        <div class="inline"><button type="button" id="checkBtn">Check the wiring</button><button type="button" id="mapReset">Reset to the board labels</button></div>
+        <div id="checkArea" aria-live="polite"></div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-printer">
+    <h2 id="fh-printer"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-printer" data-fold="printer"><span class="ft">Your printer</span><span class="sum" id="sum-printer"></span></button></h2>
+    <div class="fold-body" id="fb-printer" hidden>
+      
+      <div class="card">
       <div class="inline"><label for="model">Model</label>
         <select id="model">
           <option value="X1C" selected>X1 Carbon</option><option value="X1E">X1E</option><option value="P1S">P1S</option><option value="P1P">P1P</option>
@@ -279,26 +310,51 @@ code { font-family: var(--mono); font-size: .9em; }
         </select></div>
       <p class="hint" id="modelNote"></p>
     </div>
+    </div>
   </section>
 
-  <section aria-labelledby="h-door">
-    <div><h2 id="h-door">What the door does</h2></div>
-    <div class="card">
-      <p>Opening or closing the door wakes the strip and restarts the idle timer. If the finished colour ends "when the door opens", it ends. That's all: the door never changes your settings.</p>
+  <section class="fold" aria-labelledby="fh-tools">
+    <h2 id="fh-tools"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-tools" data-fold="tools"><span class="ft">Tools</span><span class="sum" id="sum-tools"></span></button></h2>
+    <div class="fold-body" id="fb-tools" hidden>
+      
+      <div class="card">
+        <div class="tool">
+          <div><h3>Colour test</h3><p class="hint">Shows one colour, to check the strip and its wiring.</p></div>
+          <div class="inline"><label for="testColor">Colour</label><input type="color" id="testColor" value="#ff0000"><button type="button" data-tool="test">Show it</button></div>
+        </div>
+        <div class="tool">
+          <div><h3>Colour cycle</h3><p class="hint">Slowly cycles through all colours.</p></div>
+          <div class="inline"><button type="button" data-tool="cycle">Start</button></div>
+        </div>
+        <div class="tool">
+          <div><h3>Wi-Fi strength</h3><p class="hint">Green is strong, red is weak. For finding a good spot for the controller.</p></div>
+          <div class="inline"><button type="button" data-tool="wifi">Show it</button></div>
+        </div>
+        <p class="hint">A tool runs until you press Stop at the top of the page; then the strip goes back to normal. It isn't saved, so a restart also ends it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="fold" aria-labelledby="fh-help">
+    <h2 id="fh-help"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-help" data-fold="help"><span class="ft">Help</span><span class="sum" id="sum-help"></span></button></h2>
+    <div class="fold-body" id="fb-help" hidden>
+      
+      <div class="card">
+        <h3>What the door does</h3>
+        <p>Opening or closing the door wakes the strip and restarts the idle timer. If the finished colour ends "when the door opens", it ends. That's all: the door never changes your settings.</p>
       <p class="hint">Replaces the old "open and close quickly to toggle the lights" gesture. To turn the strip off, choose the Off mode above.</p>
+        <h3>Colours you may see while it starts</h3>
+        <p class="hint">Shown before the printer is reachable.</p>
+        <ul class="legend" id="legend"></ul>
+      </div>
     </div>
   </section>
 
-  <section aria-labelledby="h-help">
-    <div><h2 id="h-help">Colours you may see while it starts</h2><p class="hint">Shown before the printer is reachable.</p></div>
-    <div class="card">
-      <ul class="legend" id="legend"></ul>
-    </div>
-  </section>
-
-  <section aria-labelledby="h-adv">
-    <div><h2 id="h-adv">Advanced</h2></div>
-    <div class="card">
+  <section class="fold" aria-labelledby="fh-adv">
+    <h2 id="fh-adv"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-adv" data-fold="adv"><span class="ft">Advanced</span><span class="sum" id="sum-adv"></span></button></h2>
+    <div class="fold-body" id="fb-adv" hidden>
+      
+      <div class="card">
       <div class="field"><label for="hmsIgnore">HMS codes to ignore (one per line)</label>
         <textarea id="hmsIgnore" rows="3" placeholder="HMS_0300_1200_0002_0001"></textarea>
         <p class="hint">Errors with these codes won't change the strip.</p></div>
@@ -306,9 +362,10 @@ code { font-family: var(--mono); font-size: .9em; }
       <label class="check"><input type="checkbox" id="mqttLog"><span>Log printer messages</span><span class="d">Writes each message from the printer to the log page. Very busy.</span></label>
       <div id="resetArea"><button type="button" class="danger" id="resetBtn">Erase all settings…</button></div>
     </div>
+    </div>
   </section>
 
-  <section aria-labelledby="h-more">
+<section aria-labelledby="h-more">
     <div><h2 id="h-more">More</h2></div>
     <nav class="nav" aria-label="Other pages">
       <button type="button" disabled>Wi-Fi and printer connection</button>
@@ -397,10 +454,16 @@ code { font-family: var(--mono); font-size: .9em; }
     const m = Math.max(255, ...rgb); return `rgb(${rgb.map(x => Math.round(x * 255 / m)).join(",")})`;
   }
   function colourCss(c) { return mixCss(toChannels(c).ch); }             // what the setting means
-  // What the PHYSICAL strip lights up: settings -> controller outputs (map) -> real wires (sim)
+  // Which controller output(s) each strip light uses: the board labels. A single white goes to
+  // both white outputs, so it works whichever one it's connected to.
+  const OUT_FOR = { r: ["R"], g: ["G"], b: ["B"], ww: ["WW"], cw: ["CW"], w: ["WW", "CW"] };
+  const LABEL_MAP = { r: "R", g: "G", b: "B", ww: "WW", cw: "CW" };
+  // The wiring check's result wins; otherwise the board labels.
+  const outputsFor = k => S.strip.map && S.strip.map[k] ? [S.strip.map[k]] : OUT_FOR[k];
+  // What the PHYSICAL strip lights up: settings -> controller outputs -> real wires (simulated)
   function physicalCss(c) {
     const outs = {};
-    for (const [k, v] of Object.entries(toChannels(c).ch)) { const o = S.strip.map[k]; if (o) outs[o] = Math.max(outs[o] || 0, v); }
+    for (const [k, v] of Object.entries(toChannels(c).ch)) for (const o of outputsFor(k)) outs[o] = Math.max(outs[o] || 0, v);
     return outputsCss(outs);
   }
   function outputsCss(outs) {
@@ -412,7 +475,8 @@ code { font-family: var(--mono); font-size: .9em; }
 
   // ---------- settings (the v2 model) ----------
   const S = {
-    mode: "follow", brightness: 100, testColor: "#ff0000", followLight: true,
+    mode: "follow", tool: null, preset: "status", brightness: 100, testColor: "#ff0000", followLight: true,
+    hmsIgnore: "", debugLog: false, mqttLog: false,
     looks: {
       printing:  { label: "Printing", when: "While a print is running.", colour: { kind: "neutral" }, rhythm: "steady" },
       idle:      { label: "Idle", when: "Printer on, not printing.", colour: { kind: "neutral" }, rhythm: "steady" },
@@ -426,9 +490,8 @@ code { font-family: var(--mono); font-size: .9em; }
     idleOff: 10, finishEnds: "door", finishMin: 10, offlineSec: 30,
     lightPrintStart: false, lightDoor: false, lightIdle: false, lightFinishTimer: false,
     model: "X1C",
-    strip: { type: "rgbw", map: { r: "R", g: "G", b: "B", w: "WW" } },   // map: strip channel -> controller output
+    strip: { type: "rgbw", map: null },   // map: strip light -> controller output, set by the wiring check
   };
-  const LABEL_MAP = { r: "R", g: "G", b: "B", ww: "WW", cw: "CW", w: "WW" };
   const MODELS = {
     X1C: { door: true, lidar: true, note: "Has a door sensor and lidar." },
     X1E: { door: true, lidar: true, note: "Has a door sensor and lidar." },
@@ -461,15 +524,15 @@ code { font-family: var(--mono); font-size: .9em; }
   }
   function decide() {
     const m = MODELS[S.model];
-    if (sim.check) return { css: outputsCss({ [sim.check]: 255 }) || null, rhythm: "steady", text: `Wiring check: output ${sim.check} is on`, reason: "What colour does the strip show?", raw: true };
     if (sim.preview) return sim.preview;
-    switch (S.mode) {
-      case "off": return look(null, "steady", "Off", "Lights mode is Off. Choose another mode to turn them on.");
-      case "on": return look(S.looks.printing.colour, "steady", null, "Lights mode is Always on.");
-      case "test": return look({ kind: "custom", hex: S.testColor }, "steady", null, "Lights mode is Colour test.");
-      case "cycle": return STRIP_TYPES[S.strip.type].custom ? { css: "cycle", rhythm: "steady", text: "Cycling through colours", reason: "Lights mode is Colour cycle." }
-                                                           : look({ kind: "neutral" }, "slow", null, "Lights mode is Colour cycle, but this strip has no colours, so it pulses white.");
-      case "wifi": return look({ kind: "custom", hex: "#00ff00" }, "steady", "Green: strong Wi-Fi", "Lights mode is Wi-Fi strength (signal −47 dBm).");
+    if (sim.check) return { css: outputsCss({ [sim.check]: 255 }) || null, rhythm: "steady", text: `Wiring check: output ${sim.check} is on`, reason: "What colour does the strip show?" };
+    switch (S.tool || S.mode) {
+      case "off": return look(null, "steady", "Off", "Mode is Off. Choose another mode to turn them on.");
+      case "on": return look(S.looks.printing.colour, "steady", null, "Mode is Always on.");
+      case "test": return look({ kind: "custom", hex: S.testColor }, "steady", null, "Colour test (Tools). Press Stop to go back to normal.");
+      case "cycle": return STRIP_TYPES[S.strip.type].custom ? { css: "cycle", rhythm: "steady", text: "Cycling through colours", reason: "Colour cycle (Tools). Press Stop to go back to normal." }
+                                                           : look({ kind: "neutral" }, "slow", null, "Colour cycle (Tools), but this strip has no colours, so it pulses white. Press Stop to go back to normal.");
+      case "wifi": return look({ kind: "custom", hex: "#00ff00" }, "steady", "Green: strong Wi-Fi", "Wi-Fi strength (Tools): signal −47 dBm. Press Stop to go back to normal.");
     }
     const st = sim.state;
     if (st === "offline") return S.offlineSec ? look(null, "steady", "Off", `The printer has been unreachable for over ${fmtSec(S.offlineSec)}.`)
@@ -496,7 +559,7 @@ code { font-family: var(--mono); font-size: .9em; }
     return look(S.looks.idle.colour, S.looks.idle.rhythm, null, "Printer idle." + (S.idleOff ? ` Turns off after ${S.idleOff} min without activity (${Math.max(0, S.idleOff - sim.idleMin)} min left).` : " Stays on."));
   }
   // The status line says what the controller SENDS (it can't see the strip); the virtual strip
-  // shows what the wires physically do. If they disagree, the wiring check fixes it.
+  // shows what the wires physically do (so a miswired strip looks wrong, as it would for real).
   function look(colour, rhythm, text, reason) {
     const lit = !!(colour && colourCss(colour));
     const css = lit ? physicalCss(colour) : null;
@@ -522,6 +585,9 @@ code { font-family: var(--mono); font-size: .9em; }
       if (d.rhythm !== "steady") strip.classList.add(d.rhythm === "slow" ? "slow" : d.rhythm);
     } else { strip.style.background = ""; strip.style.removeProperty("--glow"); }
     strip.style.filter = d.css ? `brightness(${0.25 + 0.75 * S.brightness / 100})` : ""; // combines with the rhythm's opacity animation
+    $("stopTool").hidden = !S.tool;
+    if (S.tool) $("stopTool").textContent = "Stop " + { test: "colour test", cycle: "colour cycle", wifi: "Wi-Fi strength" }[S.tool];
+    summaries();
     $("statusText").textContent = d.text;
     $("statusReason").textContent = d.reason;
     const off = sim.state === "offline";
@@ -572,10 +638,10 @@ code { font-family: var(--mono); font-size: .9em; }
       row.appendChild(note);
       cc.sel.addEventListener("change", () => { cc.pick.hidden = cc.sel.value !== "custom"; L.colour = cc.sel.value === "custom" ? { kind: "custom", hex: cc.pick.value } : { kind: cc.sel.value };
         const c = colourCss(L.colour); sw.style.background = c || "";
-        note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent; saved(L.label + " colour"); });
+        note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent; markCustom(); saved(L.label + " colour"); });
       cc.pick.addEventListener("input", () => { L.colour = { kind: "custom", hex: cc.pick.value }; sw.style.background = cc.pick.value; render(); });
-      cc.pick.addEventListener("change", () => saved(L.label + " colour"));
-      rs.addEventListener("change", () => { L.rhythm = rs.value; saved(L.label + " rhythm"); });
+      cc.pick.addEventListener("change", () => { markCustom(); saved(L.label + " colour"); });
+      rs.addEventListener("change", () => { L.rhythm = rs.value; markCustom(); saved(L.label + " rhythm"); });
       prev.addEventListener("click", () => {
         sim.preview = look(L.colour, L.rhythm, null, `Previewing "${L.label}" for 5 seconds.`);
         render(); clearTimeout(prev._t); prev._t = setTimeout(() => { sim.preview = null; render(); }, 5000);
@@ -610,7 +676,6 @@ code { font-family: var(--mono); font-size: .9em; }
   }
 
   // ---------- LED strip section ----------
-  function labelMap(type) { const m = {}; for (const c of STRIP_TYPES[type].ch) m[c] = LABEL_MAP[c]; return m; }
   function buildStrip() {
     const host = $("stripTypes"); host.textContent = "";
     for (const [k, T] of Object.entries(STRIP_TYPES)) {
@@ -620,11 +685,8 @@ code { font-family: var(--mono); font-size: .9em; }
       const r = lab.querySelector("input"); r.checked = S.strip.type === k;
       r.addEventListener("change", () => {
         S.strip.type = k;
-        // keep wiring the check found where it still applies; fill the rest from the board labels
-        const m = labelMap(k); for (const c of T.ch) if (S.strip.map[c]) m[c] = S.strip.map[c];
-        if (k === "rgbw" || k === "w") { const single = S.strip.map.w || S.strip.map.ww || S.strip.map.cw; if (single) m.w = single; }
-        S.strip.map = m; buildMap(); buildLooks(); saved("Strip type: " + T.label);
-      });
+        if (S.strip.map) { const m = {}; for (const c of T.ch) if (S.strip.map[c]) m[c] = S.strip.map[c]; S.strip.map = Object.keys(m).length ? m : null; }
+        buildMap(); buildLooks(); saved("Strip type: " + T.label); });
       host.appendChild(lab);
     }
   }
@@ -634,14 +696,15 @@ code { font-family: var(--mono); font-size: .9em; }
     const tb = t.querySelector("tbody");
     for (const c of STRIP_TYPES[S.strip.type].ch) {
       const tr = document.createElement("tr");
-      const out = S.strip.map[c], moved = out && out !== LABEL_MAP[c] && !(c === "w" && (out === "WW" || out === "CW"));
+      const outs = outputsFor(c), out = outs.join(" and "), moved = S.strip.map && S.strip.map[c] && c !== "w" && S.strip.map[c] !== LABEL_MAP[c];
       tr.innerHTML = "<th scope='row'></th><td class='out'></td><td class='hint'></td>";
       tr.children[0].textContent = CH_NAMES[c]; tr.children[1].textContent = out || "not connected";
-      tr.children[2].textContent = moved ? "Differs from the board label; corrected in software." : "";
+      if (c === "w" && !(S.strip.map && S.strip.map.w)) tr.children[2].textContent = "Either works; the wiring check pins it down.";
+      if (moved) tr.children[2].textContent = "Differs from the board label; corrected in software.";
       tb.appendChild(tr);
     }
   }
-  $("mapReset").addEventListener("click", () => { S.strip.map = labelMap(S.strip.type); buildMap(); saved("Wiring reset to the board labels"); });
+  $("mapReset").addEventListener("click", () => { S.strip.map = null; buildMap(); saved("Wiring reset to the board labels"); });
 
   const ANSWERS = [["r","Red"],["g","Green"],["b","Blue"],["w","White"],["ww","Warm white"],["cw","Cool white"],["", "Nothing"]];
   function wiringCheck() {
@@ -699,14 +762,19 @@ code { font-family: var(--mono); font-size: .9em; }
     step(0);
   }
   $("checkBtn").addEventListener("click", wiringCheck);
-  $("simStrip").addEventListener("change", () => { sim.strip = $("simStrip").value; logSim("Physical strip changed. Run the wiring check to see what the controller finds."); render(); });
-  $("simWiring").addEventListener("change", () => { sim.wiring = $("simWiring").value; logSim("Wiring changed. The strip now shows what these wires would really do; run the wiring check to correct it."); render(); });
+  $("simStrip").addEventListener("change", () => { sim.strip = $("simStrip").value; logSim("Physical strip changed. Run Check the wiring under Your LED strip to see what the controller finds."); render(); });
+  $("simWiring").addEventListener("change", () => { sim.wiring = $("simWiring").value; logSim("Wiring changed. The strip now shows what these wires would really do: run Check the wiring under Your LED strip."); render(); });
 
   // ---------- wire up settings ----------
   document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener("change", () => {
-    S.mode = r.value; $("testColorRow").hidden = S.mode !== "test"; saved("Mode: " + r.closest("label").querySelector(".t").textContent); }));
+    S.mode = r.value; saved("Mode: " + r.closest("label").querySelector(".t").textContent); }));
+  // Tools are temporary: they override the mode until Stop, and aren't saved.
+  document.querySelectorAll("[data-tool]").forEach(b => b.addEventListener("click", () => {
+    S.tool = b.dataset.tool; render(); $("stopTool").focus(); }));
+  $("stopTool").addEventListener("click", () => { const t = S.tool; S.tool = null; render();
+    const back = document.querySelector(`[data-tool="${t}"]`); if (back) back.focus(); });
   $("testColor").addEventListener("input", () => { S.testColor = $("testColor").value; render(); });
-  $("testColor").addEventListener("change", () => saved("Test colour"));
+  $("lookPreset").addEventListener("change", () => { applyPreset($("lookPreset").value); });
   $("brightness").addEventListener("input", () => { S.brightness = +$("brightness").value; $("brightnessOut").textContent = S.brightness; render(); });
   $("brightness").addEventListener("change", () => saved("Brightness " + S.brightness + "%"));
   $("followLight").addEventListener("change", () => { S.followLight = $("followLight").checked; saved("Follow the printer's light"); });
@@ -717,9 +785,9 @@ code { font-family: var(--mono); font-size: .9em; }
   $("offlineSec").addEventListener("change", () => { S.offlineSec = +$("offlineSec").value; saved("Unreachable timeout"); });
   for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).addEventListener("change", () => { S[id] = $(id).checked; saved($(id).nextElementSibling.textContent); });
   $("model").addEventListener("change", () => { S.model = $("model").value; applyModel(); buildLooks(); saved("Model"); });
-  $("hmsIgnore").addEventListener("change", () => saved("HMS codes to ignore"));
-  $("debugLog").addEventListener("change", () => saved("Detailed log"));
-  $("mqttLog").addEventListener("change", () => saved("Printer message log"));
+  $("hmsIgnore").addEventListener("change", () => { S.hmsIgnore = $("hmsIgnore").value; saved("HMS codes to ignore"); });
+  $("debugLog").addEventListener("change", () => { S.debugLog = $("debugLog").checked; saved("Detailed log"); });
+  $("mqttLog").addEventListener("change", () => { S.mqttLog = $("mqttLog").checked; saved("Printer message log"); });
   function showResetButton() {
     const area = $("resetArea"); area.textContent = "";
     const b = document.createElement("button"); b.type = "button"; b.className = "danger"; b.id = "resetBtn"; b.textContent = "Erase all settings…";
@@ -777,11 +845,67 @@ code { font-family: var(--mono); font-size: .9em; }
     logSim(notes.join(" ")); render();
   });
 
+  // ---------- Look presets: one choice that sets every state's colour and rhythm ----------
+  const PRESETS = {
+    status: { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: [["custom", "#0000ff"], "pulse"], error: [["custom", "#ff0000"], "blink"], finished: [["custom", "#00ff00"], "slow"] },
+    white:  { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: ["neutral", "pulse"], error: ["neutral", "blink"], finished: ["neutral", "slow"] },
+  };
+  function applyPreset(name) {
+    S.preset = name;
+    if (PRESETS[name]) for (const [k, [c, r]] of Object.entries(PRESETS[name])) {
+      S.looks[k].colour = Array.isArray(c) ? { kind: c[0], hex: c[1] } : { kind: c };
+      S.looks[k].rhythm = r;
+      if (S.looks[k].sub) for (const sk of Object.keys(S.looks[k].sub)) if (sk !== "level") S.looks[k].sub[sk][1] = null;
+    }
+    buildLooks(); syncPreset(); saved("Look: " + $("lookPreset").selectedOptions[0].textContent.split(":")[0]);
+  }
+  function markCustom() { if (S.preset !== "custom") { S.preset = "custom"; syncPreset(); } }
+  function syncPreset() { $("lookPreset").value = S.preset; $("lookPreset").querySelector('[value=custom]').hidden = S.preset !== "custom"; }
+
+  // ---------- folded sections: summaries, "Changed" markers, remembered open state ----------
+  const DEFAULTS = JSON.parse(JSON.stringify(S));
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  function summaries() {
+    const finish = { door: "finished ends on the door", timer: `finished ends after ${S.finishMin} min`, either: `finished ends on the door or after ${S.finishMin} min` }[S.finishEnds];
+    const lights = [["lightPrintStart", "on at print start"], ["lightDoor", "on when the door opens"], ["lightIdle", "off when idle"], ["lightFinishTimer", "off when the finish timer ends"]].filter(([k]) => S[k]).map(([, t]) => t);
+    const looksChanged = !same(S.looks, DEFAULTS.looks) || S.followLight !== DEFAULTS.followLight;
+    const rows = {
+      looks: [`${S.preset === "custom" ? "Custom" : S.preset === "white" ? "White, status by rhythm" : "Status colours"} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, looksChanged],
+      timing: [`${S.idleOff ? "Off after " + S.idleOff + " min idle" : "Stays on when idle"} · ${finish} · ${S.offlineSec ? "off when unreachable " + fmtSec(S.offlineSec) : "stays on when unreachable"}`,
+               S.idleOff !== DEFAULTS.idleOff || S.finishEnds !== DEFAULTS.finishEnds || S.finishMin !== DEFAULTS.finishMin || S.offlineSec !== DEFAULTS.offlineSec],
+      plight: [lights.length ? "Turns it " + lights.join(", ") : "Not controlled", lights.length > 0],
+      strip: [STRIP_TYPES[S.strip.type].label + (S.strip.map && STRIP_TYPES[S.strip.type].ch.some(c => c !== "w" && S.strip.map[c] && S.strip.map[c] !== LABEL_MAP[c]) ? " · wiring corrected" : ""),
+              S.strip.type !== DEFAULTS.strip.type || !!S.strip.map],
+      printer: [$("model").selectedOptions[0].textContent, S.model !== DEFAULTS.model],
+      tools: ["Colour test, colour cycle, Wi-Fi strength", false],
+      help: ["What the door does · start-up colours", false],
+      adv: [`HMS codes ignored: ${S.hmsIgnore.trim() ? S.hmsIgnore.trim().split(/\s+/).length : "none"} · logging ${S.debugLog || S.mqttLog ? "on" : "off"}`, !!S.hmsIgnore.trim() || S.debugLog || S.mqttLog],
+    };
+    for (const [k, [text, changed]] of Object.entries(rows)) {
+      const el = $("sum-" + k); if (!el) continue;
+      el.textContent = text;
+      if (changed) { const b = document.createElement("span"); b.className = "changed"; b.textContent = "Changed"; el.appendChild(b); }
+    }
+  }
+  let openFolds = [];
+  try { openFolds = JSON.parse(localStorage.getItem("blled-open-sections") || "[]"); } catch (e) { openFolds = []; }
+  document.querySelectorAll(".fold-btn").forEach(btn => {
+    const key = btn.dataset.fold, body = $("fb-" + key);
+    const setOpen = open => { btn.setAttribute("aria-expanded", String(open)); body.hidden = !open; };
+    setOpen(openFolds.includes(key));
+    btn.addEventListener("click", () => {
+      const open = btn.getAttribute("aria-expanded") !== "true"; setOpen(open);
+      openFolds = open ? [...new Set(openFolds.concat(key))] : openFolds.filter(k => k !== key);
+      try { localStorage.setItem("blled-open-sections", JSON.stringify(openFolds)); } catch (e) {}
+    });
+  });
+
   // Set every control from the settings on load. Browsers restore form state on reload,
   // which would otherwise leave the page showing one thing while the settings say another.
   function syncControls() {
     document.querySelectorAll('input[name=mode]').forEach(r => r.checked = r.value === S.mode);
-    $("testColorRow").hidden = S.mode !== "test"; $("testColor").value = S.testColor;
+    $("testColor").value = S.testColor; syncPreset();
+    $("hmsIgnore").value = S.hmsIgnore; $("debugLog").checked = S.debugLog; $("mqttLog").checked = S.mqttLog;
     $("brightness").value = S.brightness; $("brightnessOut").textContent = S.brightness;
     $("followLight").checked = S.followLight; $("idleOff").value = String(S.idleOff);
     document.querySelectorAll('input[name=finishEnds]').forEach(r => r.checked = r.value === S.finishEnds);
