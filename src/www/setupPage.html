@@ -348,6 +348,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
           <p class="hint">Errors with these codes won't change the strip.</p></div>
         <label class="check"><input type="checkbox" id="debugLog"><span>Detailed log</span><span class="d">Writes every LED decision to the log page.</span></label>
         <label class="check"><input type="checkbox" id="mqttLog"><span>Log printer messages</span><span class="d">Writes each message from the printer to the log page. Very busy.</span></label>
+        <label class="check"><input type="checkbox" id="checkCert"><span>Check that it's really your printer</span><span class="d">Before sending the access code, the controller checks the printer's certificate: issued to its serial number and signed by Bambu Lab. Turn this off only if your printer fails the check (the status bar says so).</span></label>
         <div class="tool">
           <div><h3>Wi-Fi access point</h3><p class="hint">If your network has several access points, the controller can move to the strongest one. It drops off the network for a few seconds while it looks.</p></div>
           <div class="inline"><button type="button" id="rescanBtn">Find the strongest</button></div>
@@ -678,6 +679,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
       tool_wifi: `Wi-Fi strength (Tools): signal ${st.rssi} dBm.` + stop,
       unreachable: `The printer has been unreachable for over ${fmtSec(S.offlineOffSec)}.`,
       access_rejected: "The printer rejected the access code. Check it with Run setup again.",
+      cert_rejected: "The device at the printer's address couldn't prove it's your printer, so the access code wasn't sent. Check the address with Run setup again.",
       error: `Error: ${(sub || "printer error").toLowerCase()}.`,
       attention: ATTN_TEXT[st.detail] || "The printer needs attention.",
       finished: "Print finished. " + finishText(st),
@@ -722,7 +724,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     $("statusText").textContent = d.text;
     $("statusReason").textContent = d.reason;
     const p = ST.printer || {};
-    $("conn").textContent = p.connected ? "Printer connected" : p.accessRejected ? "Access code rejected" : "Printer unreachable";
+    $("conn").textContent = p.connected ? "Printer connected" : p.accessRejected ? "Access code rejected" : p.certRejected ? "Printer not verified" : "Printer unreachable";
     $("conn").classList.toggle("down", !p.connected);
     const tool = ST.tool && ST.tool !== "none" ? ST.tool : null;
     $("stopTool").hidden = !tool && !ST.check;
@@ -963,6 +965,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   });
   $("debugLog").addEventListener("change", () => save({ debugLog: $("debugLog").checked }, "Detailed log"));
   $("mqttLog").addEventListener("change", () => save({ mqttLog: $("mqttLog").checked }, "Printer message log"));
+  $("checkCert").addEventListener("change", () => save({ checkPrinterCert: $("checkCert").checked }, "Printer certificate check"));
   $("model").addEventListener("change", () => { save({ model: $("model").value }, "Model"); rebuild(); });
   $("rescanBtn").addEventListener("click", async () => {
     try { await postJSON("/api/wifi-rescan", {}); toast("Looking for the strongest access point…"); } catch (e) { toast("Couldn't start it: " + e.message, true); }
@@ -1057,7 +1060,8 @@ button:disabled { opacity: .55; cursor: not-allowed; }
       printer: [modelInfo(modelKey()).name + (S.model === "auto" ? " (detected)" : " (set by hand)"), S.model !== DEFAULTS.model],
       tools: ["Color test, color cycle, Wi-Fi strength", false],
       help: ["What the door does · start-up colors", false],
-      adv: [`HMS codes ignored: ${S.hmsIgnore.trim() ? S.hmsIgnore.trim().split(/\s+/).length : "none"} · logging ${S.debugLog || S.mqttLog ? "on" : "off"}`, !!S.hmsIgnore.trim() || S.debugLog || S.mqttLog],
+      adv: [`HMS codes ignored: ${S.hmsIgnore.trim() ? S.hmsIgnore.trim().split(/\s+/).length : "none"} · logging ${S.debugLog || S.mqttLog ? "on" : "off"}` + (S.checkPrinterCert === false ? " · printer check off" : ""),
+            !!S.hmsIgnore.trim() || S.debugLog || S.mqttLog || S.checkPrinterCert === false],
     };
     for (const [k, [text, changed]] of Object.entries(rows)) {
       const e = $("sum-" + k); if (!e) continue;
@@ -1149,9 +1153,16 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     if (!IP_RE.test(ip)) { out.textContent = ""; return; }
     out.textContent = "Looking up the printer at " + ip + "…"; $("wzLookupBtn").disabled = true;
     try {
-      const r = await getJSON("/api/lookup?ip=" + encodeURIComponent(ip));
-      if (r.serial) { $("wzSerial").value = r.serial; wzError($("wzSerial"), $("wzSerialErr"), false);
-        out.textContent = `Found a printer. Serial read from it: ending ${r.serial.slice(-4)}.`; }
+      // The controller connects to the address and reads the printer's certificate; ask until it has.
+      let r = { looking: true };
+      for (let i = 0; i < 15 && r.looking; i++) {
+        if (i) await new Promise(res => setTimeout(res, 800));
+        r = await getJSON("/api/lookup?ip=" + encodeURIComponent(ip));
+      }
+      if (r.looking) out.textContent = `No answer yet from ${ip}. Check the address, or type the serial number below.`;
+      else if (r.trusted && r.serial) { $("wzSerial").value = r.serial; wzError($("wzSerial"), $("wzSerialErr"), false);
+        out.textContent = `Found a Bambu Lab printer. Serial read from its certificate: ending ${r.serial.slice(-4)}.`; }
+      else if (r.answered) out.textContent = `Something answered at ${ip}, but its certificate isn't from Bambu Lab, so it may not be your printer. Check the address.`;
       else out.textContent = `No printer answered at ${ip}. Check the address, or type the serial number below.`;
     } catch (e) { out.textContent = `Couldn't look it up (${e.message}). Type the serial number below.`; }
     $("wzLookupBtn").disabled = false;
@@ -1251,7 +1262,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     set("offlineSec", e => { if (![...e.options].some(o => +o.value === S.offlineOffSec)) { const o = el("option", null, fmtSec(S.offlineOffSec)); o.value = S.offlineOffSec; e.appendChild(o); } e.value = String(S.offlineOffSec); });
     document.querySelectorAll("[data-pl]").forEach(cb => cb.checked = !!(S.printerLight || {})[cb.dataset.pl]);
     set("hmsIgnore", e => e.value = S.hmsIgnore);
-    $("debugLog").checked = S.debugLog; $("mqttLog").checked = S.mqttLog;
+    $("debugLog").checked = S.debugLog; $("mqttLog").checked = S.mqttLog; $("checkCert").checked = S.checkPrinterCert !== false;
   }
   function refresh() { renderStatus(); summaries(); lastModelSig = ""; applyModel(); }
   function rebuild() { buildStrip(); buildLooks(); refresh(); }

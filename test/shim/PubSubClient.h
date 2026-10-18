@@ -5,12 +5,12 @@
 #include <functional>
 #include <vector>
 struct FakePublish { std::string topic, payload; };
-namespace fake { inline std::vector<FakePublish> published; inline bool mqttConnected = true; }
+namespace fake { inline std::vector<FakePublish> published; inline bool mqttConnected = true; inline int mqttLogins = 0; }
 class PubSubClient {
 public:
   typedef void (*Callback)(char *, uint8_t *, unsigned int);
   explicit PubSubClient(WiFiClientSecure &) {}
-  bool connect(const char *, const char *, const char *) { return fake::mqttConnected; }
+  bool connect(const char *, const char *, const char *) { fake::mqttLogins++; return fake::mqttConnected; }  // sends the access code
   bool connected() { return fake::mqttConnected; }
   bool loop() { return true; }
   bool subscribe(const char *) { return true; }

@@ -148,11 +148,14 @@ void handleApiPrinters(AsyncWebServerRequest *request)
     if (!isAuthorized(request)) return request->requestAuthentication();
     JsonDocument doc;
     JsonArray arr = doc["printers"].to<JsonArray>();
+    StateLock lock; // discovery updates the list
     for (int i = 0; i < bblKnownPrinterCount; i++)
     {
         JsonObject o = arr.add<JsonObject>();
         o["ip"] = bblLastKnownPrinters[i].ip.toString();
         o["serial"] = bblLastKnownPrinters[i].usn;
+        if (bblLastKnownPrinters[i].model[0]) o["model"] = bblLastKnownPrinters[i].model;
+        if (bblLastKnownPrinters[i].name[0]) o["name"] = bblLastKnownPrinters[i].name;
         o["current"] = strcmp(bblLastKnownPrinters[i].usn, printerConfig.serialNumber) == 0;
     }
     doc["followingSerial"] = printerConfig.serialNumber;
@@ -180,6 +183,12 @@ void setupApiRoutes()
     webServer.on("/api/settings", HTTP_GET, handleApiGetSettings);
     webServer.on("/api/status", HTTP_GET, handleApiStatus);
     webServer.on("/api/printers", HTTP_GET, handleApiPrinters);
+    webServer.on("/api/lookup", HTTP_GET, [](AsyncWebServerRequest *r) {
+        if (!isAuthorized(r)) return r->requestAuthentication();
+        JsonDocument doc;
+        int code = api::lookup(r->hasParam("ip") ? r->getParam("ip")->value() : String(), doc.to<JsonObject>());
+        sendJson(r, code, doc);
+    });
     webServer.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, apiPatch); })
         .setMaxContentLength(4096);
     webServer.on("/api/tool", HTTP_POST, [](AsyncWebServerRequest *r, JsonVariant &j) { apiPost(r, j, api::tool); })

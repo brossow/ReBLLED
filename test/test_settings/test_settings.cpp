@@ -41,6 +41,9 @@ void test_defaults_are_standard_look() {
     assertColour(L.state[ST_ERROR].colour, CK_CUSTOM, 255, 0, 0);
     TEST_ASSERT_EQUAL(R_BLINK, L.state[ST_ERROR].rhythm);
     assertColour(L.prep[PS_LEVEL], CK_CUSTOM, 0, 0, 0x55);
+    TEST_ASSERT_TRUE(s.checkPrinterCert);         // on unless turned off
+    TEST_ASSERT_TRUE(fromText(R"({"version":2})").checkPrinterCert);   // a v2 file from before stage 5
+    TEST_ASSERT_FALSE(fromText(R"({"version":2,"checkPrinterCert":false})").checkPrinterCert);
 }
 
 void test_white_preset() {
@@ -71,7 +74,7 @@ void test_round_trip_everything() {
     s.lightOnPrintStart = true; s.lightOffIdle = true;
     s.strip = STRIP_RGBW; s.wiring[L_R] = OUT_G; s.wiring[L_G] = OUT_R; s.wiring[L_W] = OUT_CW;
     strlcpy(s.model, "X2D", sizeof s.model);
-    s.hmsIgnore = "HMS_0C00_0300_0002_0002"; s.debugLog = true;
+    s.hmsIgnore = "HMS_0C00_0300_0002_0002"; s.debugLog = true; s.checkPrinterCert = false;
     std::string a = toText(s);
     std::string b = toText(fromText(a.c_str()));
     TEST_ASSERT_EQUAL_STRING(a.c_str(), b.c_str());
@@ -104,6 +107,7 @@ void test_migrate_a_real_config() {
     JsonDocument d; TEST_ASSERT_FALSE(deserializeJson(d, json));
     Settings s = load(d.as<JsonVariantConst>(), &migrated);
     TEST_ASSERT_TRUE(migrated);
+    TEST_ASSERT_TRUE(s.checkPrinterCert);         // a v1 config gets the check
     TEST_ASSERT_TRUE(s.setupDone);
     TEST_ASSERT_EQUAL(MODE_FOLLOW, s.mode);
     TEST_ASSERT_TRUE(s.followLight);

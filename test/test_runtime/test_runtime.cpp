@@ -37,6 +37,14 @@ void test_preparing_without_lidar_keeps_the_printing_colour() {
   gcode("RUNNING", 1);
   TEST_ASSERT_TRUE(showingWhite());
 }
+void test_preparing_on_an_unknown_model_assumes_lidar() {
+  strcpy(printerVariables.detectedModel, "Z9");               // a code nobody has mapped yet
+  gcode("RUNNING", 1);
+  TEST_ASSERT_TRUE(showing(0, 0, 0x55, 0, 0));                // the levelling colour, not printing
+  strcpy(printerVariables.detectedModel, "A1M");
+  gcode("RUNNING", 8); gcode("RUNNING", 1);
+  TEST_ASSERT_TRUE(showingWhite());                           // known: no lidar
+}
 void test_brightness_scales_and_applies_live() {
   settings.brightness = 50; lightsSettingsChanged(); lightsLoop();
   TEST_ASSERT_TRUE(ledsAre(0, 0, 0, 127, 127));
@@ -290,6 +298,7 @@ int main() {
   RUN_TEST(test_nothing_is_rewritten_when_nothing_changed);
   RUN_TEST(test_printing_and_preparing_colours);
   RUN_TEST(test_preparing_without_lidar_keeps_the_printing_colour);
+  RUN_TEST(test_preparing_on_an_unknown_model_assumes_lidar);
   RUN_TEST(test_brightness_scales_and_applies_live);
   RUN_TEST(test_rgbw_single_white_drives_both_white_outputs_until_pinned);
   RUN_TEST(test_wiring_lets_a_swapped_red_and_green_show_true_colours);

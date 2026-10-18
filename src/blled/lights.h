@@ -45,11 +45,14 @@ void lightsSyncMirrors()
 }
 
 // Model capabilities (docs/REDESIGN.md). Only lidar matters to decide(); unknown = assume it.
+// Models known to have no lidar (the page's MODELS table); unknown codes = assume one.
 bool modelHasLidar()
 {
     const char *m = strcmp(settings.model, "auto") == 0 ? printerVariables.detectedModel : settings.model;
-    if (!m[0]) return true;
-    return strcmp(m, "X1") == 0 || strcmp(m, "X1C") == 0 || strcmp(m, "X1E") == 0 || strcmp(m, "other") == 0;
+    static const char *const noLidar[] = {"P1P", "P1S", "P2S", "A1", "A1M", "H2D", "H2S", "X2D"};
+    for (const char *x : noLidar)
+        if (strcmp(m, x) == 0) return false;
+    return true;
 }
 
 // Models without a door sensor (some have a door, e.g. the P1S); unknown = assume one.
@@ -69,6 +72,7 @@ v2::Snapshot printerSnapshot()
     v2::Snapshot p;
     p.connected = printerVariables.online;
     p.accessRejected = printerVariables.accessRejected;
+    p.certRejected = printerVariables.certRejected;
     p.unreachableMs = (!printerVariables.online && printerVariables.disconnectMQTTms) ? millis() - printerVariables.disconnectMQTTms : 0;
     p.gcodeState = printerVariables.gcodeState;
     p.stage = printerVariables.stage;

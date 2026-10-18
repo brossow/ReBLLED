@@ -7,7 +7,7 @@
 import http.server, json, sys, urllib.parse
 WWW = sys.argv[1]
 PORT = int(sys.argv[2])
-import copy, threading, time
+import copy, re, threading, time
 
 def colour(kind, hexv=None):
     return {"kind": kind, "hex": hexv} if hexv else {"kind": kind}
@@ -31,7 +31,7 @@ SETTINGS = {"version": 2, "setupDone": False, "mode": "follow", "brightness": 10
             "custom": preset_looks("standard"), "followLight": True, "idleOffMin": 10, "finishEnds": "door",
             "finishMin": 10, "offlineOffSec": 30,
             "printerLight": {"onPrintStart": False, "onDoor": False, "offIdle": False, "offFinishTimer": False},
-            "strip": "rgbww", "wiring": {}, "model": "auto", "hmsIgnore": "", "debugLog": False, "mqttLog": False}
+            "strip": "rgbww", "wiring": {}, "model": "auto", "hmsIgnore": "", "debugLog": False, "mqttLog": False, "checkPrinterCert": True}
 ENUMS = {"mode": ["follow", "on", "off"], "look": ["standard", "white", "custom"], "finishEnds": ["door", "timer", "either"],
          "strip": ["rgbww", "rgbw", "rgb", "wwcw", "w"], "model": None}
 # Example printers on documentation-only addresses (192.0.2.x), never real ones.
@@ -42,7 +42,8 @@ state = {"scan_calls": 0, "submits": [], "settings": SETTINGS, "posts": [], "too
          "conn": {"ssid": "HomeNet", "printerIP": "", "printerSerial": "", "hasAccessCode": False},
          # what the simulated printer is doing (POST /_sim to change it)
          "sim": {"printer": "idle", "detail": None, "light": True, "detectedModel": "X1C", "rssi": -58, "idleFor": 120,
-                 "connected": True, "accessRejected": False}}
+                 "connected": True, "accessRejected": False, "certRejected": False},
+         "lookups": {}}
 lock = threading.Lock()
 
 def merge(dst, src):
@@ -84,6 +85,7 @@ def status():
     elif s["mode"] == "off": o = {"reason": "mode_off", "show": "off"}
     elif s["mode"] == "on": o = lit(L["printing"]["colour"], "steady", "mode_on", "printing")
     elif sim["accessRejected"]: o = lit(colour("custom", "#800000"), "steady", "access_rejected")
+    elif sim["certRejected"]: o = lit(colour("custom", "#800000"), "steady", "cert_rejected")
     elif not sim["connected"]: o = {"reason": "unreachable", "show": "off"}
     elif p == "error": o = lit(sub("err", d or "runout", "error"), L["error"]["rhythm"], "error", "error", d or "runout")
     elif p == "attention": o = lit(sub("attn", d or "pause", "attention"), L["attention"]["rhythm"], "attention", "attention", d or "pause")
@@ -96,7 +98,7 @@ def status():
     if state["check"]: o["check"] = state["check"]
     o.update({"outputs": [255 if state["check"] == x else 0 for x in ["R", "G", "B", "WW", "CW"]] if state["check"] else [0, 0, 0, 255, 255],
               "brightness": s["brightness"], "mode": s["mode"], "tool": state["tool"], "rssi": sim["rssi"], "firmware": "mock",
-              "printer": {"connected": sim["connected"], "accessRejected": sim["accessRejected"], "gcodeState": "IDLE", "stage": -1,
+              "printer": {"connected": sim["connected"], "accessRejected": sim["accessRejected"], "certRejected": sim["certRejected"], "gcodeState": "IDLE", "stage": -1,
                           "door": False, "light": sim["light"], "detectedModel": sim["detectedModel"],
                           "model": s["model"] if s["model"] != "auto" else sim["detectedModel"], "hasLidar": True}})
     if state["toolEnds"]: o["preview"] = True
@@ -124,10 +126,15 @@ class H(http.server.BaseHTTPRequestHandler):
             return self._send(200, json.dumps({"printers": [dict(x, current=x["serial"] == cur) for x in PRINTERS],
                                                "followingSerial": cur, "followingIp": state["conn"]["printerIP"]}))
         if p == "/api/lookup":
-            ip = (q.get("ip") or [""])[0]
+            # Like api::lookup: 202 while the "MQTT task" connects, then the answer. 192.0.2.99
+            # answers with a certificate that isn't Bambu Lab's.
+            ip = (q.get("ip") or [""])[0].strip()
+            if not re.fullmatch(r"(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}", ip): return self._send(400, '{"error":"ip"}')
+            started = state["lookups"].setdefault(ip, time.time())
+            if time.time() - started < 1.5: return self._send(202, '{"looking":true}')
             hit = next((x for x in PRINTERS if x["ip"] == ip), None)
-            time.sleep(0.6)
-            return self._send(200, json.dumps({"serial": hit["serial"]} if hit else {}))
+            if hit: return self._send(200, json.dumps({"answered": True, "trusted": True, "serial": hit["serial"]}))
+            return self._send(200, json.dumps({"answered": ip == "192.0.2.99", "trusted": False} | ({"serial": "FAKE0001"} if ip == "192.0.2.99" else {})))
         if p == "/factoryreset":
             return self._send(200, "Factory reset complete. Restarting...", "text/plain")
         if p == "/setup":

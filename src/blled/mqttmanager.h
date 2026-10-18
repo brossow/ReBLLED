@@ -13,6 +13,7 @@
 #include "AutoGrowBufferStream.h"
 #include "types.h"
 #include "lights.h"
+#include "printerCert.h"
 
 WiFiClientSecure wifiSecureClient;
 PubSubClient mqttClient(wifiSecureClient);
@@ -101,6 +102,66 @@ void publishChamberLight(bool on);
     }
 } */
 
+// After a failed attempt: back off (3 s, 6 s, 12 s ... 30 s) instead of retrying the TLS
+// handshake and login continuously, e.g. after the access code changed on the printer.
+void mqttBackOff()
+{
+    mqttRetryDelay = (mqttRetryDelay == 0) ? MQTT_RETRY_MIN_MS : min(mqttRetryDelay * 2, MQTT_RETRY_MAX_MS);
+    LogSerial.printf("[MQTT] next attempt in %lu s\n", mqttRetryDelay / 1000); // also in Web Serial
+}
+
+// Before the access code is sent: is this really the printer? Its certificate must be signed by
+// Bambu Lab and issued to the configured serial (printerCert.h). Leaves the TLS connection open
+// for PubSubClient to use when it is.
+bool connectToVerifiedPrinter()
+{
+    IPAddress ip;
+    wifiSecureClient.stop(); // nothing left over from a dropped connection
+    if (!ip.fromString(printerConfig.printerIP) || !wifiSecureClient.connect(ip, 8883))
+    {
+        LogSerial.println(F("[MQTT] The printer didn't answer"));
+        return false;
+    }
+    bblcert::Result r = bblcert::check(wifiSecureClient.getPeerCertificate());
+    bool ok = bblcert::isPrinter(r, printerConfig.serialNumber);
+    printerVariables.certRejected = !ok;
+    if (!ok)
+    {
+        wifiSecureClient.stop();
+        LogSerial.println(!r.trusted ? F("[MQTT] Access code not sent: the certificate at the printer's address isn't signed by Bambu Lab")
+                                     : F("[MQTT] Access code not sent: the certificate at the printer's address belongs to a different printer"));
+    }
+    return ok;
+}
+
+// Setup's "Look up": connect to an address and read the name on its certificate. Runs on this
+// task, which owns TLS; the web server only asks (api::lookup).
+void runPrinterLookup()
+{
+    IPAddress ip;
+    char addr[16];
+    {
+        StateLock lock;
+        strlcpy(addr, printerLookup.ip, sizeof addr);
+        printerLookup.state = 2;
+    }
+    WiFiClientSecure probe;
+    probe.setInsecure(); // the certificate is checked below, against Bambu Lab's authority
+    probe.setTimeout(5);
+    bool answered = ip.fromString(addr) && probe.connect(ip, 8883);
+    bblcert::Result r;
+    if (answered) r = bblcert::check(probe.getPeerCertificate());
+    probe.stop();
+    StateLock lock;
+    if (strcmp(addr, printerLookup.ip) != 0) return; // asked about another address meanwhile
+    printerLookup.answered = answered;
+    printerLookup.trusted = r.trusted;
+    strlcpy(printerLookup.serial, r.cn, sizeof(printerLookup.serial));
+    printerLookup.doneMs = millis();
+    printerLookup.state = 3;
+    LogSerial.printf("[Lookup] %s: %s\n", addr, !answered ? "no answer" : r.trusted ? "a Bambu Lab printer" : "not a Bambu Lab certificate");
+}
+
 void connectMqtt()
 {
     if (mqttConnectInProgress)
@@ -127,6 +188,16 @@ void connectMqtt()
         mqttattempt = millis();
         Serial.println(F("Connecting to mqtt..."));
 
+        if (settings.checkPrinterCert && !connectToVerifiedPrinter())
+        {
+            printerVariables.accessRejected = false;
+            mqttBackOff();
+            mqttConnectInProgress = false;
+            return;
+        }
+        if (!settings.checkPrinterCert)
+            printerVariables.certRejected = false;
+
         if (mqttClient.connect(clientId.c_str(), "bblp", printerConfig.accessCode))
         {
             Serial.print(F("[MQTT] connected, subscribing to MQTT Topic:  "));
@@ -145,10 +216,7 @@ void connectMqtt()
             ParseMQTTState(mqttClient.state());
 
             printerVariables.accessRejected = mqttClient.state() == 5 || mqttClient.state() == 4; // dim red via decide()
-            // Back off (3 s, 6 s, 12 s ... 30 s) instead of retrying the TLS handshake and
-            // login continuously, e.g. after the access code changed on the printer.
-            mqttRetryDelay = (mqttRetryDelay == 0) ? MQTT_RETRY_MIN_MS : min(mqttRetryDelay * 2, MQTT_RETRY_MAX_MS);
-            LogSerial.printf("[MQTT] next attempt in %lu s\n", mqttRetryDelay / 1000); // also in Web Serial
+            mqttBackOff();
         }
     }
 
@@ -168,6 +236,9 @@ void mqttTask(void *parameter)
             vTaskDelay(pdMS_TO_TICKS(2000));
             continue;
         }
+
+        if (printerLookup.state == 1)
+            runPrinterLookup();
 
         if (!mqttClient.connected())
         {
