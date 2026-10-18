@@ -86,7 +86,7 @@ label { cursor: pointer; }
 .modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
 .field { display: grid; gap: 4px; }
 .inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-select, input[type=number], input[type=text], textarea { font: inherit; color: var(--fg); background: var(--panel);
+select, input[type=number], input[type=text], input[type=password], textarea { font: inherit; color: var(--fg); background: var(--panel);
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
 input[type=number] { width: 6em; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
@@ -132,6 +132,19 @@ section.fold { gap: 0; margin-top: 12px; }
 .lockline { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px;
   border-radius: 8px; background: var(--accent-soft); }
 .look select:disabled, .look input:disabled { opacity: .7; cursor: not-allowed; }
+dialog#setup { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); border: 1px solid var(--line); border-radius: 14px;
+  padding: 0; background: var(--panel); color: var(--fg); }
+dialog#setup::backdrop { background: rgb(0 0 0 / .45); }
+.wz { display: grid; gap: 14px; padding: 18px 18px 16px; }
+.wz-head { display: grid; gap: 6px; }
+.wz-step { display: grid; gap: 12px; margin: 0; }
+.wz-step h2 { font-size: 1.25rem; }
+.wz-step h2:focus { outline: none; }
+.wz-step h2:focus-visible { outline: 3px solid var(--accent); }
+.strip.mini { height: 16px; margin: 0; }
+.wz-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid var(--line); }
+.err { color: var(--err); font-size: .9rem; margin: 0; }
+[aria-invalid="true"] { border-color: var(--err) !important; }
 table.map { border-collapse: collapse; font-size: .92rem; }
 table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
 table.map td.out { font-family: var(--mono); }
@@ -379,14 +392,71 @@ code { font-family: var(--mono); font-size: .9em; }
 <section aria-labelledby="h-more">
     <div><h2 id="h-more">More</h2></div>
     <nav class="nav" aria-label="Other pages">
+      <button type="button" id="runSetup">Run setup again</button>
       <button type="button" disabled>Wi-Fi and printer connection</button>
       <button type="button" disabled>Firmware update</button>
       <button type="button" disabled>Back up and restore</button>
       <button type="button" disabled>Log</button>
     </nav>
-    <p class="hint">Links to the device's other pages (not part of this prototype).</p>
+    <p class="hint">"Run setup again" walks through the four setup steps. The other buttons link to the device's other pages (not part of this prototype).</p>
   </section>
 </main>
+
+<dialog id="setup" aria-labelledby="wzTitle">
+  <form method="dialog" class="wz" id="wzForm" novalidate>
+    <div class="wz-head">
+      <p class="hint" id="wzCount">Step 1 of 4</p>
+      <h2 id="wzTitle" class="visually-hidden">Set up your lights</h2>
+      <div class="strip mini" id="wzStrip" role="img" aria-label="Preview of the LED strip"></div>
+    </div>
+
+    <section class="wz-step" data-step="connection" aria-labelledby="wz1h">
+      <h2 id="wz1h" tabindex="-1">Connect to Wi-Fi and your printer</h2>
+      <p class="hint">Prototype: nothing is sent anywhere. On the device this step joins your Wi-Fi and the printer.</p>
+      <div class="field"><label for="wzSsid">Wi-Fi network</label>
+        <select id="wzSsid"><option value="">Choose a network…</option><option>HomeNet-IoT</option><option>HomeNet</option><option>Neighbours-5G</option></select>
+        <p class="err" id="wzSsidErr" hidden>Choose the Wi-Fi network the controller should join.</p></div>
+      <div class="field"><label for="wzPass">Wi-Fi password</label><input type="password" id="wzPass" autocomplete="new-password"></div>
+      <fieldset><legend>Printer</legend>
+        <label class="choice"><input type="radio" name="wzPrinter" value="found" checked><span class="t" id="wzFoundName">X1 Carbon, found on your network</span><span class="d">Serial ending 4821 (example)</span></label>
+        <label class="choice"><input type="radio" name="wzPrinter" value="manual"><span class="t">Enter its address by hand</span><span class="d">If the printer isn't found automatically.</span></label>
+      </fieldset>
+      <div class="field"><label for="wzCode">Printer access code</label>
+        <input type="text" id="wzCode" inputmode="text" maxlength="8" autocomplete="off" aria-describedby="wzCodeHint">
+        <p class="hint" id="wzCodeHint">8 characters. On the printer: Settings → Network → "Access Code" (LAN mode).</p>
+        <p class="err" id="wzCodeErr" hidden>The access code is 8 characters.</p></div>
+    </section>
+
+    <section class="wz-step" data-step="printer" aria-labelledby="wz2h" hidden>
+      <h2 id="wz2h" tabindex="-1">Your printer</h2>
+      <p id="wzDetected"></p>
+      <div class="field"><label for="wzModel">Model</label><select id="wzModel"></select></div>
+      <p class="hint" id="wzModelNote"></p>
+    </section>
+
+    <section class="wz-step" data-step="strip" aria-labelledby="wz3h" hidden>
+      <h2 id="wz3h" tabindex="-1">Your LED strip</h2>
+      <fieldset><legend>Which lights does your strip have?</legend><div class="modes" id="wzStripTypes"></div></fieldset>
+      <p class="hint">Not sure, or colours look wrong? The wiring check lights each output in turn and asks what you see.</p>
+      <div class="inline"><button type="button" id="wzCheckBtn">Check the wiring</button></div>
+      <div id="wzCheckArea" aria-live="polite"></div>
+    </section>
+
+    <section class="wz-step" data-step="look" aria-labelledby="wz4h" hidden>
+      <h2 id="wz4h" tabindex="-1">How it looks</h2>
+      <div class="field"><label for="wzLook">Look</label>
+        <select id="wzLook" aria-describedby="wzLookHint"><option value="standard">Standard colours</option><option value="white">White only</option><option value="custom">Custom</option></select>
+        <p class="hint" id="wzLookHint"></p></div>
+      <div class="field"><label for="wzBrightness">Brightness: <span id="wzBrightnessOut">100</span>%</label><input type="range" id="wzBrightness" min="0" max="100" value="100"></div>
+      <p class="hint">Everything else (timing, the printer's own light, tools) is on the main page, and you can run this setup again any time.</p>
+    </section>
+
+    <div class="wz-nav">
+      <button type="button" id="wzLater">Finish later</button>
+      <span class="inline"><button type="button" id="wzBack">Back</button><button type="button" class="primary" id="wzNext">Next</button></span>
+    </div>
+  </form>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -603,6 +673,9 @@ code { font-family: var(--mono); font-size: .9em; }
       if (d.rhythm !== "steady") strip.classList.add(d.rhythm === "slow" ? "slow" : d.rhythm);
     } else { strip.style.background = ""; strip.style.removeProperty("--glow"); }
     strip.style.filter = d.css ? `brightness(${0.25 + 0.75 * S.brightness / 100})` : ""; // combines with the rhythm's opacity animation
+    const mini = $("wzStrip");
+    if (mini) { mini.className = strip.className + " mini"; mini.style.background = strip.style.background; mini.style.filter = strip.style.filter;
+      mini.style.setProperty("--glow", strip.style.getPropertyValue("--glow")); }
     $("stopTool").hidden = !S.tool;
     if (S.tool) $("stopTool").textContent = "Stop " + { test: "colour test", cycle: "colour cycle", wifi: "Wi-Fi strength" }[S.tool];
     summaries();
@@ -727,15 +800,15 @@ code { font-family: var(--mono); font-size: .9em; }
   $("mapReset").addEventListener("click", () => { S.strip.map = null; buildMap(); saved("Wiring reset to the board labels"); });
 
   const ANSWERS = [["r","Red"],["g","Green"],["b","Blue"],["w","White"],["ww","Warm white"],["cw","Cool white"],["", "Nothing"]];
-  function wiringCheck() {
-    const area = $("checkArea"), answers = {};
-    $("checkBtn").disabled = true;
+  function wiringCheck(area, btn, onApplied) {
+    const answers = {};
+    btn.disabled = true;
     const step = i => {
       sim.check = OUTPUTS[i]; render();
       area.textContent = "";
       const box = document.createElement("div"); box.className = "checkbox"; box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", "checkQ");
       const q = document.createElement("p"); q.id = "checkQ";
-      q.innerHTML = `<b>Step ${i + 1} of ${OUTPUTS.length}.</b> Output <code>${OUTPUTS[i]}</code> is on by itself. What do you see on the strip?`;
+      q.innerHTML = `<b>Output ${i + 1} of ${OUTPUTS.length}:</b> <code>${OUTPUTS[i]}</code> is on by itself. What do you see on the strip?`;
       const row = document.createElement("div"); row.className = "answers";
       for (const [v, t] of ANSWERS) {
         const b = document.createElement("button"); b.type = "button"; b.textContent = t;
@@ -746,7 +819,7 @@ code { font-family: var(--mono); font-size: .9em; }
       cancel.addEventListener("click", stop);
       box.append(q, row, cancel); area.appendChild(box); row.firstChild.focus();
     };
-    const stop = () => { sim.check = null; area.textContent = ""; $("checkBtn").disabled = false; render(); $("checkBtn").focus(); };
+    const stop = () => { sim.check = null; area.textContent = ""; btn.disabled = false; render(); btn.focus(); };
     const finish = () => {
       sim.check = null; render();
       const map = {}; for (const o of OUTPUTS) if (answers[o]) map[answers[o]] = o;
@@ -773,7 +846,7 @@ code { font-family: var(--mono); font-size: .9em; }
       p.innerHTML = `<b>Found: ${STRIP_TYPES[type].label}.</b> `;
       p.appendChild(document.createTextNode(lines.join(", ") + ". " + (moved.length ? `${moved.map(c => CH_NAMES[c]).join(" and ")} ${moved.length > 1 ? "are" : "is"} not where the board labels say; the controller will correct for it, no rewiring needed.` : "Everything matches the board labels.")));
       const use = document.createElement("button"); use.type = "button"; use.className = "primary"; use.textContent = "Use this";
-      use.addEventListener("click", () => { S.strip.type = type; S.strip.map = map; buildStrip(); buildMap(); buildLooks(); saved("Strip type and wiring"); stop(); });
+      use.addEventListener("click", () => { S.strip.type = type; S.strip.map = map; buildStrip(); buildMap(); buildLooks(); saved("Strip type and wiring"); if (onApplied) onApplied(); stop(); });
       const again = document.createElement("button"); again.type = "button"; again.textContent = "Start again"; again.addEventListener("click", () => step(0));
       const cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel"; cancel.addEventListener("click", stop);
       const btns = document.createElement("div"); btns.className = "inline"; btns.append(use, again, cancel);
@@ -781,7 +854,7 @@ code { font-family: var(--mono); font-size: .9em; }
     };
     step(0);
   }
-  $("checkBtn").addEventListener("click", wiringCheck);
+  $("checkBtn").addEventListener("click", () => wiringCheck($("checkArea"), $("checkBtn")));
   $("simStrip").addEventListener("change", () => { sim.strip = $("simStrip").value; logSim("Physical strip changed. Run Check the wiring under Your LED strip to see what the controller finds."); render(); });
   $("simWiring").addEventListener("change", () => { sim.wiring = $("simWiring").value; logSim("Wiring changed. The strip now shows what these wires would really do: run Check the wiring under Your LED strip."); render(); });
 
@@ -969,6 +1042,74 @@ code { font-family: var(--mono); font-size: .9em; }
     });
   });
 
+  // ---------- first-run setup (a modal dialog, four steps, each step saves as you go) ----------
+  const wz = { dlg: $("setup"), steps: [...document.querySelectorAll(".wz-step")], i: 0 };
+  function wzBuildStripTypes() {
+    const host = $("wzStripTypes"); host.textContent = "";
+    for (const [k, T] of Object.entries(STRIP_TYPES)) {
+      const lab = document.createElement("label"); lab.className = "choice";
+      lab.innerHTML = `<input type="radio" name="wzStripType" value="${k}" id="wz-strip-${k}"><span class="t"></span><span class="d"></span>`;
+      lab.querySelector(".t").textContent = T.label; lab.querySelector(".d").textContent = T.d;
+      lab.querySelector("input").checked = S.strip.type === k;
+      host.appendChild(lab);
+    }
+  }
+  function wzFill() {
+    $("wzFoundName").textContent = MODELS[sim.detected].name + ", found on your network";
+    $("wzDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
+    const ms = $("wzModel"); ms.innerHTML = $("model").innerHTML; ms.value = S.model;
+    $("wzModelNote").textContent = MODELS[ms.value === "auto" ? sim.detected : ms.value].note;
+    wzBuildStripTypes();
+    $("wzLook").value = S.preset; $("wzLookHint").textContent = LOOK_TEXT[S.preset][1];
+    $("wzBrightness").value = S.brightness; $("wzBrightnessOut").textContent = S.brightness;
+  }
+  function wzShow(i) {
+    wz.i = i;
+    wz.steps.forEach((st, j) => st.hidden = j !== i);
+    $("wzCount").textContent = `Step ${i + 1} of ${wz.steps.length}`;
+    $("wzBack").hidden = i === 0;
+    $("wzNext").textContent = i === wz.steps.length - 1 ? "Finish" : "Next";
+    wz.steps[i].querySelector("h2").focus();
+  }
+  function wzError(input, errEl, bad) { input.setAttribute("aria-invalid", String(bad)); errEl.hidden = !bad; return bad; }
+  // Validate and save the current step; returns false to stay on it.
+  function wzSaveStep() {
+    const step = wz.steps[wz.i].dataset.step;
+    if (step === "connection") {
+      const badSsid = wzError($("wzSsid"), $("wzSsidErr"), !$("wzSsid").value);
+      const badCode = wzError($("wzCode"), $("wzCodeErr"), $("wzCode").value.trim().length !== 8);
+      if (badSsid || badCode) { (badSsid ? $("wzSsid") : $("wzCode")).focus(); return false; }
+      saved("Wi-Fi and printer connection (prototype: nothing sent)");
+    } else if (step === "printer") {
+      S.model = $("wzModel").value; fillModelSelects(); applyModel(); buildLooks(); saved("Printer model");
+    } else if (step === "strip") {
+      const t = document.querySelector("input[name=wzStripType]:checked").value;
+      if (t !== S.strip.type) { S.strip.type = t; if (S.strip.map) { const m = {}; for (const c of STRIP_TYPES[t].ch) if (S.strip.map[c]) m[c] = S.strip.map[c]; S.strip.map = Object.keys(m).length ? m : null; } }
+      buildStrip(); buildMap(); buildLooks(); saved("Strip type: " + STRIP_TYPES[S.strip.type].label);
+    } else if (step === "look") {
+      if ($("wzLook").value !== S.preset) applyPreset($("wzLook").value, false);
+      S.brightness = +$("wzBrightness").value; syncControls(); saved("Look and brightness");
+    }
+    return true;
+  }
+  function openSetup() { wzFill(); wz.dlg.showModal(); wzShow(0); }
+  function finishSetup(done) {
+    if (wz.dlg.open) wz.dlg.close();
+    try { localStorage.setItem("blled-proto-setup-seen", "1"); } catch (e) {}
+    if (done) saved("Setup finished");
+    $("runSetup").focus();
+  }
+  $("wzNext").addEventListener("click", () => { if (!wzSaveStep()) return; wz.i < wz.steps.length - 1 ? wzShow(wz.i + 1) : finishSetup(true); });
+  $("wzBack").addEventListener("click", () => wzShow(wz.i - 1));
+  $("wzLater").addEventListener("click", () => finishSetup(false));
+  wz.dlg.addEventListener("cancel", () => finishSetup(false));          // Esc
+  $("wzModel").addEventListener("change", () => { const v = $("wzModel").value; $("wzModelNote").textContent = MODELS[v === "auto" ? sim.detected : v].note; });
+  $("wzLook").addEventListener("change", () => { $("wzLookHint").textContent = LOOK_TEXT[$("wzLook").value][1]; });
+  $("wzBrightness").addEventListener("input", () => { S.brightness = +$("wzBrightness").value; $("wzBrightnessOut").textContent = S.brightness; render(); });
+  $("wzCheckBtn").addEventListener("click", () => wiringCheck($("wzCheckArea"), $("wzCheckBtn"), wzBuildStripTypes));
+  ["wzSsid", "wzCode"].forEach(id => $(id).addEventListener("input", () => $(id).removeAttribute("aria-invalid")));
+  $("runSetup").addEventListener("click", openSetup);
+
   // Set every control from the settings on load. Browsers restore form state on reload,
   // which would otherwise leave the page showing one thing while the settings say another.
   function syncControls() {
@@ -984,5 +1125,7 @@ code { font-family: var(--mono); font-size: .9em; }
     $("simState").value = sim.state; $("simLight").value = sim.light; $("simStrip").value = sim.strip; $("simWiring").value = sim.wiring;
   }
   syncControls(); buildStrip(); buildMap(); applyModel(); buildLooks(); render();
+  let seen = false; try { seen = localStorage.getItem("blled-proto-setup-seen") === "1"; } catch (e) {}
+  if (!seen) openSetup();   // on the device: when there are no settings yet
 })();
 </script>

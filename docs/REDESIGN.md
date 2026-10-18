@@ -105,11 +105,22 @@ them, and the wires aren't always in that order.
 - **Wiring check:** kept.
 - **Section name:** "Status colours" (was "How each printer state looks").
 
-## Proposed: first-run setup
+## First-run setup (prototyped)
 
-A short guided setup on a fresh controller, and "Run setup again" under More: 1. Wi-Fi and
-printer connection (today a separate page), 2. your printer (detected), 3. LED strip (type,
-optional wiring check), 4. Look and brightness. Not built yet; the author to decide.
+A guided setup in a modal dialog: opens by itself on a controller with no settings, and again
+from **Run setup again** under More.
+
+1. **Wi-Fi and printer connection** (replaces the separate Wi-Fi page for first setup):
+   network, password, the printer found on the network (or enter its address), access code.
+2. **Your printer:** the detected model, with an override.
+3. **LED strip:** type, plus the optional wiring check (same check as on the main page, with
+   a small strip preview inside the dialog).
+4. **How it looks:** Look and brightness.
+
+Each step saves when you move on (the page's autosave model). **Finish later** keeps what's
+been chosen so far; Esc does the same. Errors are written next to the field and focus moves to
+the first one; each step's heading takes focus as you move. Everything else stays on the main
+page.
 
 ## Open questions for review
 
