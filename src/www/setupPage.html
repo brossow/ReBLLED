@@ -566,20 +566,20 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
   // ---------- models (only the X1 Carbon has been tested with this controller) ----------
   const MODELS = {
-    X1:   { name: "X1", door: true, lidar: true, note: "Same hardware as the X1 Carbon (door sensor and lidar). Not tested with this controller." },
-    X1C:  { name: "X1 Carbon", door: true, lidar: true, tested: true, note: "Door sensor and lidar. Tested with this controller." },
-    X1E:  { name: "X1E", door: true, lidar: true, note: "Door sensor and lidar. Not tested with this controller." },
-    P1P:  { name: "P1P", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
-    P1S:  { name: "P1S", door: false, lidar: false, note: "No door sensor or lidar, so door options and preparing colors don't apply." },
-    P2S:  { name: "P2S", door: true, lidar: false, note: "Not tested. Door sensor and lidar not confirmed; door options shown in case." },
-    A1:   { name: "A1", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
-    A1M:  { name: "A1 mini", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
-    H2D:  { name: "H2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
-    H2S:  { name: "H2S", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
-    X2D:  { name: "X2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
-    other:{ name: "Not listed", door: true, lidar: true, note: "Unknown model: every option is shown. It may not report what this controller expects." },
+    X1:   { name: "X1", doorSensor: true, lidar: true, note: "Same hardware as the X1 Carbon (door sensor and lidar). Not tested with this controller." },
+    X1C:  { name: "X1 Carbon", doorSensor: true, lidar: true, tested: true, note: "Door sensor and lidar. Tested with this controller." },
+    X1E:  { name: "X1E", doorSensor: true, lidar: true, note: "Door sensor and lidar. Not tested with this controller." },
+    P1P:  { name: "P1P", doorSensor: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    P1S:  { name: "P1S", doorSensor: false, lidar: false, note: "No door sensor or lidar, so door options and preparing colors don't apply." },
+    P2S:  { name: "P2S", doorSensor: true, lidar: false, note: "Not tested. Door sensor and lidar not confirmed; door options shown in case." },
+    A1:   { name: "A1", doorSensor: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    A1M:  { name: "A1 mini", doorSensor: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    H2D:  { name: "H2D", doorSensor: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    H2S:  { name: "H2S", doorSensor: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    X2D:  { name: "X2D", doorSensor: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
+    other:{ name: "Not listed", doorSensor: true, lidar: true, note: "Unknown model: every option is shown. It may not report what this controller expects." },
   };
-  const UNKNOWN_MODEL = { name: "Unknown", door: true, lidar: true, note: "The printer hasn't reported its model yet, so every option is shown." };
+  const UNKNOWN_MODEL = { name: "Unknown", doorSensor: true, lidar: true, note: "The printer hasn't reported its model yet, so every option is shown." };
   const detected = () => (ST && ST.printer && ST.printer.detectedModel) || "";
   const modelKey = () => S.model === "auto" ? detected() : S.model;
   const modelInfo = k => MODELS[k] || UNKNOWN_MODEL;
@@ -693,7 +693,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   }
   function finishText(st) {
     const mins = Math.max(1, Math.ceil((st.finishEndsIn || 0) / 60));
-    const end = !modelInfo(modelKey()).door && S.finishEnds !== "timer" ? "timer" : S.finishEnds;
+    const end = !modelInfo(modelKey()).doorSensor && S.finishEnds !== "timer" ? "timer" : S.finishEnds;
     return end === "door" ? "Ends when the door opens." : end === "timer" ? `Ends in ${mins} min.` : `Ends when the door opens or in ${mins} min, whichever comes first.`;
   }
   let cycleTimer = null, hue = 0;
@@ -1023,12 +1023,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     $("modelNote").textContent = m.note;
     const f = currentPrinter();
     $("modelDetected").textContent = (f.ip ? `Following the printer at ${f.ip}` + (f.serial ? ` (serial ending ${f.serial.slice(-4)})` : "") + ". " : "No printer set up yet. ") + `It reports itself as: ${detectedName()}.`;
-    // Door-only options are hidden, not greyed out, on a printer without a door sensor. (The saved
+    // Door-sensor options are hidden, not greyed out, on a printer without one (even if it has a
+    // door, like the P1S). (The saved
     // choice is left alone; the firmware treats "door" as the timer on such a printer.)
-    $("finishChoices").hidden = !m.door; $("finishNoDoor").hidden = m.door;
-    $("finishLegend").textContent = m.door ? "The finished color ends" : "The finished color ends after";
-    $("lightDoor").closest("label").hidden = !m.door; $("helpDoor").hidden = !m.door;
-    $("finishMinRow").hidden = S.finishEnds === "door" && m.door;
+    $("finishChoices").hidden = !m.doorSensor; $("finishNoDoor").hidden = m.doorSensor;
+    $("finishLegend").textContent = m.doorSensor ? "The finished color ends" : "The finished color ends after";
+    $("lightDoor").closest("label").hidden = !m.doorSensor; $("helpDoor").hidden = !m.doorSensor;
+    $("finishMinRow").hidden = S.finishEnds === "door" && m.doorSensor;
     if (lidarBefore !== null && lidarBefore !== m.lidar) buildLooks();
   }
   function currentPrinter() {
@@ -1041,11 +1042,11 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   function summaries() {
     if (!S || !DEFAULTS) return;
-    const ends = modelInfo(modelKey()).door ? S.finishEnds : "timer";
+    const ends = modelInfo(modelKey()).doorSensor ? S.finishEnds : "timer";
     const finish = { door: "finished ends on the door", timer: `finished ends after ${S.finishMin} min`, either: `finished ends on the door or after ${S.finishMin} min` }[ends];
     const pl = S.printerLight || {};
     const lights = [["onPrintStart", "on at print start"], ["onDoor", "on when the door opens"], ["offIdle", "off when idle"], ["offFinishTimer", "off when the finish timer ends"]]
-      .filter(([k]) => pl[k] && (k !== "onDoor" || modelInfo(modelKey()).door)).map(([, t]) => t);
+      .filter(([k]) => pl[k] && (k !== "onDoor" || modelInfo(modelKey()).doorSensor)).map(([, t]) => t);
     const wiringMoved = stripType().ch.some(c => c !== "w" && S.wiring && S.wiring[c] && S.wiring[c] !== LABEL_MAP[c]);
     const rows = {
       looks: [`${LOOK_TEXT[S.look][0]} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, S.look === "custom" && !same(S.custom, DEFAULTS.custom) || S.followLight !== DEFAULTS.followLight],
