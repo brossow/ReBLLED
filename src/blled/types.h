@@ -16,6 +16,7 @@ extern "C"
         bool printerledstate = true;            // the printer's own (chamber) light
         bool hmsstate = false;
         bool online = false;
+        bool everConnected = false;             // connected to the printer since boot
         bool accessRejected = false;            // last connect refused the access code
         bool certRejected = false;              // the printer's certificate didn't check out: code not sent
         unsigned long disconnectMQTTms = 0;     // when the connection to the printer was lost
@@ -37,6 +38,10 @@ extern "C"
         unsigned long doneMs;
     } PrinterLookup;
     PrinterLookup printerLookup = {};
+
+    // Set before a restart that replaced or deleted the config (restore, factory reset): nothing
+    // may write it again (autosave, a printer IP change, …). filesystem.h, api.h.
+    bool configFrozen = false;
 
     typedef struct SecurityVariables{
                 // Security

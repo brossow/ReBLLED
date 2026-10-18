@@ -15,7 +15,28 @@
 #include "lights.h"
 #include "printerCert.h"
 
-WiFiClientSecure wifiSecureClient;
+// WiFiClientSecure with two guards (stage 6 review):
+// - stop() leaves the socket at -1. The library zeroes its whole context on stop, so the socket
+//   number reads 0 afterwards, and a second stop() (or the destructor) then closes file
+//   descriptor 0, which may by then be an open config file (core 2.0.17, WiFiClientSecure.cpp).
+// - connect() only when allowed. With the certificate check on, PubSubClient must reuse the
+//   checked connection; if that has dropped, it would otherwise open its own, unchecked, and
+//   send the access code to whatever answers.
+class GuardedTlsClient : public WiFiClientSecure
+{
+public:
+    bool allowConnect = true;
+    using WiFiClientSecure::connect;
+    int connect(IPAddress ip, uint16_t port) override { return allowConnect ? WiFiClientSecure::connect(ip, port) : 0; }
+    int connect(const char *host, uint16_t port) override { return allowConnect ? WiFiClientSecure::connect(host, port) : 0; }
+    void stop() override
+    {
+        WiFiClientSecure::stop();
+        sslclient->socket = -1; // every library path that stops the client comes through here
+    }
+};
+
+GuardedTlsClient wifiSecureClient;
 PubSubClient mqttClient(wifiSecureClient);
 
 String device_topic;
@@ -117,7 +138,10 @@ bool connectToVerifiedPrinter()
 {
     IPAddress ip;
     wifiSecureClient.stop(); // nothing left over from a dropped connection
-    if (!ip.fromString(printerConfig.printerIP) || !wifiSecureClient.connect(ip, 8883))
+    wifiSecureClient.allowConnect = true;
+    const bool answered = ip.fromString(printerConfig.printerIP) && wifiSecureClient.connect(ip, 8883);
+    wifiSecureClient.allowConnect = false; // PubSubClient may only use this, checked, connection
+    if (!answered)
     {
         LogSerial.println(F("[MQTT] The printer didn't answer"));
         return false;
@@ -145,9 +169,10 @@ void runPrinterLookup()
         strlcpy(addr, printerLookup.ip, sizeof addr);
         printerLookup.state = 2;
     }
-    WiFiClientSecure probe;
+    GuardedTlsClient probe;
     probe.setInsecure(); // the certificate is checked below, against Bambu Lab's authority
     probe.setTimeout(5);
+    probe.setHandshakeTimeout(10); // something that accepts TCP but never speaks TLS
     bool answered = ip.fromString(addr) && probe.connect(ip, 8883);
     bblcert::Result r;
     if (answered) r = bblcert::check(probe.getPeerCertificate());
@@ -188,6 +213,7 @@ void connectMqtt()
         mqttattempt = millis();
         Serial.println(F("Connecting to mqtt..."));
 
+        wifiSecureClient.allowConnect = !settings.checkPrinterCert;
         if (settings.checkPrinterCert && !connectToVerifiedPrinter())
         {
             printerVariables.accessRejected = false;
@@ -204,6 +230,7 @@ void connectMqtt()
             Serial.println(report_topic);
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
+            printerVariables.everConnected = true;
             printerVariables.accessRejected = false;
             printerVariables.disconnectMQTTms = 0;
             mqttRetryDelay = MQTT_RETRY_MIN_MS;
@@ -577,7 +604,8 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
         // reflect the new state.
         if (Changed)
             lightsActivity();
-        lightsUpdate();
+        // The loop shows the change on its next pass (lightsLoop). Fading here would hold the
+        // lock on this task for 500 ms.
     }
     else
     {
@@ -639,6 +667,7 @@ void setupMqtt()
 
     wifiSecureClient.setInsecure();
     wifiSecureClient.setTimeout(15);
+    wifiSecureClient.setHandshakeTimeout(10); // keeps a stuck attempt from holding up setup's Look up
     mqttClient.setSocketTimeout(17);
     mqttClient.setBufferSize(1024);
     mqttClient.setServer(printerConfig.printerIP, 8883);

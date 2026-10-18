@@ -16,7 +16,8 @@ namespace v2
     {
         bool connected = true;
         bool accessRejected = false;
-        bool certRejected = false;         // its certificate didn't check out (code not sent)       // the printer refused the access code
+        bool certRejected = false;         // its certificate didn't check out (code not sent)
+        bool everConnected = true;         // false until the first connection since boot       // the printer refused the access code
         unsigned long unreachableMs = 0;   // how long the printer has been unreachable
         String gcodeState = "IDLE";        // IDLE, PREPARE, RUNNING, PAUSE, FINISH, FAILED
         int stage = -1;                    // stg_cur
@@ -31,13 +32,13 @@ namespace v2
     enum Reason : uint8_t
     {
         RS_MODE_OFF, RS_MODE_ON, RS_TOOL_TEST, RS_TOOL_CYCLE, RS_TOOL_WIFI,
-        RS_UNREACHABLE, RS_ACCESS_REJECTED, RS_CERT_REJECTED, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
+        RS_UNREACHABLE, RS_ACCESS_REJECTED, RS_CERT_REJECTED, RS_CONNECTING, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
         RS_PRINTING, RS_LIGHT_OFF, RS_IDLE_OFF, RS_IDLE,
     };
     enum Show : uint8_t { SHOW_OFF, SHOW_COLOUR, SHOW_CYCLE, SHOW_WIFI };
     // Names for the web API (the page turns them into sentences, in its own language).
     static const char *const REASON_NAMES[] = {"mode_off", "mode_on", "tool_test", "tool_cycle", "tool_wifi",
-                                               "unreachable", "access_rejected", "cert_rejected", "error", "attention", "finished", "preparing", "preparing_no_lidar",
+                                               "unreachable", "access_rejected", "cert_rejected", "connecting", "error", "attention", "finished", "preparing", "preparing_no_lidar",
                                                "printing", "light_off", "idle_off", "idle"};
     static_assert(sizeof(REASON_NAMES) / sizeof(REASON_NAMES[0]) == RS_IDLE + 1, "REASON_NAMES out of step with Reason");
     static const char *const SHOW_NAMES[] = {"off", "colour", "cycle", "wifi"};
@@ -118,6 +119,9 @@ namespace v2
         if (!p.connected && p.certRejected) return lit(rgb(128, 0, 0), R_STEADY, RS_CERT_REJECTED);
         if (!p.connected && s.offlineOffSec && p.unreachableMs >= (unsigned long)s.offlineOffSec * 1000UL)
             return off(RS_UNREACHABLE);
+        // Cyan while it first connects after boot (the start-up colours in Help), then off
+        // once that has taken longer than the unreachable delay.
+        if (!p.connected && !p.everConnected) return lit(rgb(0, 255, 255), R_STEADY, RS_CONNECTING);
 
         int k = errorKind(p);
         if (k >= 0) return lit(resolve(L.err[k], L.state[ST_ERROR].colour), L.state[ST_ERROR].rhythm, RS_ERROR, ST_ERROR, k);

@@ -39,7 +39,7 @@ What changed in `2.3.0-br.2` (on top of br.1):
 - **Brightness applies live** while dragging the slider and saves when released.
 - **Clearer setup page.** The LED modes are one labelled radio group (choosing test colour or RGB cycle used to silently switch off "replicate printer light"); the finish ending is a three-way choice; the text beside every switch is clickable and announced by screen readers; switches show keyboard focus.
 - **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
-- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (120 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
+- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (129 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
 
 What changed in `2.3.0-br.1` compared with 2.3.0:
 

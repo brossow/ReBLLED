@@ -225,6 +225,19 @@ void test_set_printer_validates_and_keeps_a_blank_access_code() {
   TEST_ASSERT_TRUE(changed);                                                   // a new code alone reconnects
   TEST_ASSERT_EQUAL_STRING("wxyz9876", printerConfig.accessCode);
 }
+void test_set_printer_upper_cases_the_serial() {
+  strcpy(printerConfig.accessCode, "abcd1234");
+  JsonDocument o; bool changed;
+  TEST_ASSERT_TRUE(setPrinter(R"({"ip":"192.0.2.10","serial":"01s00a0000x4821"})", o, changed));
+  TEST_ASSERT_EQUAL_STRING("01S00A0000X4821", printerConfig.serialNumber);
+}
+void test_restore_freezes_the_config() {
+  api::freeze();
+  patch(R"({"idleOffMin":7})");
+  advance(5000); api::loop(); api::flush();
+  TEST_ASSERT_EQUAL(0, fake::saves);
+  TEST_ASSERT_TRUE(configFrozen);
+}
 void test_set_printer_needs_a_code_the_first_time() {
   printerConfig.accessCode[0] = 0;
   JsonDocument o; bool changed;
@@ -299,6 +312,8 @@ int main() {
   RUN_TEST(test_saving_the_wiring_answer_applies_it);
   RUN_TEST(test_set_printer_validates_and_keeps_a_blank_access_code);
   RUN_TEST(test_set_printer_needs_a_code_the_first_time);
+  RUN_TEST(test_set_printer_upper_cases_the_serial);
+  RUN_TEST(test_restore_freezes_the_config);
   RUN_TEST(test_lookup_asks_the_mqtt_task_then_answers);
   RUN_TEST(test_lookup_of_another_address_starts_over);
   RUN_TEST(test_status_says_when_the_printer_failed_its_certificate);

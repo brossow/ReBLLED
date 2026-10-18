@@ -5,12 +5,16 @@
 #include <functional>
 #include <vector>
 struct FakePublish { std::string topic, payload; };
-namespace fake { inline std::vector<FakePublish> published; inline bool mqttConnected = true; inline int mqttLogins = 0; }
+namespace fake { inline std::vector<FakePublish> published; inline bool mqttConnected = true; inline int mqttLogins = 0; inline bool loginAccepted = true; }
 class PubSubClient {
 public:
   typedef void (*Callback)(char *, uint8_t *, unsigned int);
-  explicit PubSubClient(WiFiClientSecure &) {}
-  bool connect(const char *, const char *, const char *) { fake::mqttLogins++; return fake::mqttConnected; }  // sends the access code
+  explicit PubSubClient(WiFiClientSecure &c) : client(c) {}
+  // Like PubSubClient 2.8: reuses an open connection, else opens its own; then sends the login.
+  bool connect(const char *, const char *, const char *) {
+    if (!client.connected() && !client.connect("printer", 8883)) return false;
+    fake::mqttLogins++; return fake::loginAccepted;
+  }
   bool connected() { return fake::mqttConnected; }
   bool loop() { return true; }
   bool subscribe(const char *) { return true; }
@@ -21,4 +25,6 @@ public:
   bool setBufferSize(uint16_t) { return true; }
   PubSubClient &setSocketTimeout(uint16_t) { return *this; }
   int state() { return 0; }
+private:
+  WiFiClientSecure &client;
 };

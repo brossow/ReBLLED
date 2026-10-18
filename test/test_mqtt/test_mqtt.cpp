@@ -56,13 +56,13 @@ void test_ignored_command_messages_change_nothing() {
 void test_printer_changes_count_as_activity() {
   advance(5 * 60000);
   gcode("IDLE", 2);                                   // stage change only
-  TEST_ASSERT_EQUAL(millis(), lastActivityMs);
+  TEST_ASSERT_UINT32_WITHIN(20, millis(), lastActivityMs);   // (msg runs one loop pass after)
 }
 
 static void tryToConnect() {
   strcpy(printerConfig.printerIP, "192.0.2.10"); strcpy(printerConfig.serialNumber, "TESTSERIAL0001");
   strcpy(printerConfig.accessCode, "12345678");
-  fake::mqttConnected = false; fake::mqttLogins = 0; printerVariables.online = false;
+  fake::mqttConnected = false; fake::mqttLogins = 0; printerVariables.online = false; printerVariables.everConnected = false;
   mqttattempt = 0; mqttRetryDelay = 0; advance(60000);
   connectMqtt();
 }
@@ -81,6 +81,38 @@ void test_no_answer_is_not_a_failed_check() {
   TEST_ASSERT_EQUAL(0, fake::mqttLogins);
   TEST_ASSERT_FALSE(printerVariables.certRejected);
   fake::tlsAnswers = true;
+}
+void test_a_verified_printer_gets_the_code_once() {
+  fake::certOk = true;
+  tryToConnect();
+  TEST_ASSERT_EQUAL(1, fake::mqttLogins);
+  TEST_ASSERT_EQUAL(1, fake::tlsConnects);                    // PubSubClient reused the checked connection
+  TEST_ASSERT_FALSE(printerVariables.certRejected);
+  TEST_ASSERT_TRUE(printerVariables.everConnected);
+}
+void test_code_not_sent_if_the_checked_connection_drops() {
+  // Checked, then gone before the login: PubSubClient would open its own, unchecked, connection.
+  fake::certOk = true; fake::dropsAfterHandshake = true;
+  tryToConnect();
+  TEST_ASSERT_EQUAL(0, fake::mqttLogins);
+  TEST_ASSERT_EQUAL(1, fake::tlsConnects);                    // no second, unchecked connection
+}
+void test_stopping_twice_closes_nothing_else() {
+  // core 2.0.17 leaves the socket number at 0 after stop(); a second stop() closed descriptor 0.
+  GuardedTlsClient c;
+  c.connect(IPAddress(), 8883);
+  c.stop(); c.stop();
+  TEST_ASSERT_EQUAL(1, fake::socketCloses);
+  { GuardedTlsClient d; d.connect(IPAddress(), 8883); d.stop(); }   // and the destructor
+  TEST_ASSERT_EQUAL(2, fake::socketCloses);
+}
+void test_guard_refuses_both_kinds_of_connect() {
+  GuardedTlsClient c; c.allowConnect = false;
+  TEST_ASSERT_EQUAL(0, c.connect(IPAddress(), 8883));
+  TEST_ASSERT_EQUAL(0, c.connect("printer", 8883));
+  TEST_ASSERT_EQUAL(0, fake::tlsConnects);
+  c.allowConnect = true;
+  TEST_ASSERT_EQUAL(1, c.connect(IPAddress(), 8883));
 }
 void test_with_the_check_off_the_code_is_sent() {
   settings.checkPrinterCert = false;
@@ -102,6 +134,10 @@ int main() {
   RUN_TEST(test_printer_changes_count_as_activity);
   RUN_TEST(test_access_code_not_sent_to_an_unverified_printer);
   RUN_TEST(test_no_answer_is_not_a_failed_check);
+  RUN_TEST(test_a_verified_printer_gets_the_code_once);
+  RUN_TEST(test_code_not_sent_if_the_checked_connection_drops);
+  RUN_TEST(test_stopping_twice_closes_nothing_else);
+  RUN_TEST(test_guard_refuses_both_kinds_of_connect);
   RUN_TEST(test_with_the_check_off_the_code_is_sent);
   return UNITY_END();
 }

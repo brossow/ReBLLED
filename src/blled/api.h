@@ -16,12 +16,11 @@ namespace api
     // moment, so dragging a slider doesn't rewrite flash dozens of times.
     const unsigned long SAVE_DELAY_MS = 1500;
     bool dirty = false;
-    bool frozen = false;            // a restore or factory reset is about to restart: keep its file
     unsigned long dirtyAt = 0;
 
     void markDirty()
     {
-        if (frozen) return;
+        if (configFrozen) return;
         dirty = true;
         dirtyAt = millis();
     }
@@ -41,7 +40,7 @@ namespace api
     {
         StateLock lock;
         dirty = false;
-        frozen = true;
+        configFrozen = true;
     }
 
     // GET /api/settings
@@ -153,6 +152,7 @@ namespace api
         changed = false;
         String ip = body["ip"] | "", serial = body["serial"] | "", code = body["accessCode"] | "";
         ip.trim(); serial.trim(); code.trim();
+        serial.toUpperCase(); // the certificate name and the MQTT topic are case-sensitive
         IPAddress addr;
         if (!addr.fromString(ip) || ip.length() > 15) return fail(out, "ip");
         if (serial.length() == 0 || serial.length() >= sizeof(printerConfig.serialNumber)) return fail(out, "serial");
