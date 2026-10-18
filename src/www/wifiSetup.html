@@ -1,311 +1,209 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en-US">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>BLLED WiFi Setup</title>
-    <link rel="stylesheet" href="/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wi-Fi and login</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/ui.css">
 </head>
-
 <body>
-    <canvas id="particleCanvas" style="background: rgb(20,80,49);"></canvas>
-    <div id="container">
-        <div id="header">
-            <img id="logo" src="/blled.svg" alt="BLLED Logo">
-            <h1>BLLED WiFi Setup</h1>
-        </div>
+<main class="wrap page">
+  <header class="pagehead"><a href="/" id="backLink">← Lights</a><h1 id="title">Wi-Fi and login</h1></header>
+  <p class="hint" id="apIntro" hidden style="margin-top:14px">This controller isn't on your Wi-Fi yet. Choose your network and enter the printer's details; it then restarts and joins your network.</p>
 
-        <div id="networks">Loading...</div>
+  <form id="form" novalidate>
+    <section aria-labelledby="h-wifi">
+      <h2 id="h-wifi">Wi-Fi network</h2>
+      <div class="card">
+        <fieldset>
+          <legend>Network</legend>
+          <p class="hint" id="scanState" aria-live="polite">Looking for networks…</p>
+          <div class="netlist" id="nets"></div>
+          <label class="choice"><input type="radio" name="net" value="other" id="netOther"><span class="t">Another network</span><span class="d">A hidden network, or one that isn't listed.</span></label>
+          <div class="field" id="otherRow" hidden><label for="ssidOther">Network name</label><input type="text" id="ssidOther" autocomplete="off" spellcheck="false" maxlength="31"></div>
+          <p class="err" id="ssidErr" hidden>Choose a network.</p>
+        </fieldset>
+        <div class="field"><label for="pass">Password</label>
+          <input type="password" id="pass" autocomplete="new-password" maxlength="63" aria-describedby="passHint">
+          <p class="hint" id="passHint"></p>
+          <p class="err" id="passErr" hidden>Enter the password for this network.</p></div>
+        <div class="field"><label for="host">Controller name on the network</label>
+          <input type="text" id="host" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="hostHint">
+          <p class="hint" id="hostHint">Letters, numbers and hyphens. The page is then also at http://<span id="hostEcho">BLLED</span>.local/</p>
+          <p class="err" id="hostErr" hidden>Use letters, numbers and hyphens only.</p></div>
+      </div>
+    </section>
 
-        <form id="wifiForm">
-            <label for="ssid">SSID</label>
-            <input type="text" id="ssid" autocomplete="off" required>
-            <input type="hidden" id="bssid" name="bssid">
-            <label for="password">Password</label>
-            <input type="password" id="password" autocomplete="new-password" required>
+    <section aria-labelledby="h-printer">
+      <h2 id="h-printer">Printer</h2>
+      <div class="card" id="printerOnNet" hidden>
+        <p id="printerNow"></p>
+        <p class="hint">To follow a different printer or change the access code, use <a href="/#setup">Run setup again</a> on the main page: it finds printers on the network and checks it's really yours.</p>
+      </div>
+      <div class="card" id="printerFields" hidden>
+        <div class="field"><label for="printerIP">Printer IP address</label>
+          <input type="text" id="printerIP" inputmode="decimal" autocomplete="off" placeholder="192.168.1.50" aria-describedby="ipHint">
+          <p class="hint" id="ipHint">On the printer: Settings → Network.</p>
+          <p class="err" id="ipErr" hidden>Enter an address like 192.168.1.50.</p></div>
+        <div class="field"><label for="printerSerial">Printer serial number</label>
+          <input type="text" id="printerSerial" autocomplete="off" spellcheck="false" maxlength="15" aria-describedby="serialHint">
+          <p class="hint" id="serialHint">On the printer: Settings → Device.</p>
+          <p class="err" id="serialErr" hidden>Letters and numbers only.</p></div>
+        <div class="field"><label for="accessCode">Printer access code</label>
+          <input type="text" id="accessCode" maxlength="8" autocomplete="off" spellcheck="false" aria-describedby="codeHint">
+          <p class="hint" id="codeHint">8 characters. On the printer: Settings → Network → "Access Code" (LAN mode).</p>
+          <p class="err" id="codeErr" hidden>The access code is 8 characters.</p></div>
+      </div>
+    </section>
 
-            <label for="deviceName">Controller Name (mDNS)</label>
-            <input type="text" id="deviceName" name="deviceName" maxlength="32" placeholder="BLLED">
+    <section aria-labelledby="h-login">
+      <h2 id="h-login">Login for these pages</h2>
+      <div class="card">
+        <p class="hint">Anyone on your network can open these pages unless a login is set.</p>
+        <div class="field"><label for="webUser">Username</label><input type="text" id="webUser" maxlength="39" autocomplete="username" spellcheck="false"></div>
+        <div class="field"><label for="webPass">Password</label>
+          <input type="password" id="webPass" maxlength="39" autocomplete="new-password" aria-describedby="webPassHint">
+          <p class="hint" id="webPassHint"></p>
+          <p class="err" id="webPassErr" hidden>Enter a password for the new login.</p></div>
+        <p class="warn" id="loginOffNote" hidden>With no username, the login is removed when you save.</p>
+      </div>
+    </section>
 
-            <label for="printerIP">Printer IP</label>
-            <div style="display: flex; gap: 6px; align-items: center;">
+    <section>
+      <div class="inline"><button type="submit" class="primary" id="saveBtn">Save and restart</button><a href="/" id="cancelLink">Cancel</a></div>
+      <p class="status-line" id="saveState" role="status" aria-live="polite"></p>
+    </section>
+  </form>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const IP_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+  let C = {};            // /config.json: what's saved (no secrets, only whether they're set)
 
-                <input type="text" id="printerIP" placeholder="e.g. 192.168.1.100" style="flex: 2;">
+  // ---- networks (names come from anyone in radio range: always text, never HTML) ----
+  function bars(rssi) {
+    const n = rssi >= -50 ? 4 : rssi >= -60 ? 3 : rssi >= -70 ? 2 : 1, b = el("span", "bars");
+    b.setAttribute("aria-hidden", "true");
+    for (let i = 1; i <= 4; i++) { const x = el("i", i <= n ? "on" : ""); x.style.height = (i * 3) + "px"; b.appendChild(x); }
+    return b;
+  }
+  const strength = rssi => rssi >= -50 ? "strong" : rssi >= -60 ? "good" : rssi >= -70 ? "fair" : "weak";
+  function showNetworks(list) {
+    const host = $("nets"); host.textContent = "";
+    list.sort((a, b) => b.rssi - a.rssi);
+    const counts = {}; for (const n of list) counts[n.ssid] = (counts[n.ssid] || 0) + 1;
+    list.filter(n => n.ssid).forEach((n, i) => {
+      const lab = el("label", "choice"), r = el("input");
+      r.type = "radio"; r.name = "net"; r.value = String(i); r.id = "net-" + i;
+      r.dataset.ssid = n.ssid; r.dataset.bssid = n.bssid || ""; r.dataset.open = n.enc ? "" : "1";
+      const t = el("span", "t"); t.append(bars(n.rssi), document.createTextNode(n.ssid));
+      // several access points with the same name: say which one this is
+      const ap = counts[n.ssid] > 1 && n.bssid ? ` · access point …${n.bssid.slice(-5)}` : "";
+      lab.append(r, t, el("span", "d", `Signal ${strength(n.rssi)} (${n.rssi} dBm)${n.enc ? "" : " · no password"}${ap}`));
+      host.appendChild(lab);
+      if (n.ssid === C.ssid && !document.querySelector("input[name=net]:checked")) r.checked = true;
+    });
+    $("scanState").textContent = list.length ? "" : "No networks found. Choose \"Another network\" to type a name.";
+    if (!document.querySelector("input[name=net]:checked") && C.ssid) { $("netOther").checked = true; $("ssidOther").value = C.ssid; }
+    syncNet();
+  }
+  async function scan(attempt = 0) {
+    try {
+      const r = await fetch("/wifiScan", { cache: "no-store" });
+      const d = await r.json();
+      if (d.scanning || d.retry) {   // the scan runs in the background; ask again
+        if (attempt < 40) setTimeout(() => scan(attempt + 1), 1000);
+        else $("scanState").textContent = "The scan took too long. Choose \"Another network\" to type a name.";
+        return;
+      }
+      showNetworks(d.networks || []);
+    } catch (e) { $("scanState").textContent = "Couldn't scan for networks. Choose \"Another network\" to type a name."; }
+  }
+  function chosenNet() {
+    const r = document.querySelector("input[name=net]:checked");
+    if (!r) return null;
+    return r.value === "other" ? { ssid: $("ssidOther").value.trim(), bssid: "", open: false } : { ssid: r.dataset.ssid, bssid: r.dataset.bssid, open: !!r.dataset.open };
+  }
+  function syncNet() {
+    $("otherRow").hidden = !$("netOther").checked;
+    const n = chosenNet(), same = n && n.ssid && n.ssid === C.ssid;
+    $("passHint").textContent = n && n.open ? "This network has no password." : same && C.hasPass ? "Saved. Leave blank to keep it." : n && n.ssid ? "The password for this network." : "";
+    $("pass").disabled = !!(n && n.open);
+  }
+  $("form").addEventListener("change", e => { if (e.target.name === "net") { syncNet(); if (e.target.value === "other") $("ssidOther").focus(); } });
+  $("ssidOther").addEventListener("input", syncNet);
+  $("host").addEventListener("input", () => { $("hostEcho").textContent = $("host").value.trim() || "BLLED"; });
+  $("webUser").addEventListener("input", () => { $("loginOffNote").hidden = !!$("webUser").value.trim() || !C.webUser; });
 
-                <button type="button" id="openPrinterList" title="Search printer"
-                    style="flex: 1; margin-bottom: 8px; background-color: #28a745; cursor: pointer; display: none; width: 29px; height: 29px; padding: 0;">
-                    Printer Discovery
-                </button>
-            </div>
+  // ---- save ----
+  function err(input, errEl, bad) { input.setAttribute("aria-invalid", String(bad)); errEl.hidden = !bad; return bad; }
+  async function waitForRestart(ssidChanged, host) {
+    const st = $("saveState");
+    if (C.isAPMode || ssidChanged) {
+      st.textContent = `Saved. The controller is restarting and joining "${chosenNet().ssid}". Connect this device to that network too, then open http://${host}.local/ (or the address your router gives the controller).`;
+      return;
+    }
+    st.textContent = "Saved. The controller is restarting…";
+    await new Promise(r => setTimeout(r, 5000));
+    for (let i = 0; i < 30; i++) {
+      try { const r = await fetch("/api/status", { cache: "no-store" }); if (r.ok) { st.className = "status-line good"; st.textContent = "It's back. "; const a = el("a", null, "Back to the lights"); a.href = "/"; st.appendChild(a); return; } } catch (e) {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    st.className = "status-line bad";
+    st.textContent = "It hasn't come back yet. If you changed the controller's name, open it at its new name; otherwise reload in a minute.";
+  }
+  $("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const n = chosenNet() || { ssid: "", bssid: "" };
+    const host = $("host").value.trim() || "BLLED";
+    const pass = $("pass").value, user = $("webUser").value.trim(), wpass = $("webPass").value;
+    const ssidChanged = n.ssid !== C.ssid;
+    const ap = C.isAPMode;
+    const ip = $("printerIP").value.trim(), serial = $("printerSerial").value.trim().toUpperCase(), code = $("accessCode").value.trim();
+    const firstBad = [
+      [err($("ssidOther"), $("ssidErr"), !n.ssid), $("netOther").checked ? $("ssidOther") : (document.querySelector("input[name=net]") || $("netOther"))],
+      [err($("pass"), $("passErr"), !n.open && !pass && (ssidChanged || !C.hasPass)), $("pass")],
+      [err($("host"), $("hostErr"), !/^[A-Za-z0-9-]{1,32}$/.test(host)), $("host")],
+      [ap && err($("printerIP"), $("ipErr"), !!ip && !IP_RE.test(ip)), $("printerIP")],
+      [ap && err($("printerSerial"), $("serialErr"), !!serial && !/^[A-Z0-9]{1,15}$/.test(serial)), $("printerSerial")],
+      [ap && err($("accessCode"), $("codeErr"), !!code && code.length !== 8), $("accessCode")],
+      [err($("webPass"), $("webPassErr"), !!user && !wpass && !(C.hasWebPass && user === C.webUser)), $("webPass")],
+    ].find(([bad]) => bad);
+    if (firstBad) { firstBad[1].focus(); return; }
+    const body = new URLSearchParams({ ssid: n.ssid, pass: n.open ? "" : pass, bssid: n.bssid, host, webUser: user, webPass: wpass });
+    if (n.open) body.set("open", "1");
+    if (ap) { body.set("printerIP", ip); body.set("printerSerial", serial); body.set("accessCode", code); }
+    $("saveBtn").disabled = true;
+    const st = $("saveState"); st.className = "status-line"; st.textContent = "Saving…";
+    try {
+      const r = await fetch("/submitWiFi", { method: "POST", body });
+      if (!r.ok) { st.className = "status-line bad"; st.textContent = "Not saved: " + ((await r.text()) || "HTTP " + r.status); $("saveBtn").disabled = false; return; }
+      waitForRestart(ssidChanged, host);
+    } catch (e2) { waitForRestart(ssidChanged, host); }   // it may already be restarting
+  });
 
-
-            <label for="printerSerial">Printer Serial Number</label>
-            <input type="text" id="printerSerial" placeholder="e.g. BL123456789">
-
-            <label for="accessCode">Printer Access Code</label>
-            <input type="text" id="accessCode" placeholder="e.g. Access123">
-
-            <label for="webUser">WebUI Security Username</label>
-            <input type="text" id="webUser" placeholder="e.g. admin" autocomplete="new-username">
-
-            <label for="webPass">WebUI Security Password</label>
-            <input type="password" id="webPass" placeholder="e.g. password" autocomplete="new-password">
-
-            <div style="display: flex; gap: 10px; justify-content: space-between;">
-                <button type="submit">Save</button>
-                <button type="button" style="background-color: #6c757d;" onclick="location.href='/'">Back</button>
-            </div>
-        </form>
-    </div>
-
-    <script src="particleCanvas.js"></script>
-    <div id="toast"><span id="toast-icon">ℹ️</span><span id="toast-msg">Placeholder</span></div>
-    <div id="printerModal" style="
-    display: none;
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-color: rgba(0,0,0,0.4);
-    z-index: 1000;
-    justify-content: center;
-    align-items: center;
-">
-        <div style="
-        background-color: #fff;
-        padding: 20px;
-        border-radius: 8px;
-        max-width: 400px;
-        width: 90%;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    ">
-            <h3 style="margin-top: 0;">Select Printer</h3>
-            <div id="printerList" style="max-height: 300px; overflow-y: auto;"></div>
-            <div style="text-align: right; margin-top: 10px;">
-                <button onclick="closePrinterModal()">Close</button>
-            </div>
-        </div>
-    </div>
-    <script>
-        function getSignalSVG(rssi) {
-            let level = 0;
-            if (rssi >= -50) level = 4;
-            else if (rssi >= -60) level = 3;
-            else if (rssi >= -70) level = 2;
-            else level = 1;
-
-            return `
-                <svg width="16" height="12" viewBox="0 0 20 16" preserveAspectRatio="xMidYMid meet">
-                    <rect x="0" y="12" width="3" height="4" ${level >= 1 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="5" y="8" width="3" height="8" ${level >= 2 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="10" y="4" width="3" height="12" ${level >= 3 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                    <rect x="15" y="0" width="3" height="16" ${level >= 4 ? 'fill="#444"' : 'fill="#ccc"'}/>
-                </svg>`;
-        }
-
-        function getSignalPercent(rssi) {
-            let percent = Math.max(0, Math.min(100, 2 * (rssi + 100)));
-            return `${percent}%`;
-        }
-
-        function getLockIcon(enc) {
-            return enc ? "🔒" : "🔓";
-        }
-
-        function alertToast(type, message) {
-            const toast = document.getElementById("toast");
-            const icon = document.getElementById("toast-icon");
-            const msg = document.getElementById("toast-msg");
-
-            let iconChar = "ℹ️";
-            let color = "#333";
-
-            switch (type.toLowerCase()) {
-                case "success":
-                    iconChar = "✅";
-                    color = "#28a745";
-                    break;
-                case "error":
-                    iconChar = "❌";
-                    color = "#dc3545";
-                    break;
-                case "warning":
-                    iconChar = "⚠️";
-                    color = "#ffc107";
-                    break;
-                case "info":
-                default:
-                    iconChar = "ℹ️";
-                    color = "#17a2b8";
-            }
-
-            toast.style.backgroundColor = color;
-            icon.textContent = iconChar;
-            msg.textContent = message;
-
-            toast.classList.add("show");
-            setTimeout(() => toast.classList.remove("show"), 3000);
-        }
-
-        async function loadNetworks(attempt = 0) {
-            try {
-                if (attempt === 0) alertToast("info", "Retrieving network scan, please wait...");
-                const res = await fetch("/wifiScan");
-                const data = await res.json();
-                if (data.scanning || data.retry) {
-                    // Scan runs in the background on the device; poll until it's done. (retry:
-                    // the radio was busy, e.g. reconnecting to the saved network - try again.)
-                    if (attempt < 40) setTimeout(() => loadNetworks(attempt + 1), 1000);
-                    else document.getElementById("networks").innerText = "Network scan timed out.";
-                    return;
-                }
-                const container = document.getElementById("networks");
-                container.innerHTML = "";
-
-                data.networks.forEach(net => {
-                    net.bssid = net.bssid || "";
-
-                    const div = document.createElement("div");
-                    div.className = "network";
-                    // Network names come from anyone in radio range - insert them as text,
-                    // never as HTML.
-                    div.innerHTML = `${getSignalSVG(net.rssi)} ${getSignalPercent(net.rssi)} <span class="ssid"></span> <span class="bssid" style="font-size: 11px;"></span> ${getLockIcon(net.enc)}`;
-                    div.querySelector(".ssid").textContent = net.ssid;
-                    div.querySelector(".bssid").textContent = `(${net.bssid})`;
-                    div.style.cursor = "pointer";
-                    div.style.padding = "4px 8px";
-                    div.style.borderBottom = "1px solid #ddd";
-
-                    div.addEventListener("click", () => {
-                        document.getElementById("ssid").value = net.ssid;
-                        document.getElementById("bssid").value = net.bssid;  // ← BSSID übernehmen
-                    });
-
-                    container.appendChild(div);
-                });
-            } catch (err) {
-                document.getElementById("networks").innerText = "Failed to load networks.";
-                console.error(err);
-                alertToast("error", "Failed getting Network Scan: " + err);
-            }
-        }
-
-
-        document.getElementById("wifiForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const ssid = document.getElementById("ssid").value;
-            const pass = document.getElementById("password").value;
-            const host = document.getElementById("deviceName").value || "BLLED";
-            const bssid = document.getElementById("bssid").value;
-            const printerIP = document.getElementById("printerIP").value;
-            const printerSerial = document.getElementById("printerSerial").value.trim().toUpperCase();
-            const accessCode = document.getElementById("accessCode").value;
-            const webUser = document.getElementById("webUser").value;
-            const webPass = document.getElementById("webPass").value;
-
-            if (ssid !== savedSSID && !pass) {
-                // The saved password belongs to the saved network.
-                alertToast("error", "Enter the WiFi password for the new network.");
-                return;
-            }
-
-            try {
-                const res = await fetch("/submitWiFi", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}&bssid=${encodeURIComponent(bssid)}&host=${encodeURIComponent(host)}&printerIP=${encodeURIComponent(printerIP)}&printerSerial=${encodeURIComponent(printerSerial)}&accessCode=${encodeURIComponent(accessCode)}&webUser=${encodeURIComponent(webUser)}&webPass=${encodeURIComponent(webPass)}`
-
-                });
-
-                if (res.ok) {
-                    alertToast("success", "Settings saved. Restarting...");
-                } else {
-                    alertToast("error", "Save failed: " + ((await res.text()) || res.status));
-                }
-            } catch (err) {
-                alertToast("info", "Device is likely restarting.");
-            }
-        });
-
-        let savedSSID = "";
-        async function loadPrinterConfig() {
-            try {
-                const res = await fetch("/config.json");
-                const config = await res.json();
-                document.getElementById("ssid").value = config.ssid || "";
-                savedSSID = config.ssid || "";
-                // Stored secrets are never sent to the browser; leave the field blank to keep them.
-                if (config.hasPass) {
-                    document.getElementById("password").placeholder = "(saved - leave blank to keep)";
-                    document.getElementById("password").required = false;
-                }
-                document.getElementById("deviceName").value = config.host || "BLLED";
-                document.getElementById("printerIP").value = config.printerIP || "";
-                document.getElementById("printerSerial").value = config.printerSerial || "";
-                if (config.isAPMode) {
-                    document.getElementById("openPrinterList").style.display = "none";
-                } else {
-                    document.getElementById("openPrinterList").style.display = "inline-block";
-                }
-                if (config.hasAccessCode) document.getElementById("accessCode").placeholder = "(saved - leave blank to keep)";
-                document.getElementById("webUser").value = config.webUser || "";
-                if (config.hasWebPass) document.getElementById("webPass").placeholder = "(saved - leave blank to keep; clear username to remove login)";
-            } catch (err) {
-                console.warn("No existing config found or failed to load.");
-            }
-        }
-        loadPrinterConfig();
-        loadNetworks();
-
-        async function loadPrinters() {
-            const list = document.getElementById("printerList");
-            list.innerHTML = "Loading...";
-
-            try {
-                const res = await fetch("/printerList");
-                const printers = await res.json();
-
-                if (printers.length === 0) {
-                    list.innerHTML = "<p>No printers found.</p>";
-                    return;
-                }
-
-                list.innerHTML = "";
-                printers.forEach(printer => {
-                    const div = document.createElement("div");
-                    div.textContent = `${printer.ip} (${printer.usn})`;
-                    div.style.padding = "6px";
-                    div.style.borderBottom = "1px solid #ddd";
-                    div.style.cursor = "pointer";
-
-                    div.addEventListener("click", () => {
-                        document.getElementById("printerIP").value = printer.ip;
-                        document.getElementById("printerSerial").value = printer.usn;
-                        closePrinterModal();
-                        alertToast("success", "Printer selected");
-                    });
-
-                    list.appendChild(div);
-                });
-
-            } catch (err) {
-                list.innerHTML = "<p>Failed to load printers.</p>";
-                console.error(err);
-            }
-        }
-
-        function openPrinterModal() {
-            loadPrinters();
-            document.getElementById("printerModal").style.display = "flex";
-        }
-
-        function closePrinterModal() {
-            document.getElementById("printerModal").style.display = "none";
-        }
-
-        document.getElementById("openPrinterList").addEventListener("click", openPrinterModal);
-
-    </script>
-
+  // ---- start ----
+  (async () => {
+    try { C = await (await fetch("/config.json", { cache: "no-store" })).json(); } catch (e) { C = {}; }
+    const ap = !!C.isAPMode;
+    if (ap) { $("title").textContent = "Set up the controller"; document.title = "Set up the controller"; $("apIntro").hidden = false; $("backLink").hidden = $("cancelLink").hidden = true; }
+    $("host").value = C.host || "BLLED"; $("hostEcho").textContent = $("host").value;
+    $("printerFields").hidden = !ap; $("printerOnNet").hidden = ap;
+    $("printerNow").textContent = C.printerIP ? `Following the printer at ${C.printerIP}` + (C.printerSerial ? ` (serial ending ${C.printerSerial.slice(-4)}).` : ".") : "No printer set up yet.";
+    if (ap) {
+      $("printerIP").value = C.printerIP || ""; $("printerSerial").value = C.printerSerial || "";
+      if (C.hasAccessCode) { $("accessCode").placeholder = "Saved (leave blank to keep it)"; }
+    }
+    $("webUser").value = C.webUser || "";
+    $("webPassHint").textContent = C.hasWebPass ? "Saved. Leave blank to keep it." : "";
+    syncNet();
+    scan();
+  })();
+})();
+</script>
 </body>
-
 </html>
