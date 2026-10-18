@@ -2,9 +2,9 @@
 bool shouldRestart = false;
 unsigned long restartRequestTime = 0;
 #include "./blled/logSerial.h"
-#include "./blled/leds.h"
-#include "./blled/filesystem.h"
 #include "./blled/types.h"
+#include "./blled/lights.h"
+#include "./blled/filesystem.h"
 #include "./blled/bblPrinterDiscovery.h"
 #include "./blled/web-server.h"
 #include "./blled/mqttmanager.h"
@@ -61,32 +61,6 @@ void apFallbackLoop()
     }
 }
 
-void defaultcolors()
-{
-    LogSerial.println(F("Setting default customisable colors"));
-    printerConfig.runningColor = hex2rgb("#000000", 255, 255); // WHITE Running
-    printerConfig.testColor = hex2rgb("#3F3CFB");              // Violet Test
-    printerConfig.finishColor = hex2rgb("#00FF00");            // Green Finish
-
-    printerConfig.stage14Color = hex2rgb("#000000"); // OFF Cleaning Nozzle
-    printerConfig.stage1Color = hex2rgb("#000055");  // OFF Bed Leveling
-    printerConfig.stage8Color = hex2rgb("#000000");  // OFF Calibrating Extrusion
-    printerConfig.stage9Color = hex2rgb("#000000");  // OFF Scanning Bed Surface
-    printerConfig.stage10Color = hex2rgb("#000000"); // OFF First Layer Inspection
-
-    printerConfig.wifiRGB = hex2rgb("#FFA500"); // Orange Wifi Scan
-
-    printerConfig.pauseRGB = hex2rgb("#0000FF");          // Blue Pause
-    printerConfig.firstlayerRGB = hex2rgb("#0000FF");     // Blue
-    printerConfig.nozzleclogRGB = hex2rgb("#0000FF");     // Blue
-    printerConfig.hmsSeriousRGB = hex2rgb("#FF0000");     // Red
-    printerConfig.hmsFatalRGB = hex2rgb("#FF0000");       // Red
-    printerConfig.filamentRunoutRGB = hex2rgb("#FF0000"); // Red
-    printerConfig.frontCoverRGB = hex2rgb("#FF0000");     // Red
-    printerConfig.nozzleTempRGB = hex2rgb("#FF0000");     // Red
-    printerConfig.bedTempRGB = hex2rgb("#FF0000");        // Red
-}
-
 void setup()
 {
     Serial.begin(115200);
@@ -98,23 +72,23 @@ void setup()
     Serial.print(globalVariables.FWVersion);
     Serial.println(F(" **"));
     Serial.println("");
-    defaultcolors();
     setupLeds();
-    tweenToColor(100, 100, 100, 100, 100); // ALL LEDS ON
+    showStatusColour(100, 100, 100, 100, 100); // all outputs on: starting
     Serial.println(F(""));
 
-    tweenToColor(255, 0, 0, 0, 0); // RED
+    lightsStatusColour(255, 0, 0); // red: loading settings
     setupFileSystem();
     loadFileSystem();
+    lightsBegin();
     Serial.println(F(""));
 
-    tweenToColor(printerConfig.wifiRGB); // Customisable - Default is ORANGE
+    lightsStatusColour(255, 165, 0); // orange: joining Wi-Fi
     setupSerial();
 
     if (strlen(globalVariables.SSID) == 0 || strlen(globalVariables.APPW) == 0)
     {
         Serial.println(F("SSID or password is missing. Please configure both by going to: https://dutchdevelop.com/blled-configuration-setup/"));
-        tweenToColor(100, 0, 100, 0, 0); // PINK
+        lightsStatusColour(255, 0, 255); // pink: no Wi-Fi configured, setup hotspot on
         startAPMode();
         setupWebserver();
         return;
@@ -132,13 +106,13 @@ void setup()
     else
     {
         Serial.println(F("[WiFiManager] connected. Starting webUI."));
-        tweenToColor(0, 0, 255, 0, 0); // BLUE
+        lightsStatusColour(0, 0, 255); // blue: Wi-Fi connected
         setupWebserver();
     }
 
     start_ssdp();
 
-    tweenToColor(34, 224, 238, 0, 0); // CYAN
+    lightsStatusColour(0, 255, 255); // cyan: connecting to the printer
     setupMqtt();
     // >>> Fix: prevent false offline after 30s
     printerVariables.disconnectMQTTms = millis();
@@ -150,7 +124,7 @@ void setup()
     Serial.println();
     globalVariables.started = true;
     Serial.println(F("Updating LEDs from Setup"));
-    updateleds();
+    lightsUpdate(true);
 }
 
 void loop()
@@ -165,7 +139,7 @@ void loop()
     if (globalVariables.started)
     {
         websocketLoop();
-        ledsloop();
+        lightsLoop();
 
         // Paced so a dropped connection doesn't hammer disconnect/reconnect every loop pass.
         if (WiFi.status() != WL_CONNECTED && millis() - lastWifiReconnectAttempt > 10000)
@@ -203,10 +177,10 @@ void loop()
     if (printerConfig.rescanWiFiNetwork)
     {
         LogSerial.println(F("Web submitted refresh of Wifi Scan (assigning Strongest AP)"));
-        tweenToColor(printerConfig.wifiRGB); // Customisable - Default is ORANGE
+        lightsStatusColour(255, 165, 0); // orange: scanning Wi-Fi
         scanNetwork();                       // Sets the MAC address for following connection attempt
         printerConfig.rescanWiFiNetwork = false;
-        updateleds();
+        lightsUpdate(true);
     }
     if (shouldRestart && millis() - restartRequestTime > 1500)
     {

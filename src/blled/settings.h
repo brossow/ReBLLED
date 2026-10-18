@@ -36,6 +36,8 @@ namespace v2
     {
         LookColour colour;
         Rhythm rhythm = R_STEADY;
+        StateLook() = default;
+        StateLook(const LookColour &c, Rhythm r) : colour(c), rhythm(r) {} // the firmware builds as C++11
     };
     struct Looks
     {
@@ -332,6 +334,28 @@ namespace v2
         s.debugLog = (o["debuging"] | false) || (o["debugingchange"] | false);
         s.mqttLog = o["mqttdebug"] | false;
         return s;
+    }
+
+    // A partial update from the setup page (autosave): only the keys sent change. Objects
+    // merge recursively (e.g. {"custom":{"error":{"rhythm":"pulse"}}}); anything else replaces.
+    inline void mergeJson(JsonObject dst, JsonObjectConst src)
+    {
+        for (JsonPairConst kv : src)
+        {
+            if (kv.value().is<JsonObjectConst>() && dst[kv.key()].is<JsonObject>())
+                mergeJson(dst[kv.key()].as<JsonObject>(), kv.value().as<JsonObjectConst>());
+            else
+                dst[kv.key()] = kv.value();
+        }
+    }
+    inline Settings applyPatch(const Settings &current, JsonVariantConst patch)
+    {
+        if (!patch.is<JsonObjectConst>()) return current;
+        JsonDocument d;
+        toJson(current, d.to<JsonObject>());
+        mergeJson(d.as<JsonObject>(), patch.as<JsonObjectConst>());
+        d["version"] = 2; // a patch can't turn the settings back into a v1 migration
+        return fromJson(d.as<JsonVariantConst>());
     }
 
     // Load whatever the config file holds: v2 settings, or a v1 config to migrate.

@@ -7,7 +7,7 @@
 #include <ESPmDNS.h>
 #include <Update.h>
 #include <ESPAsyncWebServer.h>
-#include "leds.h"
+#include "lights.h"
 #include "filesystem.h"
 
 AsyncWebServer webServer(80);
@@ -99,84 +99,11 @@ void handleGetConfig(AsyncWebServerRequest *request)
     doc["ip"] = printerConfig.printerIP;
     doc["id"] = printerConfig.serialNumber;
     doc["apMAC"] = printerConfig.BSSID;
-    doc["brightness"] = printerConfig.brightness;
-    doc["maintMode"] = printerConfig.maintMode;
-    doc["discoMode"] = printerConfig.discoMode;
-    doc["replicateled"] = printerConfig.replicatestate;
-    doc["runningRGB"] = printerConfig.runningColor.RGBhex;
-    doc["runningWW"] = printerConfig.runningColor.ww;
-    doc["runningCW"] = printerConfig.runningColor.cw;
-    doc["showtestcolor"] = printerConfig.testcolorEnabled;
-    doc["testRGB"] = printerConfig.testColor.RGBhex;
-    doc["testWW"] = printerConfig.testColor.ww;
-    doc["testCW"] = printerConfig.testColor.cw;
-    doc["debugwifi"] = printerConfig.debugwifi;
-    doc["finishindication"] = printerConfig.finishindication;
-    doc["finishColor"] = printerConfig.finishColor.RGBhex;
-    doc["finishWW"] = printerConfig.finishColor.ww;
-    doc["finishCW"] = printerConfig.finishColor.cw;
-    doc["finishExit"] = printerConfig.finishExit;
-    doc["finishExitTimer"] = printerConfig.finishExitTimer;
-    doc["doorToggleSecs"] = printerConfig.doorToggleWindowMs / 1000;
-    doc["statusAnimations"] = printerConfig.statusAnimations;
-    doc["finishTimerMins"] = (int)(printerConfig.finishTimeOut / 60000);
-    doc["inactivityEnabled"] = printerConfig.inactivityEnabled;
-    doc["inactivityMins"] = (int)(printerConfig.inactivityTimeOut / 60000);
-    doc["debuging"] = printerConfig.debuging;
-    doc["debugingchange"] = printerConfig.debugingchange;
-    doc["mqttdebug"] = printerConfig.mqttdebug;
-    doc["p1Printer"] = printerVariables.isP1Printer;
-    doc["doorSwitch"] = printerVariables.useDoorSwtich;
-    doc["stage14RGB"] = printerConfig.stage14Color.RGBhex;
-    doc["stage14WW"] = printerConfig.stage14Color.ww;
-    doc["stage14CW"] = printerConfig.stage14Color.cw;
-    doc["stage1RGB"] = printerConfig.stage1Color.RGBhex;
-    doc["stage1WW"] = printerConfig.stage1Color.ww;
-    doc["stage1CW"] = printerConfig.stage1Color.cw;
-    doc["stage8RGB"] = printerConfig.stage8Color.RGBhex;
-    doc["stage8WW"] = printerConfig.stage8Color.ww;
-    doc["stage8CW"] = printerConfig.stage8Color.cw;
-    doc["stage9RGB"] = printerConfig.stage9Color.RGBhex;
-    doc["stage9WW"] = printerConfig.stage9Color.ww;
-    doc["stage9CW"] = printerConfig.stage9Color.cw;
-    doc["stage10RGB"] = printerConfig.stage10Color.RGBhex;
-    doc["stage10WW"] = printerConfig.stage10Color.ww;
-    doc["stage10CW"] = printerConfig.stage10Color.cw;
-    doc["errordetection"] = printerConfig.errordetection;
-    doc["wifiRGB"] = printerConfig.wifiRGB.RGBhex;
-    doc["wifiWW"] = printerConfig.wifiRGB.ww;
-    doc["wifiCW"] = printerConfig.wifiRGB.cw;
-    doc["pauseRGB"] = printerConfig.pauseRGB.RGBhex;
-    doc["pauseWW"] = printerConfig.pauseRGB.ww;
-    doc["pauseCW"] = printerConfig.pauseRGB.cw;
-    doc["firstlayerRGB"] = printerConfig.firstlayerRGB.RGBhex;
-    doc["firstlayerWW"] = printerConfig.firstlayerRGB.ww;
-    doc["firstlayerCW"] = printerConfig.firstlayerRGB.cw;
-    doc["nozzleclogRGB"] = printerConfig.nozzleclogRGB.RGBhex;
-    doc["nozzleclogWW"] = printerConfig.nozzleclogRGB.ww;
-    doc["nozzleclogCW"] = printerConfig.nozzleclogRGB.cw;
-    doc["hmsSeriousRGB"] = printerConfig.hmsSeriousRGB.RGBhex;
-    doc["hmsSeriousWW"] = printerConfig.hmsSeriousRGB.ww;
-    doc["hmsSeriousCW"] = printerConfig.hmsSeriousRGB.cw;
-    doc["hmsFatalRGB"] = printerConfig.hmsFatalRGB.RGBhex;
-    doc["hmsFatalWW"] = printerConfig.hmsFatalRGB.ww;
-    doc["hmsFatalCW"] = printerConfig.hmsFatalRGB.cw;
-    doc["filamentRunoutRGB"] = printerConfig.filamentRunoutRGB.RGBhex;
-    doc["filamentRunoutWW"] = printerConfig.filamentRunoutRGB.ww;
-    doc["filamentRunoutCW"] = printerConfig.filamentRunoutRGB.cw;
-    doc["frontCoverRGB"] = printerConfig.frontCoverRGB.RGBhex;
-    doc["frontCoverWW"] = printerConfig.frontCoverRGB.ww;
-    doc["frontCoverCW"] = printerConfig.frontCoverRGB.cw;
-    doc["nozzleTempRGB"] = printerConfig.nozzleTempRGB.RGBhex;
-    doc["nozzleTempWW"] = printerConfig.nozzleTempRGB.ww;
-    doc["nozzleTempCW"] = printerConfig.nozzleTempRGB.cw;
-    doc["bedTempRGB"] = printerConfig.bedTempRGB.RGBhex;
-    doc["bedTempWW"] = printerConfig.bedTempRGB.ww;
-    doc["bedTempCW"] = printerConfig.bedTempRGB.cw;
-    // HMS Error Handling
-    doc["hmsIgnoreList"] = printerConfig.hmsIgnoreList;
-    // control chamber light
-    doc["controlChamberLight"] = printerConfig.controlChamberLight;
+    // LED settings: the v2 model (settings.h). The setup page edits them through /settings.
+    {
+        StateLock lock;
+        v2::toJson(settings, doc["settings"].to<JsonObject>());
+    }
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -231,10 +158,6 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
         return req->hasParam(name, true) ? req->getParam(name, true)->value() : fallback;
     };
 
-    auto getSafeParamInt = [](AsyncWebServerRequest *req, const char *name, int fallback = 0) -> int
-    {
-        return req->hasParam(name, true) ? req->getParam(name, true)->value().toInt() : fallback;
-    };
 
 
     
@@ -267,78 +190,11 @@ void handleSubmitConfig(AsyncWebServerRequest *request)
         }
     
 
-    printerConfig.brightness = constrain(getSafeParamInt(request, "brightnessslider", printerConfig.brightness), 0, 100);
     printerConfig.rescanWiFiNetwork = request->hasParam("rescanWiFiNetwork", true);
-    // LED mode is one choice (radio group "ledMode"). Older page: one checkbox per mode.
-    String ledMode = getSafeParamValue(request, "ledMode");
-    if (ledMode.length() > 0)
-    {
-        printerConfig.maintMode = ledMode == "maint";
-        printerConfig.discoMode = ledMode == "disco";
-        printerConfig.replicatestate = ledMode == "replicate";
-        printerConfig.testcolorEnabled = ledMode == "test";
-        printerConfig.debugwifi = ledMode == "wifi";
-    }
-    else
-    {
-        printerConfig.maintMode = request->hasParam("maintMode", true);
-        printerConfig.discoMode = request->hasParam("discoMode", true);
-        printerConfig.replicatestate = request->hasParam("replicateLedState", true);
-        printerConfig.testcolorEnabled = request->hasParam("showtestcolor", true);
-        printerConfig.debugwifi = request->hasParam("debugwifi", true);
-    }
-    printerConfig.runningColor = hex2rgb(getSafeParamValue(request, "runningRGB").c_str(), getSafeParamInt(request, "runningWW"), getSafeParamInt(request, "runningCW"));
-    printerConfig.testColor = hex2rgb(getSafeParamValue(request, "testRGB").c_str(), getSafeParamInt(request, "testWW"), getSafeParamInt(request, "testCW"));
-    printerConfig.finishindication = request->hasParam("finishIndication", true);
-    printerConfig.finishColor = hex2rgb(getSafeParamValue(request, "finishColor").c_str(), getSafeParamInt(request, "finishWW"), getSafeParamInt(request, "finishCW"));
-    // finishExitMode: door | timer | either. (Older page: a finishEndTimer checkbox.)
-    String finishMode = getSafeParamValue(request, "finishExitMode", request->hasParam("finishEndTimer", true) ? "timer" : "door");
-    printerConfig.finishExit = (finishMode != "timer");
-    printerConfig.finishExitTimer = (finishMode != "door");
-    printerConfig.statusAnimations = request->hasParam("statusAnimations", true);
-    String doorSecs = getSafeParamValue(request, "doorToggleSecs");
-    doorSecs.trim();
-    if (doorSecs.length() > 0) // blank box: keep the current value rather than reading it as 0 (off)
-        printerConfig.doorToggleWindowMs = (unsigned long)constrain(doorSecs.toInt(), 0, 30) * 1000UL;
-    printerConfig.finishTimeOut = getSafeParamInt(request, "finishTimerMins") * 60000;
-    printerConfig.inactivityEnabled = request->hasParam("inactivityEnabled", true);
-    printerConfig.inactivityTimeOut = getSafeParamInt(request, "inactivityMins") * 60000;
-    printerConfig.debuging = request->hasParam("debuging", true);
-    printerConfig.debugingchange = request->hasParam("debugingchange", true);
-    printerConfig.mqttdebug = request->hasParam("mqttdebug", true);
-    printerVariables.isP1Printer = request->hasParam("p1Printer", true);
-    printerVariables.useDoorSwtich = request->hasParam("doorSwitch", true);
-
-    printerConfig.stage14Color = hex2rgb(getSafeParamValue(request, "stage14RGB").c_str(), getSafeParamInt(request, "stage14WW"), getSafeParamInt(request, "stage14CW"));
-    printerConfig.stage1Color = hex2rgb(getSafeParamValue(request, "stage1RGB").c_str(), getSafeParamInt(request, "stage1WW"), getSafeParamInt(request, "stage1CW"));
-    printerConfig.stage8Color = hex2rgb(getSafeParamValue(request, "stage8RGB").c_str(), getSafeParamInt(request, "stage8WW"), getSafeParamInt(request, "stage8CW"));
-    printerConfig.stage9Color = hex2rgb(getSafeParamValue(request, "stage9RGB").c_str(), getSafeParamInt(request, "stage9WW"), getSafeParamInt(request, "stage9CW"));
-    printerConfig.stage10Color = hex2rgb(getSafeParamValue(request, "stage10RGB").c_str(), getSafeParamInt(request, "stage10WW"), getSafeParamInt(request, "stage10CW"));
-    printerConfig.errordetection = request->hasParam("errorDetection", true);
-    printerConfig.wifiRGB = hex2rgb(getSafeParamValue(request, "wifiRGB").c_str(), getSafeParamInt(request, "wifiWW"), getSafeParamInt(request, "wifiCW"));
-    printerConfig.pauseRGB = hex2rgb(getSafeParamValue(request, "pauseRGB").c_str(), getSafeParamInt(request, "pauseWW"), getSafeParamInt(request, "pauseCW"));
-    printerConfig.firstlayerRGB = hex2rgb(getSafeParamValue(request, "firstlayerRGB").c_str(), getSafeParamInt(request, "firstlayerWW"), getSafeParamInt(request, "firstlayerCW"));
-    printerConfig.nozzleclogRGB = hex2rgb(getSafeParamValue(request, "nozzleclogRGB").c_str(), getSafeParamInt(request, "nozzleclogWW"), getSafeParamInt(request, "nozzleclogCW"));
-    printerConfig.hmsSeriousRGB = hex2rgb(getSafeParamValue(request, "hmsSeriousRGB").c_str(), getSafeParamInt(request, "hmsSeriousWW"), getSafeParamInt(request, "hmsSeriousCW"));
-    printerConfig.hmsFatalRGB = hex2rgb(getSafeParamValue(request, "hmsFatalRGB").c_str(), getSafeParamInt(request, "hmsFatalWW"), getSafeParamInt(request, "hmsFatalCW"));
-    printerConfig.filamentRunoutRGB = hex2rgb(getSafeParamValue(request, "filamentRunoutRGB").c_str(), getSafeParamInt(request, "filamentRunoutWW"), getSafeParamInt(request, "filamentRunoutCW"));
-    printerConfig.frontCoverRGB = hex2rgb(getSafeParamValue(request, "frontCoverRGB").c_str(), getSafeParamInt(request, "frontCoverWW"), getSafeParamInt(request, "frontCoverCW"));
-    printerConfig.nozzleTempRGB = hex2rgb(getSafeParamValue(request, "nozzleTempRGB").c_str(), getSafeParamInt(request, "nozzleTempWW"), getSafeParamInt(request, "nozzleTempCW"));
-    printerConfig.bedTempRGB = hex2rgb(getSafeParamValue(request, "bedTempRGB").c_str(), getSafeParamInt(request, "bedTempWW"), getSafeParamInt(request, "bedTempCW"));
-    // HMS Error handling
-    printerConfig.hmsIgnoreList = getSafeParamValue(request, "hmsIgnoreList");
-    // Control Chamber Light
-    printerConfig.controlChamberLight = request->hasParam("controlChamberLight", true);
+    // LED settings are no longer part of this form: they autosave through /settings.
 
     saveFileSystem();
     LogSerial.println(F("Packet received from setuppage"));
-    printerConfig.inactivityStartms = millis();
-    printerConfig.isIdleOFFActive = false;
-    printerConfig.replicate_update = true;
-    printerConfig.maintMode_update = true;
-    printerConfig.discoMode_update = true;
-    printerConfig.testcolor_update = true;
-    updateleds();
     request->send(200, "text/plain", "OK");
 }
 
@@ -357,7 +213,8 @@ void handleSetBrightness(AsyncWebServerRequest *request)
     int value = request->getParam("value", true)->value().toInt();
     {
         StateLock lock;
-        setBrightness(value);
+        settings.brightness = constrain(value, 0, 100);
+        setBrightness(settings.brightness);
         if (request->hasParam("save", true) && request->getParam("save", true)->value() == "1")
             saveFileSystem();
     }

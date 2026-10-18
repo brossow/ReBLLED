@@ -59,6 +59,13 @@ void test_unreachable_turns_off_after_the_set_time_only() {
     s.offlineOffSec = 0; p.unreachableMs = 10UL * 3600 * 1000; TEST_ASSERT_NOT_EQUAL(RS_UNREACHABLE, decide(s, p).reason);
 }
 
+void test_rejected_access_code_shows_dim_red() {
+    Snapshot p = idle(); p.connected = false; p.accessRejected = true;
+    Decision d = decide(S0(), p);
+    assertLit(d, CK_CUSTOM, R_STEADY, RS_ACCESS_REJECTED); assertRgb(d, 128, 0, 0);
+    Settings s = S0(); s.mode = MODE_OFF; TEST_ASSERT_EQUAL(RS_MODE_OFF, decide(s, p).reason);   // Off still wins
+}
+
 // ---- errors ----
 void test_errors_blink_red_and_resolve_per_kind() {
     Settings s = S0(); Snapshot p = printingNow();
@@ -188,6 +195,7 @@ int main() {
     RUN_TEST(test_mode_off_and_on_override_the_printer);
     RUN_TEST(test_tools_override_everything_and_are_not_settings);
     RUN_TEST(test_unreachable_turns_off_after_the_set_time_only);
+    RUN_TEST(test_rejected_access_code_shows_dim_red);
     RUN_TEST(test_errors_blink_red_and_resolve_per_kind);
     RUN_TEST(test_errors_show_even_when_the_printers_light_is_off);
     RUN_TEST(test_pause_pulses_blue);

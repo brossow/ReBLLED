@@ -15,6 +15,7 @@ namespace v2
     struct Snapshot
     {
         bool connected = true;
+        bool accessRejected = false;       // the printer refused the access code
         unsigned long unreachableMs = 0;   // how long the printer has been unreachable
         String gcodeState = "IDLE";        // IDLE, PREPARE, RUNNING, PAUSE, FINISH, FAILED
         int stage = -1;                    // stg_cur
@@ -29,7 +30,7 @@ namespace v2
     enum Reason : uint8_t
     {
         RS_MODE_OFF, RS_MODE_ON, RS_TOOL_TEST, RS_TOOL_CYCLE, RS_TOOL_WIFI,
-        RS_UNREACHABLE, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
+        RS_UNREACHABLE, RS_ACCESS_REJECTED, RS_ERROR, RS_ATTENTION, RS_FINISHED, RS_PREPARING, RS_PREPARING_NO_LIDAR,
         RS_PRINTING, RS_LIGHT_OFF, RS_IDLE_OFF, RS_IDLE,
     };
     enum Show : uint8_t { SHOW_OFF, SHOW_COLOUR, SHOW_CYCLE, SHOW_WIFI };
@@ -104,6 +105,8 @@ namespace v2
         if (s.mode == MODE_OFF) return off(RS_MODE_OFF);
         if (s.mode == MODE_ON) return lit(L.state[ST_PRINTING].colour, R_STEADY, RS_MODE_ON, ST_PRINTING);
 
+        // Can't talk to the printer: dim red if it refused the access code (fix the code), else off.
+        if (!p.connected && p.accessRejected) return lit(rgb(128, 0, 0), R_STEADY, RS_ACCESS_REJECTED);
         if (!p.connected && s.offlineOffSec && p.unreachableMs >= (unsigned long)s.offlineOffSec * 1000UL)
             return off(RS_UNREACHABLE);
 

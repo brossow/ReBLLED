@@ -7,9 +7,11 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include "types.h"
+#include "lights.h"   // v2 settings
 
 const char *configPath = "/blledconfig.json";
 const char *configUploadPath = "/blledconfig.upload.json";
+const char *configV1BackupPath = "/blledconfig.v1.json";   // the v1 file, kept when first migrated
 
 // A restored backup must at least be a JSON object with the WiFi SSID in it; anything
 // else is rejected before it can replace the working config.
@@ -55,92 +57,8 @@ void saveFileSystem()
     json["serialNumber"] = printerConfig.serialNumber;
     // json["webpagePassword"] = printerConfig.webpagePassword;
     json["bssi"] = printerConfig.BSSID;
-    json["brightness"] = printerConfig.brightness;
-    // LED Behaviour (Choose One)
-    json["maintMode"] = printerConfig.maintMode;
-    json["discoMode"] = printerConfig.discoMode;
-    json["replicatestate"] = printerConfig.replicatestate;
-    // Running Color
-    json["runningRGB"] = printerConfig.runningColor.RGBhex;
-    json["runningWW"] = printerConfig.runningColor.ww;
-    json["runningCW"] = printerConfig.runningColor.cw;
-    // Test LED Colors
-    json["showtestcolor"] = printerConfig.testcolorEnabled;
-    json["testRGB"] = printerConfig.testColor.RGBhex;
-    json["testWW"] = printerConfig.testColor.ww;
-    json["testCW"] = printerConfig.testColor.cw;
-    json["debugwifi"] = printerConfig.debugwifi;
-    // Options
-    json["finishindication"] = printerConfig.finishindication;
-    json["finishColor"] = printerConfig.finishColor.RGBhex;
-    json["finishWW"] = printerConfig.finishColor.ww;
-    json["finishCW"] = printerConfig.finishColor.cw;
-    json["finishExit"] = printerConfig.finishExit;
-    json["finishExitTimer"] = printerConfig.finishExitTimer;
-    json["doorToggleSecs"] = printerConfig.doorToggleWindowMs / 1000;
-    json["statusAnimations"] = printerConfig.statusAnimations;
-    json["finish_check"] = printerConfig.finish_check;
-    json["finishTimerMins"] = printerConfig.finishTimeOut;
-    json["inactivityEnabled"] = printerConfig.inactivityEnabled;
-    json["inactivityTimeOut"] = printerConfig.inactivityTimeOut;
-    json["controlChamberLight"] = printerConfig.controlChamberLight; //control chamber light
-    // Debugging
-    json["debuging"] = printerConfig.debuging;
-    json["debugingchange"] = printerConfig.debugingchange;
-    json["mqttdebug"] = printerConfig.mqttdebug;
-    // Printer Dependant
-    json["p1Printer"] = printerVariables.isP1Printer;
-    json["doorSwitch"] = printerVariables.useDoorSwtich;
-    // Customise LED Colors (during Lidar)
-    json["stage14RGB"] = printerConfig.stage14Color.RGBhex;
-    json["stage14WW"] = printerConfig.stage14Color.ww;
-    json["stage14CW"] = printerConfig.stage14Color.cw;
-    json["stage1RGB"] = printerConfig.stage1Color.RGBhex;
-    json["stage1WW"] = printerConfig.stage1Color.ww;
-    json["stage1CW"] = printerConfig.stage1Color.cw;
-    json["stage8RGB"] = printerConfig.stage8Color.RGBhex;
-    json["stage8WW"] = printerConfig.stage8Color.ww;
-    json["stage8CW"] = printerConfig.stage8Color.cw;
-    json["stage9RGB"] = printerConfig.stage9Color.RGBhex;
-    json["stage9WW"] = printerConfig.stage9Color.ww;
-    json["stage9CW"] = printerConfig.stage9Color.cw;
-    json["stage10RGB"] = printerConfig.stage10Color.RGBhex;
-    json["stage10WW"] = printerConfig.stage10Color.ww;
-    json["stage10CW"] = printerConfig.stage10Color.cw;
-    // Customise LED Colors
-    json["errordetection"] = printerConfig.errordetection;
-    json["wifiRGB"] = printerConfig.wifiRGB.RGBhex;
-    json["wifiWW"] = printerConfig.wifiRGB.ww;
-    json["wifiCW"] = printerConfig.wifiRGB.cw;
-    json["pauseRGB"] = printerConfig.pauseRGB.RGBhex;
-    json["pauseWW"] = printerConfig.pauseRGB.ww;
-    json["pauseCW"] = printerConfig.pauseRGB.cw;
-    json["firstlayerRGB"] = printerConfig.firstlayerRGB.RGBhex;
-    json["firstlayerWW"] = printerConfig.firstlayerRGB.ww;
-    json["firstlayerCW"] = printerConfig.firstlayerRGB.cw;
-    json["nozzleclogRGB"] = printerConfig.nozzleclogRGB.RGBhex;
-    json["nozzleclogWW"] = printerConfig.nozzleclogRGB.ww;
-    json["nozzleclogCW"] = printerConfig.nozzleclogRGB.cw;
-    json["hmsSeriousRGB"] = printerConfig.hmsSeriousRGB.RGBhex;
-    json["hmsSeriousWW"] = printerConfig.hmsSeriousRGB.ww;
-    json["hmsSeriousCW"] = printerConfig.hmsSeriousRGB.cw;
-    json["hmsFatalRGB"] = printerConfig.hmsFatalRGB.RGBhex;
-    json["hmsFatalWW"] = printerConfig.hmsFatalRGB.ww;
-    json["hmsFatalCW"] = printerConfig.hmsFatalRGB.cw;
-    json["filamentRunoutRGB"] = printerConfig.filamentRunoutRGB.RGBhex;
-    json["filamentRunoutWW"] = printerConfig.filamentRunoutRGB.ww;
-    json["filamentRunoutCW"] = printerConfig.filamentRunoutRGB.cw;
-    json["frontCoverRGB"] = printerConfig.frontCoverRGB.RGBhex;
-    json["frontCoverWW"] = printerConfig.frontCoverRGB.ww;
-    json["frontCoverCW"] = printerConfig.frontCoverRGB.cw;
-    json["nozzleTempRGB"] = printerConfig.nozzleTempRGB.RGBhex;
-    json["nozzleTempWW"] = printerConfig.nozzleTempRGB.ww;
-    json["nozzleTempCW"] = printerConfig.nozzleTempRGB.cw;
-    json["bedTempRGB"] = printerConfig.bedTempRGB.RGBhex;
-    json["bedTempWW"] = printerConfig.bedTempRGB.ww;
-    json["bedTempCW"] = printerConfig.bedTempRGB.cw;
-    //HMS Error handling
-    json["hmsIgnoreList"] = printerConfig.hmsIgnoreList;
+    // LED settings (v2, docs/REDESIGN.md). Connection keys above keep their v1 names.
+    v2::toJson(settings, json["leds"].to<JsonObject>());
 
     File configFile = LittleFS.open(configPath, "w");
     if (!configFile)
@@ -198,57 +116,23 @@ void loadFileSystem()
         strlcpy(printerConfig.accessCode, json["accessCode"] | "", sizeof(printerConfig.accessCode));
         strlcpy(printerConfig.serialNumber, json["serialNumber"] | "", sizeof(printerConfig.serialNumber));
         strlcpy(printerConfig.BSSID, json["bssi"] | "", sizeof(printerConfig.BSSID));
-        printerConfig.brightness = json["brightness"];
-        // LED Behaviour (Choose One)
-        printerConfig.maintMode = json["maintMode"];
-        printerConfig.discoMode = json["discoMode"];
-        printerConfig.replicatestate = json["replicatestate"];
-        // Running Color
-        printerConfig.runningColor = hex2rgb(json["runningRGB"], json["runningWW"], json["runningCW"]);
-        // Test LED Colors
-        printerConfig.testcolorEnabled = json["showtestcolor"];
-        printerConfig.testColor = hex2rgb(json["testRGB"], json["testWW"], json["testCW"]);
-        printerConfig.debugwifi = json["debugwifi"];
-        // Options
-        printerConfig.finishindication = json["finishindication"];
-        printerConfig.finishColor = hex2rgb(json["finishColor"], json["finishWW"], json["finishCW"]);
-        printerConfig.finishExit = json["finishExit"];
-        // Configs from before "whichever comes first": finishExit false meant timer-only.
-        printerConfig.finishExitTimer = json["finishExitTimer"] | !printerConfig.finishExit;
-        printerConfig.doorToggleWindowMs = (json["doorToggleSecs"] | 0UL) * 1000UL;
-        printerConfig.statusAnimations = json["statusAnimations"] | true;
-        printerConfig.finishTimeOut = json["finishTimerMins"];
-        printerConfig.finish_check = json["finish_check"];
-        printerConfig.inactivityEnabled = json["inactivityEnabled"];
-        printerConfig.inactivityTimeOut = json["inactivityTimeOut"];
-        printerConfig.controlChamberLight = json["controlChamberLight"]; //control chamber light
-        // Debugging
-        printerConfig.debuging = json["debuging"];
-        printerConfig.debugingchange = json["debugingchange"];
-        printerConfig.mqttdebug = json["mqttdebug"];
-        // Printer Dependant
-        printerVariables.isP1Printer = json["p1Printer"];
-        printerVariables.useDoorSwtich = json["doorSwitch"];
-        printerConfig.stage14Color = hex2rgb(json["stage14RGB"], json["stage14WW"], json["stage14CW"]);
-        printerConfig.stage1Color = hex2rgb(json["stage1RGB"], json["stage1WW"], json["stage1CW"]);
-        printerConfig.stage8Color = hex2rgb(json["stage8RGB"], json["stage8WW"], json["stage8CW"]);
-        printerConfig.stage9Color = hex2rgb(json["stage9RGB"], json["stage9WW"], json["stage9CW"]);
-        printerConfig.stage10Color = hex2rgb(json["stage10RGB"], json["stage10WW"], json["stage10CW"]);
-        // Customise LED Colors
-        printerConfig.errordetection = json["errordetection"];
-        printerConfig.wifiRGB = hex2rgb(json["wifiRGB"], json["wifiWW"], json["wifiCW"]);
-
-        printerConfig.pauseRGB = hex2rgb(json["pauseRGB"], json["pauseWW"], json["pauseCW"]);
-        printerConfig.firstlayerRGB = hex2rgb(json["firstlayerRGB"], json["firstlayerWW"], json["firstlayerCW"]);
-        printerConfig.nozzleclogRGB = hex2rgb(json["nozzleclogRGB"], json["nozzleclogWW"], json["nozzleclogCW"]);
-        printerConfig.hmsSeriousRGB = hex2rgb(json["hmsSeriousRGB"], json["hmsSeriousWW"], json["hmsSeriousCW"]);
-        printerConfig.hmsFatalRGB = hex2rgb(json["hmsFatalRGB"], json["hmsFatalWW"], json["hmsFatalCW"]);
-        printerConfig.filamentRunoutRGB = hex2rgb(json["filamentRunoutRGB"], json["filamentRunoutWW"], json["filamentRunoutCW"]);
-        printerConfig.frontCoverRGB = hex2rgb(json["frontCoverRGB"], json["frontCoverWW"], json["frontCoverCW"]);
-        printerConfig.nozzleTempRGB = hex2rgb(json["nozzleTempRGB"], json["nozzleTempWW"], json["nozzleTempCW"]);
-        printerConfig.bedTempRGB = hex2rgb(json["bedTempRGB"], json["bedTempWW"], json["bedTempCW"]);
-        // HMS Error handling
-        printerConfig.hmsIgnoreList = json["hmsIgnoreList"] | "";
+        // LED settings: v2 under "leds", or a v1 config to migrate (first boot after updating).
+        bool migrated = false;
+        JsonVariantConst leds = json["leds"];
+        settings = leds.is<JsonObjectConst>() ? v2::load(leds, &migrated) : v2::load(json.as<JsonVariantConst>(), &migrated);
+        if (migrated)
+        {
+            configFile.close();
+            if (!LittleFS.exists(configV1BackupPath))
+            {
+                File src = LittleFS.open(configPath, "r"), dst = LittleFS.open(configV1BackupPath, "w");
+                if (src && dst) { uint8_t buf[256]; size_t n; while ((n = src.read(buf, sizeof buf)) > 0) dst.write(buf, n); }
+                if (src) src.close();
+                if (dst) dst.close();
+            }
+            LogSerial.println(F("[Filesystem] Migrated LED settings from v1 (original kept as blledconfig.v1.json)"));
+            saveFileSystem();
+        }
 
         LogSerial.println(F("[Filesystem] Loaded config"));
     }
