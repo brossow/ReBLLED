@@ -163,6 +163,8 @@ colours, so without the restore the strip stays dark. The restore is required, n
 | Restart keeps settings | |
 | No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
 | Other pages (br.4) | |
+| br.5 flashed (2026-10-18, through the logged-in browser tab) | ✅ back in 19 s, settings intact, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s) |
+| Cross-site protection | ✅ without the header, a logged-in request to `/api/wifi-rescan` gets 403; without a login, the change endpoints get 401 |
 
 ## If something goes wrong
 
