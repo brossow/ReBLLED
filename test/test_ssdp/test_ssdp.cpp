@@ -44,6 +44,7 @@ void test_last_line_without_a_line_break() {
 }
 void test_model_codes() {
   char k[12];
+  bblssdp::modelKey("BL-P001", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1C", k);              // what an X1 Carbon sends
   bblssdp::modelKey("3DPrinter-X1-Carbon", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1C", k);
   bblssdp::modelKey("3DPrinter-X1", k, sizeof k); TEST_ASSERT_EQUAL_STRING("X1", k);
   bblssdp::modelKey("C12", k, sizeof k); TEST_ASSERT_EQUAL_STRING("P1S", k);

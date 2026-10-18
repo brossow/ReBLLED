@@ -185,7 +185,7 @@ the prototype, and why:
 
 - **Model and name** come from the printer's discovery message (`DevModel.bambu.com`,
   `DevName.bambu.com`, `src/blled/printerModels.h`). Codes confirmed in public integrations map to
-  the page's models (`3DPrinter-X1-Carbon` → X1C, `3DPrinter-X1`, `C13` X1E, `C11` P1P, `C12` P1S,
+  the page's models (`BL-P001` → X1C, confirmed on the author's X1 Carbon 2026-10-18; `3DPrinter-X1-Carbon` → X1C, `3DPrinter-X1`, `C13` X1E, `C11` P1P, `C12` P1S,
   `N1` A1 mini, `N2S` A1, `O1D` H2D); other codes pass through as they are, and the page treats
   them as unknown (every option shown, lidar and door sensor assumed). Add codes as they're
   confirmed on real printers.

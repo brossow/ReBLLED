@@ -130,16 +130,16 @@ colours, so without the restore the strip stays dark. The restore is required, n
 
 | Check | Result |
 |---|---|
-| Version, new page, no setup dialog | |
-| Connected through the certificate check | |
+| Version, new page, no setup dialog | ✅ 2.3.0-br.3 on the status feed (page checks to come) |
+| Connected through the certificate check | ✅ connected, not rejected (mbedtls 2.28 on the device accepts the X1C's chain) |
 | Settings migrated | |
 | Wiring check (RGBW) | |
-| Model detected | |
+| Model detected | ⚠️ the X1C announces `BL-P001`, not `3DPrinter-X1-Carbon`; mapping added after br.3 |
 | Look up | |
 | Modes, brightness, previews, tools | |
 | Door, idle, print colours | |
 | Restart keeps settings | |
-| No freezes | |
+| No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
 
 ## If something goes wrong
 
