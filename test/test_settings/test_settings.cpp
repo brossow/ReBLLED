@@ -181,6 +181,27 @@ void test_v2_is_not_migrated_again() {
     TEST_ASSERT_EQUAL(MODE_OFF, s.mode);   // v1 keys ignored
 }
 
+void test_patch_changes_only_what_is_sent() {
+    Settings s = defaults(); s.brightness = 40; s.custom.err[EK_RUNOUT] = rgb(0xc0, 0, 0xff);
+    JsonDocument p; deserializeJson(p, R"({"idleOffMin":30,"custom":{"error":{"rhythm":"pulse"}}})");
+    Settings n = applyPatch(s, p.as<JsonVariantConst>());
+    TEST_ASSERT_EQUAL(30, n.idleOffMin);
+    TEST_ASSERT_EQUAL(R_PULSE, n.custom.state[ST_ERROR].rhythm);
+    assertColour(n.custom.state[ST_ERROR].colour, CK_CUSTOM, 255, 0, 0);   // sibling key kept
+    assertColour(n.custom.err[EK_RUNOUT], CK_CUSTOM, 0xc0, 0, 0xff);       // untouched branch kept
+    TEST_ASSERT_EQUAL(40, n.brightness);
+}
+void test_patch_rejects_bad_values_and_stays_v2() {
+    Settings s = defaults();
+    JsonDocument p; deserializeJson(p, R"({"version":1,"mode":"party","brightness":-5,"wiring":{"r":"G"}})");
+    Settings n = applyPatch(s, p.as<JsonVariantConst>());
+    TEST_ASSERT_EQUAL(MODE_FOLLOW, n.mode);
+    TEST_ASSERT_EQUAL(0, n.brightness);           // clamped
+    TEST_ASSERT_EQUAL(OUT_G, n.wiring[L_R]);
+    JsonDocument q; deserializeJson(q, "[1,2,3]");
+    TEST_ASSERT_EQUAL(s.brightness, applyPatch(s, q.as<JsonVariantConst>()).brightness);   // not an object
+}
+
 int main() {
     UNITY_BEGIN();
     RUN_TEST(test_defaults_are_standard_look);
@@ -193,5 +214,7 @@ int main() {
     RUN_TEST(test_migrate_behaviour_switches);
     RUN_TEST(test_tools_modes_migrate_to_follow);
     RUN_TEST(test_v2_is_not_migrated_again);
+    RUN_TEST(test_patch_changes_only_what_is_sent);
+    RUN_TEST(test_patch_rejects_bad_values_and_stays_v2);
     return UNITY_END();
 }

@@ -12,7 +12,7 @@
 #include "mqttparsingutility.h"
 #include "AutoGrowBufferStream.h"
 #include "types.h"
-#include "leds.h"
+#include "lights.h"
 
 WiFiClientSecure wifiSecureClient;
 PubSubClient mqttClient(wifiSecureClient);
@@ -133,6 +133,7 @@ void connectMqtt()
             Serial.println(report_topic);
             mqttClient.subscribe(report_topic.c_str());
             printerVariables.online = true;
+            printerVariables.accessRejected = false;
             printerVariables.disconnectMQTTms = 0;
             mqttRetryDelay = MQTT_RETRY_MIN_MS;
         }
@@ -143,10 +144,7 @@ void connectMqtt()
             Serial.print(F("  "));
             ParseMQTTState(mqttClient.state());
 
-            if (mqttClient.state() == 5)
-            {
-                tweenToColor(127, 0, 0, 0, 0);
-            }
+            printerVariables.accessRejected = mqttClient.state() == 5 || mqttClient.state() == 4; // dim red via decide()
             // Back off (3 s, 6 s, 12 s ... 30 s) instead of retrying the TLS handshake and
             // login continuously, e.g. after the access code changed on the printer.
             mqttRetryDelay = (mqttRetryDelay == 0) ? MQTT_RETRY_MIN_MS : min(mqttRetryDelay * 2, MQTT_RETRY_MAX_MS);
@@ -243,7 +241,6 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
         }
 
         bool Changed = false;
-        bool doorToggled = false; // a quick open-and-close already set the LEDs this message
 
         if (!messageobject["print"]["command"].isNull())
         {
@@ -274,147 +271,25 @@ void ParseCallback(char *topic, byte *payload, unsigned int length)
             LogSerial.println();
         }
 
-        if (printerConfig.mqttdebug && (printerConfig.maintMode || printerConfig.testcolorEnabled || printerConfig.discoMode || printerConfig.debugwifi))
+        // Door (bit 23 of home_flag). The door wakes the lights and acknowledges a finished
+        // print; it never changes what the lights do (docs/REDESIGN.md). See lights.h.
+        if (!messageobject["print"]["home_flag"].isNull())
         {
-            LogSerial.print(F("[MQTT] Message Ignored while in "));
-            if (printerConfig.maintMode)
-                LogSerial.print(F("Maintenance"));
-            if (printerConfig.testcolorEnabled)
-                LogSerial.print(F("Test Color"));
-            if (printerConfig.discoMode)
-                LogSerial.print(F("RGB Cycle"));
-            if (printerConfig.debugwifi)
-                LogSerial.print(F("Wifi Debug"));
-            LogSerial.println(F(" mode"));
-            return;
-        }
-
-        // Check for Door Status
-        /*         if (!messageobject["print"]["home_flag"].isNull())
-                {
-                    // https://github.com/greghesp/ha-bambulab/blob/main/custom_components/bambu_lab/pybambu/const.py#L324
-
-                    bool doorState = false;
-                    long homeFlag = 0;
-                    homeFlag = messageobject["print"]["home_flag"];
-                    doorState = bitRead(homeFlag, 23);
-
-                    if (printerVariables.doorOpen != doorState)
-                    {
-                        printerVariables.doorOpen = doorState;
-
-                        if (printerConfig.debugingchange)
-                            LogSerial.print(F("[MQTT] Door "));
-                        if (printerVariables.doorOpen)
-                        {
-                            printerVariables.lastdoorOpenms = millis();
-                            if (printerConfig.debugingchange)
-                                LogSerial.println(F("Opened"));
-                        }
-                        else
-                        {
-                            if ((millis() - printerVariables.lastdoorClosems) < 6000)
-                            {
-                                printerVariables.doorSwitchTriggered = true;
-                            }
-                            printerVariables.lastdoorClosems = millis();
-                            if (printerConfig.debugingchange)
-                                LogSerial.println(F("Closed"));
-                        }
-                        Changed = true;
-                    }
-                } */
-        // Check for Door Status
-if (!messageobject["print"]["home_flag"].isNull())
-{
-    long homeFlag = messageobject["print"]["home_flag"];
-    bool doorState = bitRead(homeFlag, 23); // Bit 23 = door open
-
-    if (printerVariables.doorOpen != doorState)
-    {
-        printerVariables.doorOpen = doorState;
-
-        if (printerConfig.debugingchange)
-        {
-            LogSerial.print(F("[MQTT] Door "));
-            LogSerial.println(doorState ? F("Opened") : F("Closed"));
-        }
-
-        // Door opened
-        if (doorState)
-        {
-            printerVariables.lastdoorOpenms = millis();
-            printerVariables.ledsOnBeforeDoor = (currentRed | currentGreen | currentBlue | currentWarm | currentCold) != 0;
-            printerVariables.doorSwitchTriggered = false; // drop a toggle left pending (e.g. tapped in maintenance mode)
-
-            // If light is off, turn it on and lock it
-            if (printerConfig.controlChamberLight && !printerVariables.printerledstate)
+            long homeFlag = messageobject["print"]["home_flag"];
+            bool doorState = bitRead(homeFlag, 23);
+            if (printerVariables.doorOpen != doorState)
             {
-                printerVariables.chamberLightLocked = true;
-                printerVariables.printerledstate = true;
-                printerConfig.replicate_update = false;
-                controlChamberLight(true);
-                printerVariables.stage = 255;
-                LogSerial.println(F("[MQTT] Door opened – Light forced ON"));
+                printerVariables.doorOpen = doorState;
+                if (doorState)
+                    printerVariables.lastdoorOpenms = millis();
+                else
+                    printerVariables.lastdoorClosems = millis();
+                if (printerConfig.debugingchange)
+                    LogSerial.println(doorState ? F("[MQTT] Door opened") : F("[MQTT] Door closed"));
+                lightsOnDoor(doorState);
+                Changed = true;
             }
-
-            // Restart inactivity timer
-            printerConfig.inactivityStartms = millis();
-            printerConfig.isIdleOFFActive = false;
-
-            Changed = true;
-            updateleds();
         }
-
-else // Door closed
-{
-    printerVariables.lastdoorClosems = millis();
-
-    // Turn off chamber light if enabled
-    if (printerConfig.controlChamberLight)
-    {
-        //controlChamberLight(false);
-        printerVariables.chamberLightLocked = false;
-        //LogSerial.println(F("[MQTT] Door closed – Chamber light OFF"));
-    }
-
-    bool printing = printerVariables.gcodeState == "RUNNING" || printerVariables.gcodeState == "PAUSE" ||
-                    printerVariables.gcodeState == "PREPARE";
-    if (!printerConfig.inactivityEnabled && !printing)
-    {
-        // Turn off LED bar immediately (never mid-print: the chamber light matters for the
-        // camera / AI detection)
-        printerVariables.printerledstate = false;
-        printerConfig.replicate_update = false;
-        printerVariables.stage = 999;
-        tweenToColor(0,0,0,0,0);
-        controlChamberLight(false);
-        LogSerial.println(F("[MQTT] Door closed – LED bar OFF (inactivity disabled)"));
-    }
-
-    // Reset inactivity timer
-    printerConfig.inactivityStartms = millis();
-    printerConfig.isIdleOFFActive = false;
-
-    // Quick open-and-close: toggle the LEDs (see updateleds). Not while the finish colour
-    // is waiting for the door: then any door use means "seen it" (ledsloop ends the finish).
-    bool finishWaitingForDoor = printerVariables.waitingForDoor && printerConfig.finishindication && finishExitByDoor();
-    if (printerConfig.doorToggleWindowMs > 0 && !finishWaitingForDoor &&
-        (millis() - printerVariables.lastdoorOpenms) < printerConfig.doorToggleWindowMs)
-    {
-        printerVariables.doorSwitchTriggered = true;
-        doorToggled = true;
-    }
-
-    Changed = true;
-     updateleds();
-
-}
-
-    }
-}
-
-
 
         // Check BBLP Stage
         if (!messageobject["print"]["stg_cur"].isNull())
@@ -437,17 +312,6 @@ else // Door closed
         {
             String mqttgcodeState = messageobject["print"]["gcode_state"].as<String>();
 
-            if (mqttgcodeState == "RUNNING" || mqttgcodeState == "PAUSE")
-            {
-                // Never turn off light (due to idle timer) while in this state
-                printerConfig.inactivityStartms = millis();
-            }
-            if (mqttgcodeState == "RUNNING" && printerConfig.controlChamberLight && printerVariables.printerledstate == false)
-            {
-                controlChamberLight(true); // Turn chamber light ON at print start
-                LogSerial.println(F("[MQTT] Print started – Chamber Light ON requested"));
-            }
-
             // Onchange of gcodeState...
             if (printerVariables.gcodeState != mqttgcodeState)
             {
@@ -456,13 +320,7 @@ else // Door closed
                     printerVariables.overridestage = 999; // Reset after special HMS override
                 }
 
-                if (mqttgcodeState == "FINISH")
-                {
-                    printerVariables.finished = true;
-                    printerVariables.waitingForDoor = true;
-                    printerConfig.finishStartms = millis();
-                    printerConfig.finish_check = true;
-                }
+                lightsOnGcodeState(printerVariables.gcodeState, mqttgcodeState); // finish colour, light at print start
                 printerVariables.gcodeState = mqttgcodeState;
 
                 if (printerConfig.debugingchange || printerConfig.debuging)
@@ -498,15 +356,10 @@ else // Door closed
                     if (printerVariables.printerledstate != (light["mode"] == "on"))
                     {
                         printerVariables.printerledstate = (light["mode"] == "on");
-                        printerConfig.replicate_update = true;
                         if (printerConfig.debugingchange || printerConfig.debuging)
                         {
                             LogSerial.print(F("[MQTT] chamber_light now: "));
                             LogSerial.println(printerVariables.printerledstate);
-                        }
-                        if (printerVariables.waitingForDoor && printerConfig.finish_check)
-                        {
-                            printerVariables.finished = true;
                         }
                         Changed = true;
                     }
@@ -523,18 +376,12 @@ else // Door closed
                 if (printerVariables.printerledstate != (messageobject["system"]["led_mode"] == "on"))
                 {
                     printerVariables.printerledstate = (messageobject["system"]["led_mode"] == "on");
-                    printerConfig.replicate_update = true;
                     lastMQTTupdate = millis();
                     if (printerConfig.debugingchange || printerConfig.debuging)
                     {
                         LogSerial.print(F("[MQTT] led_mode now: "));
                         LogSerial.println(printerVariables.printerledstate);
                     }
-                    if (printerVariables.waitingForDoor && printerConfig.finish_check)
-                    {
-                        printerVariables.finished = true;
-                    }
-
                     Changed = true;
                 }
             }
@@ -655,29 +502,11 @@ else // Door closed
             }
         }
 
-        // After a door toggle, only flag the update: resetting the idle timer and re-running
-        // updateleds() switched toggled-off LEDs straight back on.
-        if (Changed == true && doorToggled)
-        {
-            printerConfig.maintMode_update = true;
-            printerConfig.discoMode_update = true;
-            printerConfig.testcolor_update = true;
-        }
-        if (Changed == true && !doorToggled)
-        {
-            printerConfig.inactivityStartms = millis(); // restart idle timer
-            printerConfig.isIdleOFFActive = false;
-            if (printerConfig.debuging)
-            {
-                LogSerial.println(F("Change from mqtt"));
-            }
-            printerConfig.maintMode_update = true;
-            printerConfig.discoMode_update = true;
-            printerConfig.replicate_update = true;
-            printerConfig.testcolor_update = true;
-
-            updateleds();
-        }
+        // Any change from the printer counts as activity (idle timer); then let the strip
+        // reflect the new state.
+        if (Changed)
+            lightsActivity();
+        lightsUpdate();
     }
     else
     {
@@ -692,12 +521,13 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     stream.flush();
 }
 
+// Switch the printer's own light. Only called when one of the "printer's own light" settings
+// asks for it (lights.h).
 void controlChamberLight(bool on)
 {
-    LogSerial.printf("[DEBUG] controlChamberLight called with: %s\n", on ? "true" : "false");
-    if (!printerConfig.controlChamberLight)
-        return;
-    printerVariables.printerledstate = on; // <-- Set state flag to avoid replicate overwrite
+    if (printerConfig.debugingchange)
+        LogSerial.printf("[LED] Printer's light %s\n", on ? "on" : "off");
+    printerVariables.printerledstate = on; // so following the light doesn't flicker before the report
     pendingChamberLight = on ? 1 : 0;
 }
 

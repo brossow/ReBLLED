@@ -1,5 +1,6 @@
-// Shared setup for host tests: pulls in the real firmware headers with test stand-ins for
-// the hardware, and gives helpers to set printer state and read what the LEDs were set to.
+// Shared setup for host tests: pulls in the real firmware headers (MQTT parsing, the LED
+// runtime and hardware layer) with test stand-ins for the hardware, and gives helpers to
+// feed printer messages and read what the LED outputs were set to.
 #pragma once
 #define STRVERSION "test"
 #include "Arduino.h"
@@ -8,81 +9,58 @@
 // The firmware logs through LogSerial (WebSerial + USB); here it just captures text.
 inline CaptureSerial LogSerial;
 
-// leds.h calls controlChamberLight() (defined in mqttmanager.h on the device). Tests of
-// leds.h alone get a recorder; tests that include mqttmanager.h use the real one.
-namespace fake { inline int chamberLightCalls = 0; inline int chamberLightLast = -1; }
-#ifndef HARNESS_REAL_CHAMBER_LIGHT
-void controlChamberLight(bool on) { fake::chamberLightCalls++; fake::chamberLightLast = on ? 1 : 0; }
-#endif
+#include "../src/blled/mqttmanager.h" // brings in lights.h and leds.h
 
-#include "../src/blled/leds.h"
-
-// LED channel duties as last written (r, g, b, warm white, cold white).
+// Output duties as last written, board-label order (R, G, B, WW, CW).
 struct Duty { uint32_t r, g, b, ww, cw; };
 inline Duty leds() { return { fake::duty[redChannel], fake::duty[greenChannel], fake::duty[blueChannel], fake::duty[warmChannel], fake::duty[coldChannel] }; }
 inline bool ledsAre(uint32_t r, uint32_t g, uint32_t b, uint32_t ww, uint32_t cw) {
   Duty d = leds(); return d.r == r && d.g == g && d.b == b && d.ww == ww && d.cw == cw;
 }
 inline bool ledsOff() { return ledsAre(0, 0, 0, 0, 0); }
+inline bool ledsWhite() { return ledsAre(0, 0, 0, 255, 255); } // neutral white on RGBWW
 
-// Same defaults as defaultcolors() in main.cpp.
-inline void loadDefaultColors() {
-  printerConfig.runningColor = hex2rgb("#000000", 255, 255);
-  printerConfig.testColor = hex2rgb("#3F3CFB");
-  printerConfig.finishColor = hex2rgb("#00FF00");
-  printerConfig.stage14Color = hex2rgb("#000000");
-  printerConfig.stage1Color = hex2rgb("#000055");
-  printerConfig.stage8Color = hex2rgb("#000000");
-  printerConfig.stage9Color = hex2rgb("#000000");
-  printerConfig.stage10Color = hex2rgb("#000000");
-  printerConfig.wifiRGB = hex2rgb("#FFA500");
-  printerConfig.pauseRGB = hex2rgb("#0000FF");
-  printerConfig.firstlayerRGB = hex2rgb("#0000FF");
-  printerConfig.nozzleclogRGB = hex2rgb("#0000FF");
-  printerConfig.hmsSeriousRGB = hex2rgb("#FF0000");
-  printerConfig.hmsFatalRGB = hex2rgb("#FF0000");
-  printerConfig.filamentRunoutRGB = hex2rgb("#FF0000");
-  printerConfig.frontCoverRGB = hex2rgb("#FF0000");
-  printerConfig.nozzleTempRGB = hex2rgb("#FF0000");
-  printerConfig.bedTempRGB = hex2rgb("#FF0000");
+inline void advance(unsigned long ms) { fake::now_ms += ms; }
+
+// A printer report through the real parser.
+inline void msg(const char *json) { ParseCallback((char *)"device/TEST/report", (byte *)json, strlen(json)); }
+// gcode_state and lights_report are ignored for 3 s after a command; step past that.
+inline void gcode(const char *state, int stage = -1) {
+  advance(3500);
+  char b[96]; snprintf(b, sizeof b, "{\"print\":{\"gcode_state\":\"%s\",\"stg_cur\":%d}}", state, stage);
+  msg(b);
 }
+inline void doorOpen() { msg("{\"print\":{\"home_flag\":8388608}}"); } // bit 23
+inline void doorClose() { msg("{\"print\":{\"home_flag\":0}}"); }
+inline void printerLight(bool on) {
+  advance(3500);
+  msg(on ? "{\"print\":{\"lights_report\":[{\"node\":\"chamber_light\",\"mode\":\"on\"}]}}"
+         : "{\"print\":{\"lights_report\":[{\"node\":\"chamber_light\",\"mode\":\"off\"}]}}");
+}
+// Run the main loop for a while (timers, re-evaluation, rhythms).
+inline void loopFor(unsigned long ms) { unsigned long end = fake::now_ms + ms; while (fake::now_ms < end) lightsLoop(); }
 
-// Fresh device: default settings, printer online and idle with its chamber light on,
-// LEDs off, boot-time updateleds() already done, clock well past start-up.
-inline void freshDevice() {
-  // (debugingchange on so failing tests show the LED decision log)
+// Fresh device: default v2 settings on an RGBWW strip, printer online and idle with its own
+// light on, LEDs showing idle white, clock well past start-up.
+inline void freshDevice(v2::Settings s = v2::defaults()) {
   printerVariables = PrinterVariables{};
   printerConfig = PrinterConfig{};
-  loadDefaultColors();
-  printerConfig.brightness = 100;
-  printerConfig.debugingchange = true;
+  settings = s;
+  activeTool = v2::TOOL_NONE; checkOutput = -1; lastDecision = v2::Decision{};
+  finishShowing = false; finishStartMs = 0; printerLightOnByUs = false; idleOffActive = false;
+  shown = Shown{};
   for (auto &d : fake::duty) d = 0;
-  fake::writes = 0;
   currentRed = currentGreen = currentBlue = currentWarm = currentCold = 0;
-  fake::chamberLightCalls = 0; fake::chamberLightLast = -1;
+  currentEffect = EFFECT_SOLID; ledCycleActive = false;
   LogSerial.out.clear();
+  fake::published.clear(); fake::mqttConnected = true;
+  pendingChamberLight = -1;
   fake::now_ms = 1000000;              // far from 0 so "time since" checks behave
+  lastMQTTupdate = 0;
   printerVariables.online = true;
   printerVariables.gcodeState = "IDLE";
-  printerVariables.stage = -1;
   printerVariables.printerledstate = true;
-  printerVariables.lastdoorOpenms = 0;
-  printerVariables.lastdoorClosems = 0;
-  printerConfig.inactivityStartms = fake::now_ms;
-  updateleds();                        // first call is the "Initial Boot" no-op
-  // Boot stamps lastdoorClosems. Replicate-OFF is ignored for 1 s after a door event, and a
-  // door event in the last 6 s ends the finish colour, so start well clear of both.
-  fake::now_ms += 10000;
-  printerConfig.inactivityStartms = fake::now_ms;
-}
-
-// Mimic the flags ParseCallback sets on any MQTT change before it calls updateleds().
-inline void mqttChange() {
-  printerConfig.inactivityStartms = millis();
-  printerConfig.isIdleOFFActive = false;
-  printerConfig.maintMode_update = true;
-  printerConfig.discoMode_update = true;
-  printerConfig.replicate_update = true;
-  printerConfig.testcolor_update = true;
-  updateleds();
+  lightsBegin();
+  lightsUpdate(true);
+  fake::writes = 0;
 }
