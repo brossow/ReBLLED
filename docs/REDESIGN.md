@@ -234,6 +234,25 @@ web page you visit when no WebUI login is set (as in br.2; the JSON API needs
 settings" boot colour uses the board labels (it's shown before the settings that hold the
 wiring load).
 
+## The other pages (next, before br.3 is finalised)
+
+Wi-Fi and printer setup (`wifiSetup.html`, also the `BLLED_AP` hotspot page), Firmware update
+(`updatePage.html`), Back up and restore (`backupRestore.html`) and the Web Serial log
+(`webSerialPage.html`) are still the v1 design (`style.css`, particle background). Redo them in
+the setup page's design (same tokens, light/dark, phone width, accessible) so the device feels
+like one thing:
+
+- **Names, one style everywhere** (sentence case): "Wi-Fi and printer connection", "Firmware
+  update", "Back up and restore" (verb form; the file is "a backup"), "Log". The current page
+  heading is "Backup & Restore" with the title "BLLED Config Backup".
+- **Backup file name with a timestamp,** e.g. `blled-backup-2026-10-18-1655.json`, not the
+  generic `blledconfig.json`. The controller has no clock, so the page builds the name from the
+  browser's time (fetch `/configfile.json`, save it under that name). Keep the server's
+  `Content-Disposition` as the fallback.
+- Wi-Fi page: it's the first-run page in hotspot mode, so it should lead into the setup dialog's
+  later steps once the controller is on the network.
+- When `style.css` and `particleCanvas.js` have no users left, drop them (saves flash).
+
 ## Open questions for review
 
 - The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check
