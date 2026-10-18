@@ -22,9 +22,14 @@ No simple/expert switch: a mode that hides settings would recreate hidden behavi
 something in Expert, switch back, and the strip does things nothing on screen explains).
 Instead:
 
-- **Always visible:** Mode (Follow the printer / Always on / Off), **Look** (a preset that
-  sets every state's colour and rhythm: *Status colours*, *White, status by rhythm*; it shows
-  *Custom* once a state is edited by hand) and Brightness.
+- **Always visible:** Mode (Follow the printer / Always on / Off), **Look** and Brightness.
+  Look is *Standard colours*, *White only* or *Custom*, always all three, with a one-line
+  description under the list. Standard and White only are fixed presets; while one is chosen,
+  the Status colours rows are shown locked, with a **Customise** button, so editing never
+  silently switches the Look. **Custom keeps its own saved set** (starting as a copy of
+  Standard), so switching to a preset and back loses nothing. Choosing Custom from the list
+  opens Status colours and moves focus into it; loading a page with Custom already chosen
+  doesn't.
 - **Everything else folded**, each section with a one-line summary of its current values and
   a **Changed** marker when it differs from the default, so a folded section never hides a
   surprise. The page remembers which sections each person keeps open.
@@ -36,7 +41,7 @@ Instead:
 | Area | Setting | Values | Replaces |
 |---|---|---|---|
 | Lights | `mode` | `follow` (follow the printer), `on` (always on), `off` | five mutually exclusive switches |
-| Lights | `look` | `status`, `white`, `custom` (a preset over the per-state looks) | new |
+| Lights | `look` + `customLooks` | `standard`, `white`, `custom`; custom keeps its own saved set | new |
 | Tools (not saved) | colour test, colour cycle, Wi-Fi strength | run until Stop or a restart | three of the old modes |
 | Lights | `brightness` | 0–100 % | same |
 | Looks | per state: `printing`, `idle`, `preparing`, `attention`, `error`, `finished` | colour (`warm`, `neutral`, `cool`, `off`, or a custom RGB) + rhythm (`steady`, `pulse`, `slow`, `blink`) | ~15 RGB+WW+CW triplets, statusAnimations |
@@ -48,7 +53,7 @@ Instead:
 | Printer's light | `lightOnAtPrintStart`, `lightOnWhenDoorOpens`, `lightOffWhenIdle`, `lightOffWhenFinishTimerEnds` | on/off each | the single "Control Chamber Light" switch |
 | LED strip | `stripType` | `rgbww` (RGB + warm + cool white), `rgbw` (RGB + one white), `rgb`, `wwcw` (warm + cool white only), `w` (single white) | nothing (every colour assumed all five channels) |
 | LED strip | `channelMap` | which controller output (R, G, B, WW, CW) drives each strip channel; set by the wiring check | rewiring (red/green swapped on the author's strip, 2026-10-17) |
-| Printer | `model` | X1C, X1E, P1S, P1P, A1, A1 mini, X2D (untested), H2D (untested) | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
+| Printer | `model` | `auto` (default: use the model the printer reports in its network discovery message) or a model chosen by hand: X1, X1 Carbon, X1E, P1P, P1S, P2S, A1, A1 mini, H2D, H2S, X2D, Not listed. Only the X1 Carbon is tested; the rest say so. | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
 | Advanced | `hmsIgnore`, `debug`, `mqttLog` | | same |
 
 The firmware migrates a v1 config to v2 on first boot. Every v1 value has a v2 home; the dead
@@ -90,13 +95,26 @@ them, and the wires aren't always in that order.
 - **The status line** always states a reason, e.g. "Off: idle for 10 min, open the door to
   wake", "Green, slow pulse: print finished, waiting for the door".
 
+## Decided (2026-10-17)
+
+- **Autosave:** every change applies at once and saves itself, with a brief "Saved" message.
+- **Off** lasts until you choose another mode.
+- **Model:** detected from the printer (its discovery message carries a model code; confirm
+  the field against the X1C when building), with a manual override. A hand-kept list goes
+  stale as Bambu releases printers.
+- **Wiring check:** kept.
+- **Section name:** "Status colours" (was "How each printer state looks").
+
+## Proposed: first-run setup
+
+A short guided setup on a fresh controller, and "Run setup again" under More: 1. Wi-Fi and
+printer connection (today a separate page), 2. your printer (detected), 3. LED strip (type,
+optional wiring check), 4. Look and brightness. Not built yet; the author to decide.
+
 ## Open questions for review
 
 - The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check
   answers this.
-- Autosave every change, or live preview plus an explicit Save?
-- Should `off` stay off until changed, or until the next print starts?
-- Model list: which models matter beyond the X1C and the coming X2D?
 
 ## Language
 

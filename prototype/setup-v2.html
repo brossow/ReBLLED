@@ -129,6 +129,9 @@ section.fold { gap: 0; margin-top: 12px; }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .tool:last-of-type { border-bottom: 0; }
 @media (max-width: 520px) { .tool { grid-template-columns: 1fr; } }
+.lockline { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px;
+  border-radius: 8px; background: var(--accent-soft); }
+.look select:disabled, .look input:disabled { opacity: .7; cursor: not-allowed; }
 table.map { border-collapse: collapse; font-size: .92rem; }
 table.map th, table.map td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); }
 table.map td.out { font-family: var(--mono); }
@@ -191,6 +194,10 @@ code { font-family: var(--mono); font-size: .9em; }
         <select id="simLight"><option value="on">On</option><option value="off">Off</option></select>
       </div>
       <div class="field">
+        <label for="simModel">Printer reports itself as</label>
+        <select id="simModel"></select>
+      </div>
+      <div class="field">
         <label for="simStrip">Your physical strip</label>
         <select id="simStrip"><option value="rgbw" selected>RGB + one white</option><option value="rgbww">RGB + warm + cool white</option><option value="rgb">RGB only</option><option value="w">One white only</option></select>
       </div>
@@ -219,11 +226,12 @@ code { font-family: var(--mono); font-size: .9em; }
       </fieldset>
       <div class="field">
         <label for="lookPreset">Look</label>
-        <select id="lookPreset">
-          <option value="status">Status colours: white while printing, red errors, blue pauses, green when finished</option>
-          <option value="white">White, status by rhythm: always white; errors blink, pauses and finished prints pulse</option>
-          <option value="custom">Custom (set under "How each printer state looks")</option>
+        <select id="lookPreset" aria-describedby="lookHint">
+          <option value="standard">Standard colours</option>
+          <option value="white">White only</option>
+          <option value="custom">Custom</option>
         </select>
+        <p class="hint" id="lookHint"></p>
       </div>
       <div class="field">
         <label for="brightness">Brightness: <span id="brightnessOut">100</span>%</label>
@@ -233,10 +241,11 @@ code { font-family: var(--mono); font-size: .9em; }
   </section>
 
   <section class="fold" aria-labelledby="fh-looks">
-    <h2 id="fh-looks"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-looks" data-fold="looks"><span class="ft">How each printer state looks</span><span class="sum" id="sum-looks"></span></button></h2>
+    <h2 id="fh-looks"><button type="button" class="fold-btn" aria-expanded="false" aria-controls="fb-looks" data-fold="looks"><span class="ft">Status colours</span><span class="sum" id="sum-looks"></span></button></h2>
     <div class="fold-body" id="fb-looks" hidden>
-      <p class="hint">Used when the mode is "Follow the printer". Rhythms mean you don't have to tell colours apart.</p>
+      <p class="hint">The colour and rhythm for each thing the printer can be doing, when the mode is "Follow the printer". Rhythms mean you don't have to tell colours apart.</p>
       <div class="card">
+      <div class="lockline" id="looksLock" hidden><span id="looksLockText"></span><button type="button" id="customiseBtn">Customise</button></div>
       <div class="looks" id="looks"></div>
       <label class="check"><input type="checkbox" id="followLight" checked><span>Turn the strip off when the printer's own light is off</span><span class="d">The strip mirrors the printer's chamber light. Errors and finished prints still show.</span></label>
     </div>
@@ -307,11 +316,9 @@ code { font-family: var(--mono); font-size: .9em; }
     <div class="fold-body" id="fb-printer" hidden>
       
       <div class="card">
+      <p id="modelDetected"></p>
       <div class="inline"><label for="model">Model</label>
-        <select id="model">
-          <option value="X1C" selected>X1 Carbon</option><option value="X1E">X1E</option><option value="P1S">P1S</option><option value="P1P">P1P</option>
-          <option value="A1">A1</option><option value="A1M">A1 mini</option><option value="X2D">X2D (untested)</option><option value="H2D">H2D (untested)</option>
-        </select></div>
+        <select id="model"></select></div>
       <p class="hint" id="modelNote"></p>
     </div>
     </div>
@@ -479,7 +486,7 @@ code { font-family: var(--mono); font-size: .9em; }
 
   // ---------- settings (the v2 model) ----------
   const S = {
-    mode: "follow", tool: null, preset: "status", brightness: 100, testColor: "#ff0000", followLight: true,
+    mode: "follow", tool: null, preset: "standard", brightness: 100, testColor: "#ff0000", followLight: true,
     hmsIgnore: "", debugLog: false, mqttLog: false,
     looks: {
       printing:  { label: "Printing", when: "While a print is running.", colour: { kind: "neutral" }, rhythm: "steady" },
@@ -493,23 +500,30 @@ code { font-family: var(--mono); font-size: .9em; }
     },
     idleOff: 10, finishEnds: "door", finishMin: 10, offlineSec: 30,
     lightPrintStart: false, lightDoor: false, lightIdle: false, lightFinishTimer: false,
-    model: "X1C",
+    model: "auto",                       // "auto" = use what the printer reports
     strip: { type: "rgbw", map: null },   // map: strip light -> controller output, set by the wiring check
   };
+  // Capabilities by model. Only the X1 Carbon has been tested with this controller; others are
+  // from Bambu's published specs or assumed, and say so.
   const MODELS = {
-    X1C: { door: true, lidar: true, note: "Has a door sensor and lidar." },
-    X1E: { door: true, lidar: true, note: "Has a door sensor and lidar." },
-    P1S: { door: false, lidar: false, note: "No door sensor or lidar: door options and preparing colours don't apply." },
-    P1P: { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
-    A1:  { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
-    A1M: { door: false, lidar: false, note: "Open frame, no door sensor or lidar." },
-    X2D: { door: true, lidar: false, note: "Untested with this controller. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
-    H2D: { door: true, lidar: false, note: "Untested with this controller. Assumed: door sensor, no lidar." },
+    X1:   { name: "X1", door: true, lidar: true, note: "Same hardware as the X1 Carbon (door sensor and lidar). Not tested with this controller." },
+    X1C:  { name: "X1 Carbon", door: true, lidar: true, tested: true, note: "Door sensor and lidar. Tested with this controller." },
+    X1E:  { name: "X1E", door: true, lidar: true, note: "Door sensor and lidar. Not tested with this controller." },
+    P1P:  { name: "P1P", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    P1S:  { name: "P1S", door: false, lidar: false, note: "No door sensor or lidar, so door options and preparing colours don't apply." },
+    P2S:  { name: "P2S", door: true, lidar: false, note: "Not tested. Door sensor and lidar not confirmed; door options shown in case." },
+    A1:   { name: "A1", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    A1M:  { name: "A1 mini", door: false, lidar: false, note: "Open frame: no door sensor or lidar." },
+    H2D:  { name: "H2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    H2S:  { name: "H2S", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar." },
+    X2D:  { name: "X2D", door: true, lidar: false, note: "Not tested. Assumed: door sensor, no lidar. Capture its printer messages before relying on it." },
+    other:{ name: "Not listed", door: true, lidar: true, note: "Unknown model: every option is shown. It may not report what this controller expects." },
   };
+  const modelNow = () => S.model === "auto" ? sim.detected : S.model;
 
   // ---------- simulated printer ----------
   const sim = { state: "idle", light: "on", idleMin: 0, finishMin: 0, finishDone: false, previewUntil: 0, preview: null,
-                strip: "rgbw", wiring: "ok", check: null };
+                strip: "rgbw", wiring: "ok", check: null, detected: "X1C" };
   // The simulated physical strip: which real light each controller output drives.
   function simWires() {
     const w = { rgbww: { R: "r", G: "g", B: "b", WW: "ww", CW: "cw" }, rgbw: { R: "r", G: "g", B: "b", WW: "w" },
@@ -527,7 +541,7 @@ code { font-family: var(--mono); font-size: .9em; }
     return sub || L.colour;
   }
   function decide() {
-    const m = MODELS[S.model];
+    const m = MODELS[modelNow()];
     if (sim.preview) return sim.preview;
     if (sim.check) return { css: outputsCss({ [sim.check]: 255 }) || null, rhythm: "steady", text: `Wiring check: output ${sim.check} is on`, reason: "What colour does the strip show?" };
     switch (S.tool || S.mode) {
@@ -624,7 +638,7 @@ code { font-family: var(--mono); font-size: .9em; }
   function buildLooks() {
     const host = $("looks"); host.textContent = "";
     for (const [key, L] of Object.entries(S.looks)) {
-      if (L.lidarOnly && !MODELS[S.model].lidar) continue;
+      if (L.lidarOnly && !MODELS[modelNow()].lidar) continue;
       const row = document.createElement("div"); row.className = "look";
       const sw = document.createElement("span"); sw.className = "swatch"; sw.setAttribute("aria-hidden", "true");
       const css = colourCss(L.colour); if (css) sw.style.background = css;
@@ -636,16 +650,17 @@ code { font-family: var(--mono); font-size: .9em; }
       for (const [v, t] of Object.entries(RHYTHMS)) { const o = document.createElement("option"); o.value = v; o.textContent = t; rs.appendChild(o); }
       rs.value = L.rhythm;
       controls.append(cc.wrap, rs);
+      if (S.preset !== "custom") { cc.sel.disabled = cc.pick.disabled = rs.disabled = true; }
       const when = document.createElement("p"); when.className = "when"; when.textContent = L.when;
       row.append(sw, name, prev, controls, when);
       const note = document.createElement("p"); note.className = "note"; note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent;
       row.appendChild(note);
       cc.sel.addEventListener("change", () => { cc.pick.hidden = cc.sel.value !== "custom"; L.colour = cc.sel.value === "custom" ? { kind: "custom", hex: cc.pick.value } : { kind: cc.sel.value };
         const c = colourCss(L.colour); sw.style.background = c || "";
-        note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent; markCustom(); saved(L.label + " colour"); });
+        note.textContent = toChannels(L.colour).note; note.hidden = !note.textContent; saved(L.label + " colour"); });
       cc.pick.addEventListener("input", () => { L.colour = { kind: "custom", hex: cc.pick.value }; sw.style.background = cc.pick.value; render(); });
-      cc.pick.addEventListener("change", () => { markCustom(); saved(L.label + " colour"); });
-      rs.addEventListener("change", () => { L.rhythm = rs.value; markCustom(); saved(L.label + " rhythm"); });
+      cc.pick.addEventListener("change", () => saved(L.label + " colour"));
+      rs.addEventListener("change", () => { L.rhythm = rs.value; saved(L.label + " rhythm"); });
       prev.addEventListener("click", () => {
         sim.preview = look(L.colour, L.rhythm, null, `Previewing "${L.label}" for 5 seconds.`);
         render(); clearTimeout(prev._t); prev._t = setTimeout(() => { sim.preview = null; render(); }, 5000);
@@ -658,6 +673,7 @@ code { font-family: var(--mono); font-size: .9em; }
           const line = document.createElement("div"); line.className = "inline";
           const lab = document.createElement("label"); lab.textContent = label; lab.htmlFor = `sub-${key}-${sk}`;
           const sc = colourControl(`sub-${key}-${sk}`, colour, label, true);
+          if (S.preset !== "custom") sc.sel.disabled = sc.pick.disabled = true;
           sc.sel.addEventListener("change", () => { sc.pick.hidden = sc.sel.value !== "custom";
             L.sub[sk][1] = sc.sel.value === "same" ? null : sc.sel.value === "custom" ? { kind: "custom", hex: sc.pick.value } : { kind: sc.sel.value }; saved(label + " colour"); });
           sc.pick.addEventListener("change", () => { L.sub[sk][1] = { kind: "custom", hex: sc.pick.value }; saved(label + " colour"); });
@@ -778,7 +794,7 @@ code { font-family: var(--mono); font-size: .9em; }
   $("stopTool").addEventListener("click", () => { const t = S.tool; S.tool = null; render();
     const back = document.querySelector(`[data-tool="${t}"]`); if (back) back.focus(); });
   $("testColor").addEventListener("input", () => { S.testColor = $("testColor").value; render(); });
-  $("lookPreset").addEventListener("change", () => { applyPreset($("lookPreset").value); });
+  $("lookPreset").addEventListener("change", () => { applyPreset($("lookPreset").value, true); });
   $("brightness").addEventListener("input", () => { S.brightness = +$("brightness").value; $("brightnessOut").textContent = S.brightness; render(); });
   $("brightness").addEventListener("change", () => saved("Brightness " + S.brightness + "%"));
   $("followLight").addEventListener("change", () => { S.followLight = $("followLight").checked; saved("Follow the printer's light"); });
@@ -788,7 +804,16 @@ code { font-family: var(--mono); font-size: .9em; }
   $("finishMin").addEventListener("change", () => { S.finishMin = Math.max(1, +$("finishMin").value || 10); saved("Finish minutes"); });
   $("offlineSec").addEventListener("change", () => { S.offlineSec = +$("offlineSec").value; saved("Unreachable timeout"); });
   for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).addEventListener("change", () => { S[id] = $(id).checked; saved($(id).nextElementSibling.textContent); });
+  function fillModelSelects() {
+    const sel = $("model"); sel.textContent = "";
+    const auto = document.createElement("option"); auto.value = "auto"; auto.textContent = "Use the detected model (" + MODELS[sim.detected].name + ")"; sel.appendChild(auto);
+    for (const [k, M] of Object.entries(MODELS)) { const o = document.createElement("option"); o.value = k; o.textContent = M.name + (M.tested ? "" : k === "other" ? "" : " (not tested)"); sel.appendChild(o); }
+    sel.value = S.model;
+    const sm = $("simModel"); if (!sm.options.length) for (const [k, M] of Object.entries(MODELS)) if (k !== "other") { const o = document.createElement("option"); o.value = k; o.textContent = M.name; sm.appendChild(o); }
+    sm.value = sim.detected;
+  }
   $("model").addEventListener("change", () => { S.model = $("model").value; applyModel(); buildLooks(); saved("Model"); });
+  $("simModel").addEventListener("change", () => { sim.detected = $("simModel").value; fillModelSelects(); applyModel(); buildLooks(); render(); logSim("The printer now reports itself as " + MODELS[sim.detected].name + "."); });
   $("hmsIgnore").addEventListener("change", () => { S.hmsIgnore = $("hmsIgnore").value; saved("HMS codes to ignore"); });
   $("debugLog").addEventListener("change", () => { S.debugLog = $("debugLog").checked; saved("Detailed log"); });
   $("mqttLog").addEventListener("change", () => { S.mqttLog = $("mqttLog").checked; saved("Printer message log"); });
@@ -809,8 +834,9 @@ code { font-family: var(--mono); font-size: .9em; }
   }
   $("resetBtn").addEventListener("click", askReset);
   function applyModel() {
-    const m = MODELS[S.model];
+    const m = MODELS[modelNow()];
     $("modelNote").textContent = m.note;
+    $("modelDetected").textContent = "The printer reports itself as: " + MODELS[sim.detected].name + ".";
     const doorRadio = document.querySelector('input[name=finishEnds][value=door]');
     const eitherRadio = document.querySelector('input[name=finishEnds][value=either]');
     doorRadio.disabled = eitherRadio.disabled = !m.door; $("lightDoor").disabled = !m.door;
@@ -831,7 +857,7 @@ code { font-family: var(--mono); font-size: .9em; }
   $("simDoor").addEventListener("click", () => {
     const notes = ["Door opened and closed: idle timer restarted."];
     sim.idleMin = 0;
-    if (MODELS[S.model].door) {
+    if (MODELS[modelNow()].door) {
       if (sim.state === "finished" && !sim.finishDone && S.finishEnds !== "timer") { sim.finishDone = true; notes.push("Finished colour acknowledged."); }
       if (S.lightDoor && sim.light === "off") { sim.light = "on"; $("simLight").value = "on"; notes.push("The controller turned the printer's light on."); }
     } else notes.push("(This model has no door sensor, so the controller wouldn't see it.)");
@@ -850,21 +876,60 @@ code { font-family: var(--mono); font-size: .9em; }
   });
 
   // ---------- Look presets: one choice that sets every state's colour and rhythm ----------
+  // Standard and White only are fixed. Custom keeps its own saved set (it starts as a copy of
+  // Standard), so switching to a preset and back never loses custom choices.
   const PRESETS = {
-    status: { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: [["custom", "#0000ff"], "pulse"], error: [["custom", "#ff0000"], "blink"], finished: [["custom", "#00ff00"], "slow"] },
-    white:  { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: ["neutral", "pulse"], error: ["neutral", "blink"], finished: ["neutral", "slow"] },
+    standard: { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: [["custom", "#0000ff"], "pulse"], error: [["custom", "#ff0000"], "blink"], finished: [["custom", "#00ff00"], "slow"] },
+    white:    { printing: ["neutral", "steady"], idle: ["neutral", "steady"], preparing: ["off", "steady"], attention: ["neutral", "pulse"], error: ["neutral", "blink"], finished: ["neutral", "slow"] },
   };
-  function applyPreset(name) {
-    S.preset = name;
-    if (PRESETS[name]) for (const [k, [c, r]] of Object.entries(PRESETS[name])) {
+  const LOOK_TEXT = {
+    standard: ["Standard colours", "White while printing. Errors blink red, pauses pulse blue, finished prints pulse green."],
+    white: ["White only", "White all the time. Errors blink, pauses and finished prints pulse."],
+    custom: ["Custom", "Your own colour and rhythm for each state, under Status colours."],
+  };
+  const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
+  function snapshotLooks() {
+    const out = {};
+    for (const [k, L] of Object.entries(S.looks))
+      out[k] = { colour: clone(L.colour), rhythm: L.rhythm, sub: L.sub ? Object.fromEntries(Object.entries(L.sub).map(([sk, [, c]]) => [sk, clone(c)])) : null };
+    return out;
+  }
+  function restoreLooks(snap) {
+    for (const [k, L] of Object.entries(S.looks)) {
+      L.colour = clone(snap[k].colour); L.rhythm = snap[k].rhythm;
+      if (L.sub) for (const sk of Object.keys(L.sub)) L.sub[sk][1] = clone(snap[k].sub[sk]);
+    }
+  }
+  function setPresetLooks(name) {
+    for (const [k, [c, r]] of Object.entries(PRESETS[name])) {
       S.looks[k].colour = Array.isArray(c) ? { kind: c[0], hex: c[1] } : { kind: c };
       S.looks[k].rhythm = r;
-      if (S.looks[k].sub) for (const sk of Object.keys(S.looks[k].sub)) if (sk !== "level") S.looks[k].sub[sk][1] = null;
+      if (S.looks[k].sub) for (const sk of Object.keys(S.looks[k].sub)) S.looks[k].sub[sk][1] = sk === "level" ? { kind: "custom", hex: "#000055" } : null;
     }
-    buildLooks(); syncPreset(); saved("Look: " + $("lookPreset").selectedOptions[0].textContent.split(":")[0]);
   }
-  function markCustom() { if (S.preset !== "custom") { S.preset = "custom"; syncPreset(); } }
-  function syncPreset() { $("lookPreset").value = S.preset; $("lookPreset").querySelector('[value=custom]').hidden = S.preset !== "custom"; }
+  S.customLooks = snapshotLooks();   // Custom starts as a copy of Standard
+  function applyPreset(name, chosenByUser) {
+    if (S.preset === "custom") S.customLooks = snapshotLooks();   // keep custom edits
+    S.preset = name;
+    if (name === "custom") restoreLooks(S.customLooks); else setPresetLooks(name);
+    buildLooks(); syncPreset(); saved("Look: " + LOOK_TEXT[name][0]);
+    if (name === "custom" && chosenByUser) openLooksForEditing();
+  }
+  // Only when someone picks Custom: open Status colours and move to it (never on page load).
+  function openLooksForEditing() {
+    const btn = document.querySelector('[data-fold="looks"]');
+    if (btn.getAttribute("aria-expanded") !== "true") btn.click();
+    const first = document.querySelector("#looks select:not(:disabled)");
+    btn.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    if (first) first.focus({ preventScroll: true });
+  }
+  function syncPreset() {
+    $("lookPreset").value = S.preset; $("lookHint").textContent = LOOK_TEXT[S.preset][1];
+    const locked = S.preset !== "custom";
+    $("looksLock").hidden = !locked;
+    if (locked) $("looksLockText").textContent = `These follow the ${LOOK_TEXT[S.preset][0]} look.`;
+  }
+  $("customiseBtn").addEventListener("click", () => applyPreset("custom", true));
 
   // ---------- folded sections: summaries, "Changed" markers, remembered open state ----------
   const DEFAULTS = JSON.parse(JSON.stringify(S));
@@ -874,13 +939,13 @@ code { font-family: var(--mono); font-size: .9em; }
     const lights = [["lightPrintStart", "on at print start"], ["lightDoor", "on when the door opens"], ["lightIdle", "off when idle"], ["lightFinishTimer", "off when the finish timer ends"]].filter(([k]) => S[k]).map(([, t]) => t);
     const looksChanged = !same(S.looks, DEFAULTS.looks) || S.followLight !== DEFAULTS.followLight;
     const rows = {
-      looks: [`${S.preset === "custom" ? "Custom" : S.preset === "white" ? "White, status by rhythm" : "Status colours"} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, looksChanged],
+      looks: [`${LOOK_TEXT[S.preset][0]} · ${S.followLight ? "off when the printer's light is off" : "ignores the printer's light"}`, looksChanged],
       timing: [`${S.idleOff ? "Off after " + S.idleOff + " min idle" : "Stays on when idle"} · ${finish} · ${S.offlineSec ? "off when unreachable " + fmtSec(S.offlineSec) : "stays on when unreachable"}`,
                S.idleOff !== DEFAULTS.idleOff || S.finishEnds !== DEFAULTS.finishEnds || S.finishMin !== DEFAULTS.finishMin || S.offlineSec !== DEFAULTS.offlineSec],
       plight: [lights.length ? "Turns it " + lights.join(", ") : "Not controlled", lights.length > 0],
       strip: [STRIP_TYPES[S.strip.type].label + (S.strip.map && STRIP_TYPES[S.strip.type].ch.some(c => c !== "w" && S.strip.map[c] && S.strip.map[c] !== LABEL_MAP[c]) ? " · wiring corrected" : ""),
               S.strip.type !== DEFAULTS.strip.type || !!S.strip.map],
-      printer: [$("model").selectedOptions[0].textContent, S.model !== DEFAULTS.model],
+      printer: [MODELS[modelNow()].name + (S.model === "auto" ? " (detected)" : " (set by hand)"), S.model !== DEFAULTS.model],
       tools: ["Colour test, colour cycle, Wi-Fi strength", false],
       help: ["What the door does · start-up colours", false],
       adv: [`HMS codes ignored: ${S.hmsIgnore.trim() ? S.hmsIgnore.trim().split(/\s+/).length : "none"} · logging ${S.debugLog || S.mqttLog ? "on" : "off"}`, !!S.hmsIgnore.trim() || S.debugLog || S.mqttLog],
@@ -915,7 +980,7 @@ code { font-family: var(--mono); font-size: .9em; }
     document.querySelectorAll('input[name=finishEnds]').forEach(r => r.checked = r.value === S.finishEnds);
     $("finishMin").value = S.finishMin; $("offlineSec").value = String(S.offlineSec);
     for (const id of ["lightPrintStart","lightDoor","lightIdle","lightFinishTimer"]) $(id).checked = S[id];
-    $("model").value = S.model;
+    fillModelSelects();
     $("simState").value = sim.state; $("simLight").value = sim.light; $("simStrip").value = sim.strip; $("simWiring").value = sim.wiring;
   }
   syncControls(); buildStrip(); buildMap(); applyModel(); buildLooks(); render();
