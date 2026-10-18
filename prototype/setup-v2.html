@@ -111,16 +111,20 @@ details.more[open] > summary { margin-bottom: 8px; }
 .sub { display: grid; gap: 8px; padding-left: 4px; }
 .sub .inline label { min-width: 12em; }
 
+/* A folded section is ONE card: the header row, and when open, its contents inside the same box. */
+section.fold { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .fold > h2 { margin: 0; font-size: 1.05rem; }
-.fold-btn { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 12px 14px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); font-weight: 600; }
+.fold-btn { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 12px 16px;
+  background: transparent; border: 0; border-radius: 0; font-weight: 600; }
+.fold-btn:focus-visible { outline-offset: -3px; }
 .fold-btn::after { content: "Show"; grid-row: 1 / 3; grid-column: 2; align-self: center; font-size: .85rem; font-weight: 600; color: var(--accent); }
 .fold-btn[aria-expanded="true"]::after { content: "Hide"; }
 .fold-btn .ft { font-size: 1.05rem; }
 .fold-btn .sum { grid-column: 1; font-weight: 400; color: var(--muted); font-size: .9rem; }
 .changed { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78rem; font-weight: 600;
   color: var(--accent); border: 1px solid var(--accent); }
-.fold-body { display: grid; gap: 10px; margin-top: 10px; }
+.fold-body { display: grid; gap: 10px; padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+.fold-body > .card { border: 0; padding: 0; background: transparent; }
 section.fold { gap: 0; margin-top: 12px; }
 .tool { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .tool:last-of-type { border-bottom: 0; }
