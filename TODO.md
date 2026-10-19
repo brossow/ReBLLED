@@ -10,18 +10,15 @@
   widget. Nearly free once the API exists.
 - **Near-finish cue.** A gentle pulse in the last few percent of a print. Needs
   `mc_percent` added to the MQTT filter in `ParseCallback()`.
-- **Camera exposure at print start.** The X1C camera sets its exposure once, when it starts at
-  the beginning of a print, and doesn't re-check, even if the lights change. At that moment
-  the strip is off on purpose: the default colours for nozzle cleaning, bed levelling,
-  extrusion calibration, bed scan and first-layer inspection are "off" (bed levelling is a dim
-  blue) so the lidar isn't disturbed. So the camera probably meters for the chamber light
-  alone and overexposes once the strip comes on.
-  1. **Experiment first (no code):** set those stage colours to the running white and
-     run a print. Check the camera image *and* whether first-layer inspection still behaves.
-  2. Only if that doesn't help: have the controller make the camera re-check by switching its
-     resolution and back over MQTT (`ipcam_resolution_set`, as documented by the community).
-     Unverified on this firmware; first find out what it does to a timelapse or the AI print
-     monitoring mid-print. Test on a non-critical print.
+- **Preparing defaults vs the X1C camera.** The camera sets its exposure once, at print
+  start; with the strip off then, it locks on a dark chamber and overexposes once the strip
+  comes on. Fixed on the author's X1C by settings alone (white for "Cleaning the nozzle" and
+  "Leveling the bed", lidar steps off; see TESTING.md). Decide whether those two should
+  default to the printing colour instead of "same as Preparing" (off) and dim blue
+  (`looks()` in `settings.h`). If it ever comes back, the fallback is making the camera
+  re-meter by switching resolution over MQTT, as Bambu Studio does:
+  `{"camera":{"command":"ipcam_resolution_set","sequence_id":"N","resolution":"720p"}}`, then
+  `"1080p"`. That probably restarts the print recording, so test it first.
 
 ## Watch-outs
 

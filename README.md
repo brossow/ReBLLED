@@ -61,6 +61,7 @@ What changed in `2.3.0-br.1` compared with 2.3.0:
 | Update a device over the air | `tools/flash.sh <device-ip>` (reads the WebUI login from the macOS Keychain; see the script header) |
 | Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup. `POST /_sim` changes what the simulated printer is doing (see the script header) |
 | Check a device for main-loop freezes | `python3 tools/ws_timing.py <device-ip> 60` |
+| Log the printer's stages with times (for example, to line up a print start with the camera) | `python3 tools/stage_log.py <device-ip> [minutes]` |
 | Switch a device to the larger partition layout | [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md) |
 
 [TESTING.md](TESTING.md) is the on-device checklist (with results); [TODO.md](TODO.md) lists what's next.
