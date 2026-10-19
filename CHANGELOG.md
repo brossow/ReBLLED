@@ -24,6 +24,8 @@ builds `2.3.0-br.3` to `br.7` led up to it; design and decisions in
   open networks supported.
 - **Settings:** converted from BLLED automatically on first boot (the original kept on the
   device); safer saving (complete-or-nothing, an unreadable file kept aside).
+- **ReBLLED's own icon** in browser tabs and bookmarks (a lit LED strip on a dark tile): SVG,
+  a 32 px PNG fallback, and a home-screen icon for phones.
 - **Under the hood:** a JSON API for the page (and for future integrations), fades off the web
   and MQTT tasks, a second test suite for the certificate check; 129 host tests.
 

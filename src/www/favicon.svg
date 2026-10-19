@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- ReBLLED: a lit LED strip (error red, white, finished green) in its channel, on a dark tile. -->
+  <defs>
+    <filter id="glow" x="-40%" y="-120%" width="180%" height="340%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+    <clipPath id="tile"><rect width="64" height="64" rx="14"/></clipPath>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#141b1e"/>
+  <g clip-path="url(#tile)">
+    <g filter="url(#glow)" opacity="0.8">
+      <rect x="9" y="24" width="15.5" height="16" rx="4" fill="#ff4b3e"/>
+      <rect x="24.25" y="24" width="15.5" height="16" fill="#fff1dc"/>
+      <rect x="39.5" y="24" width="15.5" height="16" rx="4" fill="#2fd68a"/>
+    </g>
+  </g>
+  <rect x="7" y="25" width="50" height="14" rx="5" fill="#2a3337"/>
+  <rect x="10" y="28" width="13.5" height="8" rx="2.5" fill="#ff5a4e"/>
+  <rect x="25.25" y="28" width="13.5" height="8" rx="2.5" fill="#fff4e3"/>
+  <rect x="40.5" y="28" width="13.5" height="8" rx="2.5" fill="#3ddc84"/>
+</svg>
