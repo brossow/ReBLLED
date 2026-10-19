@@ -40,7 +40,7 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const two = n => String(n).padStart(2, "0");
-  // The controller has no clock, so the browser names the file: blled-backup-2026-10-18-1655.json
+  // The controller has no clock, so the browser names the file: blled-backup-YYYY-MM-DD-HHMM.json
   function fileName() {
     const d = new Date();
     return `blled-backup-${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}.json`;

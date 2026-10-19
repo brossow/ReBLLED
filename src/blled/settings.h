@@ -95,8 +95,8 @@ namespace v2
         L.state[ST_FINISHED] = {white ? colour(CK_NEUTRAL) : rgb(0, 255, 0), R_SLOW};
         for (auto &c : L.prep) c = colour(CK_SAME);
         // Lit while the nozzle is cleaned and the bed levelled: the X1C camera sets its exposure at
-        // print start, and a dark chamber then overexposes the rest of the print (the author's X1C,
-        // 2026-10-18). The lidar steps that follow stay off (the Preparing colour).
+        // print start, and a dark chamber then overexposes the rest of the print (seen on
+        // the author's X1C). The lidar steps that follow stay off (the Preparing colour).
         L.prep[PS_NOZZLE] = colour(CK_NEUTRAL);
         L.prep[PS_LEVEL] = colour(CK_NEUTRAL);
         for (auto &c : L.attn) c = colour(CK_SAME);

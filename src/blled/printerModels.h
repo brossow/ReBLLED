@@ -36,7 +36,7 @@ namespace bblssdp
     }
 
     // DevModel is the printer's model_id from Bambu Studio's printer profiles
-    // (resources/profiles/BBL/machine/*.json, read 2026-10-18); BL-P001 confirmed on the author's X1
+    // (resources/profiles/BBL/machine/*.json); BL-P001 confirmed on the author's X1
     // Carbon. Mapped to the setup page's model keys. A code not listed (a newer printer) is passed
     // through as it is, so the page shows it and keeps every option.
     struct ModelCode { const char *code, *key; };
