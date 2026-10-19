@@ -1,5 +1,5 @@
 #!/bin/bash
-# Over-the-air update of a BLLED controller (ReBLLED, or BLLED 2.3.0) from this Mac.
+# Over-the-air update of a BLLED controller (running ReBLLED or BLLED) from this Mac.
 #
 #   tools/flash.sh <device-ip-or-host> [firmware.bin.ota]
 #
