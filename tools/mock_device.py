@@ -23,7 +23,7 @@ def preset_looks(name):
          "prep": {k: colour("same") for k in ["nozzle", "level", "extrude", "scan", "firstlayer", "lidarcal"]},
          "attn": {k: colour("same") for k in ["pause", "firstlayer", "clog"]},
          "err": {k: colour("same") for k in ["runout", "cover", "nozzleTemp", "bedTemp", "hmsSerious", "hmsFatal"]}}
-    L["prep"]["level"] = colour("custom", "#000055")
+    L["prep"]["nozzle"] = n; L["prep"]["level"] = n   # lit for the camera; lidar steps off
     return copy.deepcopy(L)
 
 # Same defaults as v2::defaults() (settings.h). setupDone false so the setup dialog opens.
