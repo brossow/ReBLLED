@@ -48,8 +48,8 @@ in each version: [CHANGELOG.md](CHANGELOG.md).
 
 Taken from the test mock (`tools/mock_device.py`), so the printers and network are made up.
 
-**The setup page during a print**, with the status line on top (it follows your light or dark
-mode), and the same page on a phone:
+**The setup page during a print**, with the status line on top, and the same page on a phone.
+The page follows your device's light or dark mode:
 
 <p>
   <picture>
