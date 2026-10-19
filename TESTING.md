@@ -161,16 +161,17 @@ colours, so without the restore the strip stays dark. The restore is required, n
 | Version, new page, no setup dialog | ✅ 2.3.0-br.3 on the status feed (page checks to come) |
 | Connected through the certificate check | ✅ connected, not rejected (mbedtls 2.28 on the device accepts the X1C's chain) |
 | Settings migrated | ✅ matches the pre-flash backup: Custom look (purple runout, plain green finish), door-or-30-min finish, chamber-light control → all four printer-light options, 5 HMS codes, check on |
-| Wiring check (RGBW) | |
+| Wiring check (RGBW) | ✅ (author, 2026-10-18) |
 | Model detected | ⚠️ the X1C announces `BL-P001`, not `3DPrinter-X1-Carbon`; mapping added after br.3 |
 | Look up | ✅ printer answered, signed by Bambu Lab, right serial; the printer stayed connected during it (two TLS sessions at once) |
-| Modes, brightness, previews, tools | |
-| Door, idle, print colours | |
-| Restart keeps settings | |
+| Modes, brightness, previews, tools | ✅ (author) |
+| Door, idle, print colours | ✅ test print (author). Door opens → printer light on; it goes off with the strip at idle (10 min), as designed |
+| Restart keeps settings | ✅ (author) |
 | No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
-| Other pages (br.4) | |
+| Other pages (br.4) | ✅ (author) |
 | br.5 flashed (2026-10-18, through the logged-in browser tab) | ✅ back in 19 s, settings intact, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s) |
 | br.6 flashed (through the tab) | ✅ back in ~25 s, connected and verified; Wi-Fi page shows the saved network with "no password" locked off, login ticked |
+| Camera exposure (X1C) | ✅ fixed by settings: white (the printing colour) for "Cleaning the nozzle" and "Leveling the bed", off for the lidar steps. The camera sets its exposure at print start; with the strip off then it locked on a dark chamber |
 | Cross-site protection | ✅ without the header, a logged-in request to `/api/wifi-rescan` gets 403; without a login, the change endpoints get 401 |
 
 ## If something goes wrong
