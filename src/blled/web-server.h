@@ -67,16 +67,19 @@ void handleUpdatePage(AsyncWebServerRequest *request)
     request->send(response);
 }
 
-void handleGetfavicon(AsyncWebServerRequest *request)
+// The icon (src/www/favicon.svg), a 32 px PNG for browsers without SVG icons, and the
+// home-screen icon for phones. No login needed: browsers fetch icons without sending one,
+// and they hold nothing private.
+void sendGz(AsyncWebServerRequest *request, const char *mime, const uint8_t *data, size_t len)
 {
-    if (!isAuthorized(request))
-    {
-        return request->requestAuthentication();
-    }
-    AsyncWebServerResponse *response = request->beginResponse(200, favicon_png_gz_mime, favicon_png_gz, favicon_png_gz_len);
+    AsyncWebServerResponse *response = request->beginResponse(200, mime, data, len);
     response->addHeader("Content-Encoding", "gzip");
+    response->addHeader("Cache-Control", "max-age=86400");
     request->send(response);
 }
+void handleGetfavicon(AsyncWebServerRequest *request) { sendGz(request, favicon_png_gz_mime, favicon_png_gz, favicon_png_gz_len); }
+void handleFaviconSvg(AsyncWebServerRequest *request) { sendGz(request, favicon_svg_gz_mime, favicon_svg_gz, favicon_svg_gz_len); }
+void handleTouchIcon(AsyncWebServerRequest *request) { sendGz(request, apple_touch_icon_png_gz_mime, apple_touch_icon_png_gz, apple_touch_icon_png_gz_len); }
 
 void handlePrinterConfigJson(AsyncWebServerRequest *request)
 {
@@ -512,6 +515,8 @@ void setupWebserver()
     webServer.on("/fwupdate", HTTP_GET, handleUpdatePage);
     setupApiRoutes();
     webServer.on("/favicon.ico", HTTP_GET, handleGetfavicon);
+    webServer.on("/favicon.svg", HTTP_GET, handleFaviconSvg);
+    webServer.on("/apple-touch-icon.png", HTTP_GET, handleTouchIcon);
     webServer.on("/config.json", HTTP_GET, handlePrinterConfigJson);
     webServer.on("/wifi", HTTP_GET, handleWiFiSetupPage);
     webServer.on("/wifiScan", HTTP_GET, handleWiFiScan);
