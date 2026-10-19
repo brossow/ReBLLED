@@ -181,7 +181,7 @@ colours, so without the restore the strip stays dark. The restore is required, n
 - Forgot the WebUI password: run the USB setup again (the web flasher's WiFi setup step). Setup over USB clears the WebUI login.
 
 - Device boots but misbehaves: upload the official `BLLC_V2.3.0.bin.ota` on the Firmware Update page. The config format is unchanged.
-- Device doesn't come back: flash `BLLC_V2.3.0.bin` over USB with the [web flasher](https://dutchdevelop.github.io/blledsetup/), then restore the config backup.
+- Device doesn't come back: flash `BLLC_V2.3.0.bin` over USB with the [web flasher](https://dutchdevelop.github.io/Universal-Flasher/), then restore the config backup.
 
 ## Results: 2.3.0-br.1 on the author's X1C controller, 2026-10-17
 
