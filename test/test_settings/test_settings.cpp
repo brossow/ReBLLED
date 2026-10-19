@@ -40,7 +40,10 @@ void test_defaults_are_standard_look() {
     Looks L = effectiveLooks(s);
     assertColour(L.state[ST_ERROR].colour, CK_CUSTOM, 255, 0, 0);
     TEST_ASSERT_EQUAL(R_BLINK, L.state[ST_ERROR].rhythm);
-    assertColour(L.prep[PS_LEVEL], CK_CUSTOM, 0, 0, 0x55);
+    TEST_ASSERT_EQUAL(CK_NEUTRAL, L.prep[PS_NOZZLE].kind);    // lit for the camera's exposure
+    TEST_ASSERT_EQUAL(CK_NEUTRAL, L.prep[PS_LEVEL].kind);
+    TEST_ASSERT_EQUAL(CK_SAME, L.prep[PS_EXTRUDE].kind);      // lidar steps: the Preparing colour, off
+    TEST_ASSERT_EQUAL(CK_OFF, L.state[ST_PREPARING].colour.kind);
     TEST_ASSERT_TRUE(s.checkPrinterCert);         // on unless turned off
     TEST_ASSERT_TRUE(fromText(R"({"version":2})").checkPrinterCert);   // a v2 file from before stage 5
     TEST_ASSERT_FALSE(fromText(R"({"version":2,"checkPrinterCert":false})").checkPrinterCert);
@@ -147,7 +150,8 @@ static const char *V1_DEFAULTS = R"({"brightness":20,"replicatestate":true,
 
 void test_migrate_upstream_defaults_gives_standard_look() {
     Settings s = fromText(V1_DEFAULTS);
-    TEST_ASSERT_EQUAL(LOOK_STANDARD, s.look);
+    TEST_ASSERT_EQUAL(LOOK_STANDARD, s.look);                 // upstream's old defaults weren't a choice
+    TEST_ASSERT_EQUAL(CK_NEUTRAL, s.custom.prep[PS_LEVEL].kind); // Custom starts from today's Standard
     TEST_ASSERT_EQUAL(60, s.idleOffMin);
     TEST_ASSERT_EQUAL(20, s.brightness);
 }

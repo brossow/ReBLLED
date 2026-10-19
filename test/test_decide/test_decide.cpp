@@ -126,8 +126,10 @@ void test_finished_pulses_green_and_shows_with_the_light_off() {
 // ---- preparing ----
 void test_preparing_steps_resolve_and_default_off() {
     Snapshot p = printingNow();
-    p.stage = 14; assertOff(decide(S0(), p), RS_PREPARING);           // off so the lidar isn't disturbed
-    p.stage = 1;  Decision d = decide(S0(), p); assertRgb(d, 0, 0, 0x55); TEST_ASSERT_EQUAL(PS_LEVEL, d.detail);
+    p.stage = 14; TEST_ASSERT_EQUAL(CK_NEUTRAL, decide(S0(), p).colour.kind);   // nozzle cleaning: lit, for the camera
+    p.stage = 1;  Decision d = decide(S0(), p); TEST_ASSERT_EQUAL(CK_NEUTRAL, d.colour.kind); TEST_ASSERT_EQUAL(PS_LEVEL, d.detail);
+    p.stage = 8;  assertOff(decide(S0(), p), RS_PREPARING);            // lidar steps: off
+    p.stage = 9;  assertOff(decide(S0(), p), RS_PREPARING);
     p.stage = 12; TEST_ASSERT_EQUAL(PS_LIDARCAL, decide(S0(), p).detail);
     Snapshot ov = printingNow(); ov.overrideStage = 10; TEST_ASSERT_EQUAL(PS_FIRSTLAYER, decide(S0(), ov).detail);
 }

@@ -94,7 +94,11 @@ namespace v2
         L.state[ST_ERROR] = {white ? colour(CK_NEUTRAL) : rgb(255, 0, 0), R_BLINK};
         L.state[ST_FINISHED] = {white ? colour(CK_NEUTRAL) : rgb(0, 255, 0), R_SLOW};
         for (auto &c : L.prep) c = colour(CK_SAME);
-        L.prep[PS_LEVEL] = rgb(0, 0, 0x55); // dim blue while levelling (upstream default)
+        // Lit while the nozzle is cleaned and the bed levelled: the X1C camera sets its exposure at
+        // print start, and a dark chamber then overexposes the rest of the print (the author's X1C,
+        // 2026-10-18). The lidar steps that follow stay off (the Preparing colour).
+        L.prep[PS_NOZZLE] = colour(CK_NEUTRAL);
+        L.prep[PS_LEVEL] = colour(CK_NEUTRAL);
         for (auto &c : L.attn) c = colour(CK_SAME);
         for (auto &c : L.err) c = colour(CK_SAME);
         return L;
@@ -322,7 +326,14 @@ namespace v2
             for (int i = 0; i < EK_COUNT; i++) if (a.err[i] != b.err[i]) return false;
             return true;
         };
-        s.look = sameLooks(L, presetLooks(LOOK_STANDARD)) ? LOOK_STANDARD : LOOK_CUSTOM;
+        // Upstream 2.3.0's own defaults count as "not chosen": those users get the Standard look
+        // (with its camera-friendly preparing colours) instead of a Custom copy of the old ones.
+        Looks upstream = presetLooks(LOOK_STANDARD);
+        upstream.prep[PS_NOZZLE] = colour(CK_SAME);
+        upstream.prep[PS_LEVEL] = rgb(0, 0, 0x55);
+        const bool standard = sameLooks(L, presetLooks(LOOK_STANDARD)) || sameLooks(L, upstream);
+        s.look = standard ? LOOK_STANDARD : LOOK_CUSTOM;
+        if (standard) s.custom = presetLooks(LOOK_STANDARD); // Custom starts from today's Standard
 
         const long idleMs = o["inactivityTimeOut"] | 600000L;
         s.idleOffMin = (o["inactivityEnabled"] | true) ? (uint16_t)(idleMs < 60000L ? 1 : idleMs / 60000L) : 0; // under a minute isn't "never"

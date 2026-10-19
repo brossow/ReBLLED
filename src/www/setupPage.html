@@ -435,7 +435,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   const STATES = [
     ["printing", "Printing", "While a print is running."],
     ["idle", "Idle", "Printer on, not printing."],
-    ["preparing", "Preparing", "Nozzle cleaning, bed leveling and scans before a print. Off by default so the lidar isn't disturbed."],
+    ["preparing", "Preparing", "Before a print. By default the strip stays lit while the nozzle is cleaned and the bed leveled (the camera sets its exposure then) and is off for the lidar steps so they aren't disturbed."],
     ["attention", "Needs attention", "Paused, first-layer problem or nozzle clog."],
     ["error", "Error", "Filament runout, front cover off, temperature fault, serious or fatal HMS."],
     ["finished", "Finished", "Print done, until the finish ends (see Timing)."],
@@ -454,7 +454,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
       finished: { colour: white ? n : c("#00ff00"), rhythm: "slow" }, prep: {}, attn: {}, err: {},
     };
     for (const [, [g, , subs]] of Object.entries(SUBS)) for (const k of Object.keys(subs)) L[g][k] = same;
-    L.prep.level = c("#000055");
+    L.prep.nozzle = n; L.prep.level = n;   // lit for the camera's exposure; the lidar steps stay off
     return clone(L);
   }
   const LOOK_TEXT = {

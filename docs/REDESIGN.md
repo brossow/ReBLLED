@@ -284,6 +284,16 @@ What was built:
   download (`blled-log-….txt`), clear; keeps the last 3,000 lines; reconnects by itself. The
   unused command box is gone.
 
+## Preparing defaults (br.7, 2026-10-18)
+
+Standard and White only now keep the strip lit (neutral white, the printing colour) while the
+nozzle is cleaned and the bed levelled, and off for the lidar steps (extrusion calibration, bed
+scan, first-layer inspection, lidar calibration). Upstream had it off throughout, with a dim blue
+for levelling. Reason: the X1C camera sets its exposure at print start; with the strip off then
+it locked on a dark chamber and overexposed the rest of the print. Confirmed on the author's X1C.
+A v1 config still on upstream's default colours migrates to Standard (so it gets this);
+any other v1 colours migrate to Custom as before.
+
 ## Open questions for review
 
 - The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check

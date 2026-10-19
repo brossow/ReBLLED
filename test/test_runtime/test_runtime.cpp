@@ -27,22 +27,25 @@ void test_printing_and_preparing_colours() {
   gcode("RUNNING", 0);
   TEST_ASSERT_TRUE(showingWhite());
   TEST_ASSERT_EQUAL(v2::RS_PRINTING, lastDecision.reason);
-  gcode("RUNNING", 1);                         // auto bed levelling: dim blue by default
-  TEST_ASSERT_TRUE(showing(0, 0, 0x55, 0, 0));
+  gcode("RUNNING", 1);                         // auto bed levelling: lit by default (the camera)
+  TEST_ASSERT_TRUE(showingWhite());
+  TEST_ASSERT_EQUAL(v2::RS_PREPARING, lastDecision.reason);
+  gcode("RUNNING", 8);                         // calibrating extrusion (lidar): off
+  TEST_ASSERT_TRUE(showingOff());
   TEST_ASSERT_EQUAL(v2::RS_PREPARING, lastDecision.reason);
 }
 void test_preparing_without_lidar_keeps_the_printing_colour() {
   v2::Settings s = v2::defaults(); strcpy(s.model, "P1S");
   freshDevice(s);
-  gcode("RUNNING", 1);
+  gcode("RUNNING", 8);
   TEST_ASSERT_TRUE(showingWhite());
 }
 void test_preparing_on_an_unknown_model_assumes_lidar() {
   strcpy(printerVariables.detectedModel, "Z9");               // a code nobody has mapped yet
-  gcode("RUNNING", 1);
-  TEST_ASSERT_TRUE(showing(0, 0, 0x55, 0, 0));                // the levelling colour, not printing
+  gcode("RUNNING", 8);
+  TEST_ASSERT_TRUE(showingOff());                             // lidar step kept off, not printing white
   strcpy(printerVariables.detectedModel, "A1M");
-  gcode("RUNNING", 8); gcode("RUNNING", 1);
+  gcode("RUNNING", 9); gcode("RUNNING", 8);
   TEST_ASSERT_TRUE(showingWhite());                           // known: no lidar
 }
 void test_brightness_scales_and_applies_live() {
