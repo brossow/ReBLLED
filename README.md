@@ -1,62 +1,85 @@
-## About this fork
+# ReBLLED
 
-Private fork of [DutchDevelop/BLLEDController](https://github.com/DutchDevelop/BLLEDController), based on release 2.3.0 (`Release_V_2.3.0`), with security and reliability fixes. Versions are tagged `2.3.0-br.N`. Licence unchanged (see [LICENSE](LICENSE): CC BY-NC-SA based, non-commercial, share-alike).
+**Alternative firmware for BLLED controllers**: the ESP32 LED controller for Bambu Lab
+printers. It lights your printer's chamber when that's useful and turns it off when it isn't,
+with no switch to flip, and shows at a glance when a print needs you. It runs on the same
+hardware as [BLLEDController](https://github.com/DutchDevelop/BLLEDController) by DutchDevelop,
+which it's built on.
 
-### In progress on `main`: the v2 redesign (not released yet)
+Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white strip.
 
-A redesigned setup page and LED logic ([docs/REDESIGN.md](docs/REDESIGN.md)). Built and tested in
-stages; not yet tested on a device, so it isn't tagged. What it changes:
+## What it does
 
-- **One calm page, autosaved.** Mode (follow the printer / always on / off), a Look (standard
-  colours, white only, or Custom) and brightness up front; everything else in folded sections that
-  say what they hold and show "Changed" when they differ from the defaults. Every change applies
-  and saves at once.
-- **No hidden behaviour.** The door's quick open/close gesture is gone: the door only wakes the
-  strip and ends the finished colour. Each thing the controller does to the printer's own light is
-  a separate, visible setting. The status bar always says what the strip shows and why ("Off: no
-  activity for 15 min. Open the door or start a print to wake it.").
-- **Your strip, wired your way.** Strip type (RGB + warm + cool white, RGB + one white, RGB only,
-  warm + cool white, one white) and a wiring check that lights each output in turn and corrects
-  for swapped wires in software.
-- **Setup in four steps** on first use, and again from "Run setup again": printer (found on the
-  network, or by address), model, strip, look. Brand-new devices still join Wi-Fi through the
-  `BLLED_AP` hotspot page first.
-- **Status colours with rhythms**, a 5-second preview for each, and per-step / per-error colours.
-- **Knows your printer:** reads its model and name from its network announcement, and "Look up"
-  reads the serial from a typed address.
-- **The access code only goes to your printer.** Before logging in, the controller checks the
-  printer's certificate: issued to its serial and signed by Bambu Lab. Anything else answering at
-  the printer's address gets nothing (dim red, and the status says why).
-- **Spelling follows the browser:** US English, with British spelling for en-GB (and AU, NZ, IE,
-  ZA, IN).
-- **Settings move to a new format** on first boot; the old file is kept as `/blledconfig.v1.json`.
+- **Light that follows the printer.** On while it prints, off a while after it goes idle,
+  woken by the door; it can also switch the printer's own chamber light (each of those is a
+  separate setting). By default the strip stays lit while the nozzle is cleaned and the bed
+  levelled, so the X1 camera sets its exposure for a lit chamber, and goes dark for the lidar
+  steps.
+- **Status you can read from across the room.** Errors blink red, a pause or a first-layer
+  problem pulses blue, a finished print pulses green until you open the door (or after a set
+  time). Rhythms mean you don't have to tell colours apart.
+- **It says why.** The setup page's status line always explains what the strip shows ("Off: no
+  activity for 15 min. Open the door or start a print to wake it."). Nothing hidden: no secret
+  door gestures.
+- **One setup page, autosaved.** Mode, look (standard colours, white only, or your own) and
+  brightness up front; everything else folded away. A four-step setup on first use. Works on a
+  phone, in light and dark mode, with a keyboard or a screen reader.
+- **Your strip, wired your way.** RGB + warm + cool white, RGB + one white, RGB only, warm +
+  cool white, or one white, and a wiring check that finds swapped wires and corrects for them.
+- **Knows your printer.** Finds Bambu printers on the network, reads their model and name, and
+  looks up a printer's serial from its address.
+- **Safer.** The printer's access code is only sent to a printer that proves it's yours (its
+  certificate is issued to its serial and signed by Bambu Lab). With a login set, every page
+  needs it; secrets are never sent back to the browser; other websites can't change settings
+  from your browser.
+- **Steady.** No freezes, recovers by itself after a power cut, gentle reconnects, and 129
+  automated tests of the real code.
 
-What changed in `2.3.0-br.2` (on top of br.1):
+The full design and every decision behind it: [docs/REDESIGN.md](docs/REDESIGN.md). What changed
+in each version: [CHANGELOG.md](CHANGELOG.md).
 
-- **Door quick open-and-close toggles the LEDs reliably.** In 2.3.0 a toggle-off was undone within the same printer message, and opening the door relit the strip before the toggle decided, so it could only ever end "off". It now flips the state from before the door opened (except while the "finished" colour shows: then door use just acknowledges it), It is now **off by default** (a hidden gesture surprised people) and opt-in via "Door Quick Open/Close Toggles LEDs" (seconds; 2.3.0 always had it at a fixed 2 s, hard to hit because door state arrives in ~1 s printer reports). The planned UI redesign replaces it with a visible lights on/off control.
-- **Finish colour ends on the door, a timer, or whichever comes first.** Timer mode no longer treats the first minutes after any boot as a finished print.
-- **States readable without colour.** Errors blink (1 per second, well under the photosensitivity threshold), pause / first-layer / clog pulse, finished pulses slowly; printing and idle stay steady. Can be turned off.
-- **Brightness applies live** while dragging the slider and saves when released.
-- **Clearer setup page.** The LED modes are one labelled radio group (choosing test colour or RGB cycle used to silently switch off "replicate printer light"); the finish ending is a three-way choice; the text beside every switch is clickable and announced by screen readers; switches show keyboard focus.
-- **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
-- **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests (129 on `main` now) drive printer states and real-shaped MQTT messages and check what the LEDs would do.
+## What you need
 
-What changed in `2.3.0-br.1` compared with 2.3.0:
+- A **BLLED controller**: an ESP32 with the five-channel LED driver and an LED strip, as for
+  [BLLEDController](https://github.com/DutchDevelop/BLLEDController) (see its project for the
+  hardware).
+- A **Bambu Lab printer** on your network, and its **access code** (on the printer: Settings →
+  Network). Tested on the X1 Carbon. Other models are recognised (X1, X1E, P1P, P1S, P2S, A1,
+  A1 mini, A2L, H2D, H2D Pro, H2S, H2C, X2D) but not yet tested; the setup page says so.
+- **Bambu firmware note:** newer Bambu firmware restricts third-party local access
+  ("Authorization Control"). If the controller can't connect after a printer update, LAN
+  Developer Mode may be needed, as for BLLED itself.
 
-- **Login actually protects the device.** When a WebUI username/password is set, every settings, upload, scan and log endpoint requires it (in 2.3.0, `/config.json`, `/submitWiFi`, `/update` and `/configrestore` did not). Stored secrets (WiFi password, printer access code, WebUI password) are never sent back to the browser: on the WiFi setup page, leave those fields blank to keep the saved value, and clear the username to remove the login. Forgot the password? Sending the Wi-Fi setup over USB serial again (the web flasher's setup step) clears the login.
-- **Recovers after a power cut.** If the saved WiFi isn't reachable at boot, the device keeps the `BLLED_AP` setup hotspot up (now with a working captive portal) but tries your network for 15 seconds every minute and restarts into normal mode once it's back (2.3.0 stayed in AP mode until power-cycled).
-- **No more 5-second freezes.** Printer discovery no longer blocks the main loop for ~5.5 s every 10 s.
-- **Gentler on the printer.** MQTT reconnects back off from 3 to 30 seconds instead of retrying continuously.
-- **LED fixes.** Colour changes actually fade; RGB cycle respects the brightness limit; an HMS error colour clears when the error does (even with debug logging off); with the inactivity timeout disabled, closing the door no longer turns the lights off mid-print.
-- **Robustness.** A malformed restored config or colour value can no longer crash or hang the device at boot; restored backups are validated before they replace the config; the firmware update page reports failures.
-- **Thread safety.** LED/printer state and the Web Serial log are protected against concurrent access from the loop, MQTT and web-server tasks; only the MQTT task talks to the printer.
-- **Reproducible builds.** Platform and library versions are pinned in `platformio.ini`.
+## Install
 
-### Working on this fork
+**From BLLED 2.3.0 (DutchDevelop's firmware):**
+
+1. On the controller's setup page, **download a backup** of your configuration (Backup &
+   Restore).
+2. Open its **firmware update** page and upload `ReBLLED_V1.0.0.bin.ota` from the
+   [release](https://github.com/brossow/ReBLLED/releases).
+3. It restarts into ReBLLED. Your Wi-Fi, printer and login carry over, and your LED settings
+   are converted (the original file is kept on the controller). Then, under **Your LED strip**,
+   pick your strip type and run the wiring check.
+
+**On a new controller:** flash DutchDevelop's firmware with the
+[BLLED web flasher](https://dutchdevelop.github.io/blledsetup/), join its `BLLED_AP` Wi-Fi
+hotspot to connect it to your network, then install ReBLLED as above. (Or write the full image
+`ReBLLED_V1.0.0.bin` over USB; that erases the controller, see
+[docs/USB-MIGRATION.md](docs/USB-MIGRATION.md).)
+
+**Going back:** upload DutchDevelop's `BLLC_V2.3.0.bin.ota` on ReBLLED's firmware update page,
+then restore the backup you downloaded. The restore matters: BLLED 2.3.0 can't read ReBLLED's
+LED settings and would start with a dark strip.
+
+The controller keeps the names it had (the `BLLED_AP` setup hotspot, `BLLED.local`), so
+existing setups and bookmarks keep working.
+
+## Working on ReBLLED
 
 | Task | Command |
 |---|---|
-| Build | `pio run -e esp32dev` → `.firmware/BLLC_V<version>.bin.ota` (over the air) and `.firmware/BLLC_V<version>.bin` (full 4 MB image, USB) |
+| Build | `pio run -e esp32dev` → `.firmware/ReBLLED_V<version>.bin.ota` (over the air) and `.firmware/ReBLLED_V<version>.bin` (full 4 MB image, USB) |
 | Run the tests | `pio test -e native`; the printer certificate check: `brew install mbedtls`, then `pio test -e native_tls` |
 | Update a device over the air | `tools/flash.sh <device-ip>` (reads the WebUI login from the macOS Keychain; see the script header) |
 | Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup. `POST /_sim` changes what the simulated printer is doing (see the script header) |
@@ -66,84 +89,17 @@ What changed in `2.3.0-br.1` compared with 2.3.0:
 
 [TESTING.md](TESTING.md) is the on-device checklist (with results); [TODO.md](TODO.md) lists what's next.
 
-The upstream instructions below install the *official* firmware. This fork's builds go on over the air (above), or over USB as in the migration guide.
+## Credits and licence
 
-## BL Led Controller
+ReBLLED is by [brossow](https://github.com/brossow), built on
+[BLLEDController](https://github.com/DutchDevelop/BLLEDController) 2.3.0 by
+[DutchDeveloper](https://dutchdevelop.com/), with credit to its contributors:
+[Modbot](https://github.com/Modbot) (testing), [xps3riments](https://github.com/xps3riments)
+(the original foundation), [longrackslabs](https://github.com/longrackslabs) (build, docs,
+community) and [SoftWareCrash](https://github.com/softwarecrash). ReBLLED is an independent
+project: it isn't made or endorsed by DutchDevelop or by Bambu Lab, and "Bambu Lab" is their
+trademark.
 
-The BL Led Controller is an ESP32 based device that connects to your Bambulab X1,X1C,P1P Or P1S and controls the LED strip based on the state of the printer.
-
-### Flashing and Setup
-1. go to the [Web Flasher](https://dutchdevelop.github.io/blledsetup/) (Or [here](https://softwarecrash.github.io/BLLED-Flasher/) for Nightly and Dev builds)
-2. connect your ESP32
-3. Select the Firmware build you want
-4. Click on Flash
-5. Search and connect to a WiFi Hotspot called "BLLED-AP"
-6. Surf to http://192.168.4.1
-7. Select your WiFi and Enter passwort, Optional enter all the Printer informations
-8. enjoy :)
-
-![main setup_LED](https://github.com/user-attachments/assets/52778d28-98cd-496e-bfce-aca49cd4de89)
-![main_setup_printer](https://github.com/user-attachments/assets/1969e4bd-0887-4a0c-a965-8ec575e23396)
-![main_setup_error](https://github.com/user-attachments/assets/b026260c-5c33-4f5c-922a-fcc601cb9be1)
-![main_setup_debug](https://github.com/user-attachments/assets/6d5a6e48-b052-4305-99f5-5d9c906eb8c1)
-![main_setup_navigation](https://github.com/user-attachments/assets/78041d10-2edb-42e2-b600-6cde735d2d1f)
-![setup_wifi](https://github.com/user-attachments/assets/4ef7631c-38f9-4424-ad88-72a335286c27)
-![setup_wifi_printer](https://github.com/user-attachments/assets/da354544-710d-4e10-9dff-fc2cc1951857)
-![ota](https://github.com/user-attachments/assets/7f223361-f811-4ff4-b3fc-45b2a1222c07)
-![backup_restore](https://github.com/user-attachments/assets/b21899ba-c97f-48b6-8bc3-a87797029d14)
-![navigation](https://github.com/user-attachments/assets/027fe724-ffc6-453b-ba73-c82c1ddb012e)
-
-
-
-
-
-- Connects to Bambulab X1,X1C,P1P Or P1S
-- Controls LED strip based on printer state
-
-### Development Environment
-
-To contribute to the BL Led Controller project, you'll need the following tools:
-
-### Tools & Libraries Used
-
-- [Visual Studio Code](https://code.visualstudio.com/): A lightweight and powerful source code editor.
-- [PlatformIO](https://platformio.org/): An open-source ecosystem for IoT development.
-- [Python](https://www.python.org/): A programming language used for scripting and automation.
-- [qpdf](https://qpdf.sourceforge.io/): A command-line tool and library of compression tools (`gzip`)
-
-### Building and Running the Project
-1. Clone the repository to your local machine.
-2. Open the project folder in Visual Studio Code.
-3. Ensure that PlatformIO is installed and configured in your Visual Studio Code environment.
-4. Connect your BLLED device ESP32 to your computer.
-6. Build the project by clicking on the PlatformIO icon in the sidebar and selecting "Build" from the available options.
-7. Once the build process is complete, upload the firmware to your device using the "Upload" option in PlatformIO.
-8. After uploading the firmware, your BL Led Controller device should be ready to use.
-
-### Setup Instructions
-Once you have uploaded the firmware to your device, please visit the [dutchdevelop.com/bl-led-controller](https://dutchdevelop.com/bl-led-controller) website for detailed setup instructions.
-
-
-### Development Notes
-
-#### Generating .h Files for Compressed HTML
-
-In embedded applications, HTML content is efficiently stored in PROGMEM memory. To achieve this, .h files are generated from compressed HTML files for webpages (i.e., `src/www/setuppage.html`) that are run on the device.
-
-- The `compress_html.py` is used to compress HTML files and generate corresponding .h files and is integrated into the build process and executed as a pre-build step in `platform.ini`
-- The generated .h files should not be checked into git (see `.gitignore`)
-
-### License
-
-The BL Led Controller is released under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0) license. See the [LICENSE](https://github.com/DutchDevelop/BLLEDController/blob/main/LICENSE) file for more details.
-
-### Credits
-- **[DutchDeveloper](https://dutchdevelop.com/)**: Lead programmer
-- **[Modbot](https://github.com/Modbot)**: Tester for X1C, P1P & P1S
-- **[xps3riments](https://github.com/xps3riments)**: Inspiration for the foundation of the code
-- **[longrackslabs](https://github.com/longrackslabs)**: Build process, documentation, developer & community support
-- **[SoftWareCrash](https://github.com/softwarecrash)**: Any small unimportant changes
-
-### Author
-
-This project was created by [DutchDeveloper](https://dutchdevelop.com/).
+Same licence as BLLEDController: see [LICENSE](LICENSE) (based on CC BY-NC-SA 4.0:
+non-commercial, share-alike, credit the original). ReBLLED changes the original substantially;
+[CHANGELOG.md](CHANGELOG.md) lists how.

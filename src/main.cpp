@@ -117,7 +117,7 @@ void setup()
     // >>> Fix: prevent false offline after 30s
     printerVariables.disconnectMQTTms = millis();
     Serial.println();
-    Serial.print(F("** BLLED Controller started "));
+    Serial.print(F("** ReBLLED started (BLLED controller firmware) "));
     Serial.print(F("using firmware version: "));
     Serial.print(globalVariables.FWVersion);
     Serial.println(F(" **"));

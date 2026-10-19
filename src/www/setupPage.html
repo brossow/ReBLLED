@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LED controller setup</title>
+<title>ReBLLED</title>
 <link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="/ui.css">
 <style>
@@ -587,7 +587,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
   // Live status: pushed every second on the web socket; polled if the socket isn't working.
   let lastHeard = 0, ws = null, pollTimer = null;
-  function heard(st) { ST = st; if (st.firmware) $("fwVersion").textContent = "Firmware " + st.firmware + "."; lastHeard = Date.now(); $("lostBanner").hidden = true; renderStatus(); applyModel(); summaries(); }
+  function heard(st) { ST = st; if (st.firmware) { $("fwVersion").textContent = `ReBLLED ${st.firmware}, firmware for BLLED controllers. Based on BLLEDController by DutchDevelop. `; const a = el("a", null, "About"); a.href = "https://github.com/brossow/ReBLLED"; $("fwVersion").appendChild(a); } lastHeard = Date.now(); $("lostBanner").hidden = true; renderStatus(); applyModel(); summaries(); }
   async function poll() { try { heard(await getJSON("/api/status")); } catch (e) {} }
   function pollSoon() { setTimeout(poll, 150); }
   function openSocket() {
@@ -1126,7 +1126,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
     DEFAULTS = { custom: presetLooks("standard"), followLight: true, idleOffMin: 10, finishEnds: "door", finishMin: 10, offlineOffSec: 30, strip: "rgbww", model: "auto" };
     try { PRINTERS = await getJSON("/api/printers"); } catch (e) {}
     const cur = (PRINTERS.printers || []).find(p => p.current);
-    if (cur && cur.name) { $("pageTitle").textContent = cur.name + " lights"; document.title = cur.name + " lights"; }
+    if (cur && cur.name) { $("pageTitle").textContent = cur.name + " lights"; document.title = cur.name + " lights · ReBLLED"; }
     syncControls(); buildStrip(); buildLooks(); summaries(); applyModel();
     await poll(); openSocket();
     let resume = false; try { resume = sessionStorage.getItem("blled-setup-resume") === "1"; sessionStorage.removeItem("blled-setup-resume"); } catch (e) {}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Firmware update</title>
+<title>Firmware update · ReBLLED</title>
 <link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="/ui.css">
 </head>
@@ -22,7 +22,7 @@
     <form class="card" id="form" novalidate>
       <div class="field"><label for="file">Firmware file (<code>.bin.ota</code>)</label>
         <input type="file" id="file" accept=".ota" aria-describedby="fileHint">
-        <p class="hint" id="fileHint">The over-the-air file, e.g. <code>BLLC_V2.3.0-br.3.bin.ota</code>, not the larger <code>.bin</code> for USB.</p>
+        <p class="hint" id="fileHint">The over-the-air file, e.g. <code>ReBLLED_V1.0.0.bin.ota</code>, not the larger <code>.bin</code> for USB.</p>
         <p class="err" id="fileErr" hidden></p></div>
       <progress id="progress" max="100" value="0" hidden aria-label="Upload progress"></progress>
       <div class="inline"><button type="submit" class="primary" id="go" disabled>Install</button></div>
@@ -36,7 +36,7 @@
   const $ = id => document.getElementById(id);
   let before = "";
   async function version() { const r = await fetch("/api/status", { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return (await r.json()).firmware || ""; }
-  version().then(v => { before = v; $("current").textContent = "Installed: " + (v || "unknown"); }).catch(() => { $("current").textContent = "Installed: couldn't ask the controller."; });
+  version().then(v => { before = v; $("current").textContent = "Installed: ReBLLED " + (v || "(version unknown)"); }).catch(() => { $("current").textContent = "Installed: couldn't ask the controller."; });
 
   const say = (text, cls) => { $("state").className = "status-line" + (cls ? " " + cls : ""); $("state").textContent = text; };
   // An ESP32 firmware image starts with 0xE9; catches the wrong file before it's uploaded.
@@ -58,8 +58,8 @@
     for (let i = 0; i < 40; i++) {
       try {
         const v = await version();
-        $("current").textContent = "Installed: " + v;
-        say(v && v !== before ? `Updated to ${v}.` : `It's back (version ${v || "unknown"}).`, "good");
+        $("current").textContent = "Installed: ReBLLED " + v;
+        say(v && v !== before ? `Updated to ReBLLED ${v}.` : `It's back (ReBLLED ${v || ", version unknown"}).`, "good");
         const a = document.createElement("a"); a.href = "/"; a.textContent = " Back to the lights"; $("state").appendChild(a);
         return;
       } catch (e) {}

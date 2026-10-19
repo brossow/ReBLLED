@@ -153,7 +153,7 @@ bool connectToWifi(){
     Serial.println(WiFi.BSSIDstr());
     Serial.print(F("RSSI (Signal Strength):          "));
     Serial.println(WiFi.RSSI());
-    Serial.print(F("BLLED Controller IP Address:     "));
+    Serial.print(F("ReBLLED IP Address:              "));
     Serial.println(WiFi.localIP());
     Serial.println();
     Serial.print(F("Use web browser to access 'http://"));  // Instruction for user to go to Config page

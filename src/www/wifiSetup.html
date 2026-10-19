@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Wi-Fi and login</title>
+<title>Wi-Fi and login · ReBLLED</title>
 <link rel="icon" href="/favicon.ico">
 <link rel="stylesheet" href="/ui.css">
 </head>
@@ -220,7 +220,7 @@
   (async () => {
     try { C = await (await fetch("/config.json", { cache: "no-store" })).json(); } catch (e) { C = {}; }
     const ap = !!C.isAPMode;
-    if (ap) { $("title").textContent = "Set up the controller"; document.title = "Set up the controller"; $("apIntro").hidden = false; $("backLink").hidden = $("cancelLink").hidden = true; }
+    if (ap) { $("title").textContent = "Set up ReBLLED"; document.title = "Set up ReBLLED"; $("apIntro").hidden = false; $("backLink").hidden = $("cancelLink").hidden = true; }
     $("host").value = C.host || "BLLED"; $("hostEcho").textContent = $("host").value;
     $("printerFields").hidden = !ap; $("printerOnNet").hidden = ap;
     $("printerNow").textContent = C.printerIP ? `Following the printer at ${C.printerIP}` + (C.printerSerial ? ` (serial ending ${C.printerSerial.slice(-4)}).` : ".") : "No printer set up yet.";
