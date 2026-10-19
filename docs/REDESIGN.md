@@ -1,4 +1,4 @@
-# Setup page and behaviour redesign
+# Setup page and behavior redesign
 
 Status: **released as ReBLLED 1.0.0**, after the device checks in
 [TESTING.md](../TESTING.md) passed on an X1 Carbon. Built in stages: settings and migration (1),
@@ -11,33 +11,33 @@ br.4 to br.7). The clickable prototype stays in `prototype/setup-v2.html`.
 1. **The door never changes what the lights do.** Opening the door means "I'm here": it wakes
    the lights (restarts the idle timer) and acknowledges a finished print. Nothing else. To
    turn the strip off on purpose there's a visible control.
-2. **Every behaviour is a setting, described in plain words where you'd look for it.** No
+2. **Every behavior is a setting, described in plain words where you'd look for it.** No
    gestures, no settings that silently rewrite other settings, no settings that do nothing.
 3. **One save model:** every change applies at once and saves itself ("Saved" confirms it).
    There's no Save button to forget.
 4. **The page explains itself:** a status line says what the printer is doing and why the
    strip looks the way it does.
 5. **Accessible:** every control has a label, choices are real radio groups or lists, focus is
-   visible, colour is never the only signal, contrast meets WCAG AA, and it works on a phone.
+   visible, color is never the only signal, contrast meets WCAG AA, and it works on a phone.
 
 ## Page layout: essentials first, nothing hidden
 
-No simple/expert switch: a mode that hides settings would recreate hidden behaviour (change
+No simple/expert switch: a mode that hides settings would recreate hidden behavior (change
 something in Expert, switch back, and the strip does things nothing on screen explains).
 Instead:
 
 - **Always visible:** Mode (Follow the printer / Always on / Off), **Look** and Brightness.
-  Look is *Standard colours*, *White only* or *Custom*, always all three, with a one-line
+  Look is *Standard colors*, *White only* or *Custom*, always all three, with a one-line
   description under the list. Standard and White only are fixed presets; while one is chosen,
-  the Status colours rows are shown locked, with a **Customise** button, so editing never
+  the Status colors rows are shown locked, with a **Customize** button, so editing never
   silently switches the Look. **Custom keeps its own saved set** (starting as a copy of
   Standard), so switching to a preset and back loses nothing. Choosing Custom from the list
-  opens Status colours and moves focus into it; loading a page with Custom already chosen
+  opens Status colors and moves focus into it; loading a page with Custom already chosen
   doesn't.
 - **Everything else folded**, each section with a one-line summary of its current values and
   a **Changed** marker when it differs from the default, so a folded section never hides a
   surprise. The page remembers which sections each person keeps open.
-- **Tools** (colour test, colour cycle, Wi-Fi strength) are temporary: not modes, not saved.
+- **Tools** (color test, color cycle, Wi-Fi strength) are temporary: not modes, not saved.
   While one runs, the status bar shows **Stop**, which returns to the normal mode.
 
 ## Settings model (v2)
@@ -46,16 +46,16 @@ Instead:
 |---|---|---|---|
 | Lights | `mode` | `follow` (follow the printer), `on` (always on), `off` | five mutually exclusive switches |
 | Lights | `look` + `customLooks` | `standard`, `white`, `custom`; custom keeps its own saved set | new |
-| Tools (not saved) | colour test, colour cycle, Wi-Fi strength | run until Stop or a restart | three of the old modes |
+| Tools (not saved) | color test, color cycle, Wi-Fi strength | run until Stop or a restart | three of the old modes |
 | Lights | `brightness` | 0–100 % | same |
-| Looks | per state: `printing`, `idle`, `preparing`, `attention`, `error`, `finished` | colour (`warm`, `neutral`, `cool`, `off`, or a custom RGB) + rhythm (`steady`, `pulse`, `slow`, `blink`) | ~15 RGB+WW+CW triplets, statusAnimations |
-| Looks (advanced) | per-stage overrides under *preparing* (nozzle cleaning, bed levelling, extrusion calibration, bed scan, first-layer inspection, lidar calibration) and per-error overrides under *error* (filament runout, front cover, nozzle temp, bed temp, serious HMS, fatal HMS) | colour, or "same as group" | the per-stage/per-error triplets |
+| Looks | per state: `printing`, `idle`, `preparing`, `attention`, `error`, `finished` | color (`warm`, `neutral`, `cool`, `off`, or a custom RGB) + rhythm (`steady`, `pulse`, `slow`, `blink`) | ~15 RGB+WW+CW triplets, statusAnimations |
+| Looks (advanced) | per-stage overrides under *preparing* (nozzle cleaning, bed levelling, extrusion calibration, bed scan, first-layer inspection, lidar calibration) and per-error overrides under *error* (filament runout, front cover, nozzle temp, bed temp, serious HMS, fatal HMS) | color, or "same as group" | the per-stage/per-error triplets |
 | Follow the printer | `followChamberLight` | on/off: the strip is off whenever the printer's own light is off | "Replicate State" |
 | Timing | `idleOffMinutes` | 0 (never) or minutes; never during a print | inactivity timeout (+ its door-close coupling, removed) |
 | Timing | `finishEnds` + `finishMinutes` | `door`, `timer`, `either` | finish exit |
 | Timing | `offlineOffSeconds` | seconds before the strip turns off when the printer is unreachable (was a fixed 30 s) | hidden constant |
 | Printer's light | `lightOnAtPrintStart`, `lightOnWhenDoorOpens`, `lightOffWhenIdle`, `lightOffWhenFinishTimerEnds` | on/off each | the single "Control Chamber Light" switch |
-| LED strip | `stripType` | `rgbww` (RGB + warm + cool white), `rgbw` (RGB + one white), `rgb`, `wwcw` (warm + cool white only), `w` (single white) | nothing (every colour assumed all five channels) |
+| LED strip | `stripType` | `rgbww` (RGB + warm + cool white), `rgbw` (RGB + one white), `rgb`, `wwcw` (warm + cool white only), `w` (single white) | nothing (every color assumed all five channels) |
 | LED strip | `channelMap` | which controller output (R, G, B, WW, CW) drives each strip channel; set by the wiring check | rewiring (red/green swapped on the author's strip) |
 | Printer | `model` | `auto` (default: use the model the printer reports in its network discovery message) or a model chosen by hand: X1, X1 Carbon, X1E, P1P, P1S, P2S, A1, A1 mini, H2D, H2S, X2D, Not listed. Only the X1 Carbon is tested; the rest say so. | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
 | Advanced | `hmsIgnore`, `debug`, `mqttLog` | | same |
@@ -65,7 +65,7 @@ settings are dropped.
 
 ## LED strip and wiring check
 
-The controller has five outputs, labelled R, G, B, WW and CW on the board. Strips use some of
+The controller has five outputs, labeled R, G, B, WW and CW on the board. Strips use some of
 them, and the wires aren't always in that order.
 
 - **A single white** is driven on both WW and CW until the wiring check says which it's on,
@@ -73,26 +73,26 @@ them, and the wires aren't always in that order.
 - **Wiring check:** the page lights one output at a time and asks "What do you see?" (red,
   green, blue, white, warm white, cool white, nothing). The answers set `channelMap` and
   suggest `stripType`; both can be changed by hand.
-- **Colour choices follow the strip:**
-  - `rgbww`: warm, neutral and cool white, custom colour, off.
+- **Color choices follow the strip:**
+  - `rgbww`: warm, neutral and cool white, custom color, off.
   - `rgbw`: white (the white channel), warm or cool white (white mixed with a little RGB), custom, off.
   - `rgb`: white, warm and cool white mixed from RGB, custom, off.
-  - `wwcw`: warm, neutral and cool white, off. There are no colours, so states are told apart
+  - `wwcw`: warm, neutral and cool white, off. There are no colors, so states are told apart
     by rhythm.
   - `w`: white or off, with states told apart by rhythm.
-- **Saved colours are never rewritten** when the type changes. A choice the strip can't show
+- **Saved colors are never rewritten** when the type changes. A choice the strip can't show
   (custom red on a white-only strip) is shown as the nearest it can, and the row says so.
 - **Firmware:** one mapping step in the function that writes the PWM (logical channel → output),
   plus white mixing for `rgb`. Host tests cover each type.
 
-## Behaviour rules
+## Behavior rules
 
 - **Priority** (highest first): Lights mode `off`/`on`/`test`/`cycle`/`wifi` → printer
   unreachable → error → needs attention → finished (until it ends) → preparing → printing →
   idle → idle-off.
 - **Door open or close:** restarts the idle timer, relights the strip if idle-off, and
   acknowledges *finished* when the finish ends on the door. That's all.
-- **Start-up and connection colours** (shown before the printer is reachable) are listed in
+- **Start-up and connection colors** (shown before the printer is reachable) are listed in
   Help, not hidden: white = starting, red = loading settings, orange = joining Wi-Fi,
   pink = no Wi-Fi configured (setup hotspot `BLLED_AP` is on), blue = Wi-Fi connected,
   cyan = connecting to the printer, dim red = printer rejected the access code.
@@ -107,7 +107,7 @@ them, and the wires aren't always in that order.
   the field against the X1C when building), with a manual override. A hand-kept list goes
   stale as Bambu releases printers.
 - **Wiring check:** kept.
-- **Section name:** "Status colours" (was "How each printer state looks").
+- **Section name:** "Status colors" (was "How each printer state looks").
 
 ## First-run setup (prototyped)
 
@@ -169,11 +169,11 @@ the prototype, and why:
   `/submitWiFi`, which would also clear the WebUI login.
 - **"Finish later" also marks setup done**, so the dialog doesn't reopen on every visit. "Run
   setup again" is always there.
-- **Preview** uses the colour test with the state's rhythm for 5 seconds (`seconds` in
+- **Preview** uses the color test with the state's rhythm for 5 seconds (`seconds` in
   `POST /api/tool`), so it ends even if the page is closed.
-- **Colour cycle** is disabled on strips without colours (the firmware cycles red, green and blue).
-- **Printer without a door sensor:** door-only options are hidden, not greyed out (the prototype
-  greyed them): the finish just ends after the set minutes, and "turn the printer's light on when
+- **Color cycle** is disabled on strips without colors (the firmware cycles red, green and blue).
+- **Printer without a door sensor:** door-only options are hidden, not grayed out (the prototype
+  grayed them): the finish just ends after the set minutes, and "turn the printer's light on when
   the door opens" and the door help aren't shown. Saved choices are left alone, so they come back
   with a model that has a door. As a safety net (a backup restored from another printer, a model
   detected after the setting was saved), the firmware treats "door" as the timer on such a printer.
@@ -232,7 +232,7 @@ No blockers. Fixed before flashing:
   after the unreachable delay), as Help says; it was replaced by idle white at once.
 
 Left for later: `/ws` status needs no login (no secrets); the red "loading settings" boot
-colour uses the board labels (it's shown before the settings that hold the wiring load).
+color uses the board labels (it's shown before the settings that hold the wiring load).
 
 **Cross-site requests (fixed in br.5).** In br.2–br.4, with no WebUI login set, any web page
 you visited could post to the controller: factory reset (it was even a GET), config restore,
@@ -286,13 +286,13 @@ What was built:
 
 ## Preparing defaults (br.7)
 
-Standard and White only now keep the strip lit (neutral white, the printing colour) while the
+Standard and White only now keep the strip lit (neutral white, the printing color) while the
 nozzle is cleaned and the bed levelled, and off for the lidar steps (extrusion calibration, bed
 scan, first-layer inspection, lidar calibration). Upstream had it off throughout, with a dim blue
 for levelling. Reason: the X1C camera sets its exposure at print start; with the strip off then
 it locked on a dark chamber and overexposed the rest of the print. Confirmed on the author's X1C.
-A v1 config still on upstream's default colours migrates to Standard (so it gets this);
-any other v1 colours migrate to Custom as before.
+A v1 config still on upstream's default colors migrates to Standard (so it gets this);
+any other v1 colors migrate to Custom as before.
 
 ## Open questions for review
 
@@ -302,6 +302,6 @@ any other v1 colours migrate to Custom as before.
 ## Language
 
 All page text goes in one string table. US English is the default (the original page uses US
-spelling); the page switches to British English (colour, grey, …) when the browser's language
+spelling); the page switches to British English (color, gray, …) when the browser's language
 is `en-GB`, and the table leaves room for other languages later. The prototype isn't localised
 yet.

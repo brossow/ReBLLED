@@ -76,7 +76,7 @@ Then delete the config file from the phone or laptop you used.
 
 - The setup page shows the new firmware version and asks for your WebUI login.
 - `python3 tools/ws_timing.py <device-ip> 60` reports ~60 messages and the printer connected.
-- Your LED settings and colours are as before.
+- Your LED settings and colors are as before.
 
 From now on, update over the air with `tools/flash.sh <device-ip>`.
 
