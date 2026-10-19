@@ -140,7 +140,7 @@ Bugs: [GitHub issues](https://github.com/brossow/ReBLLED/issues). For the Hubita
 | Task | Command |
 |---|---|
 | Build | `pio run -e esp32dev` → `.firmware/ReBLLED_V<version>.bin.ota` (over the air) and `.firmware/ReBLLED_V<version>.bin` (full 4 MB image, USB) |
-| Run the tests | `pio test -e native`; the printer certificate check: `brew install mbedtls`, then `pio test -e native_tls` |
+| Run the tests | `pio test -e native`; the printer certificate check, for now only on a Mac with Apple Silicon and Homebrew (it needs mbedtls 4 at Homebrew's path): `brew install mbedtls`, then `pio test -e native_tls` |
 | Update a device over the air | `tools/flash.sh <device-ip>` (reads the WebUI login from the macOS Keychain; see the script header) |
 | Try the setup pages without hardware | `python3 tools/mock_device.py src/www 8765`, then http://localhost:8765 (Wi-Fi setup) or http://localhost:8765/setup. `POST /_sim` changes what the simulated printer is doing (see the script header) |
 | Check a device for main-loop freezes | `python3 tools/ws_timing.py <device-ip> 60` |

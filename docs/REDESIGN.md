@@ -206,7 +206,7 @@ the prototype, and why:
   web server only asks.
 - Tests: `test_ssdp` (parser), `test_mqtt` (the code is never sent to an unverified printer), and
   `test_cert` against real mbedtls with generated certificates (`pio test -e native_tls`, needs
-  `brew install mbedtls`; separate so the other tests don't).
+  `brew install mbedtls` on an Apple Silicon Mac for now; separate so the other tests don't).
 
 ## Independent review before the device test (stage 6)
 
