@@ -66,7 +66,7 @@ in each version: [CHANGELOG.md](CHANGELOG.md).
    pick your strip type and run the wiring check.
 
 **On a new controller:** flash DutchDevelop's firmware with the
-[BLLED web flasher](https://dutchdevelop.github.io/blledsetup/), join its `BLLED_AP` Wi-Fi
+[BLLED web flasher](https://dutchdevelop.github.io/Universal-Flasher/), join its `BLLED_AP` Wi-Fi
 hotspot to connect it to your network, then install ReBLLED as above. (Or write the full image
 `ReBLLED_V1.0.0.bin` over USB; that erases the controller, see
 [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md).)
