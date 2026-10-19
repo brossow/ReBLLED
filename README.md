@@ -18,7 +18,7 @@ Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white 
 - **Light that follows the printer.** On while it prints, off a while after it goes idle,
   woken by the door; it can also switch the printer's own chamber light (each of those is a
   separate setting). By default the strip stays lit while the nozzle is cleaned and the bed
-  levelled, so the X1 camera sets its exposure for a lit chamber, and goes dark for the lidar
+  leveled, so the X1 camera sets its exposure for a lit chamber, and goes dark for the lidar
   steps.
 - **Status you can read from across the room.** Errors blink red, a pause or a first-layer
   problem pulses blue, a finished print pulses green until you open the door (or after a set
