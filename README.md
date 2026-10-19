@@ -22,11 +22,11 @@ Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white 
   steps.
 - **Status you can read from across the room.** Errors blink red, a pause or a first-layer
   problem pulses blue, a finished print pulses green until you open the door (or after a set
-  time). Rhythms mean you don't have to tell colours apart.
+  time). Rhythms mean you don't have to tell colors apart.
 - **It says why.** The setup page's status line always explains what the strip shows ("Off: no
   activity for 15 min. Open the door or start a print to wake it."). Nothing hidden: no secret
   door gestures.
-- **One setup page, autosaved.** Mode, look (standard colours, white only, or your own) and
+- **One setup page, autosaved.** Mode, look (standard colors, white only, or your own) and
   brightness up front; everything else folded away. A four-step setup on first use. Works on a
   phone, in light and dark mode, with a keyboard or a screen reader.
 - **Your strip, wired your way.** RGB + warm + cool white, RGB + one white, RGB only, warm +
@@ -51,7 +51,7 @@ in each version: [CHANGELOG.md](CHANGELOG.md).
   ReBLLED runs on the same hardware as their
   [BLLEDController](https://github.com/DutchDevelop/BLLEDController) firmware.
 - A **Bambu Lab printer** on your network, and its **access code** (on the printer: Settings →
-  Network). Tested on the X1 Carbon. Other models are recognised (X1, X1E, P1P, P1S, P2S, A1,
+  Network). Tested on the X1 Carbon. Other models are recognized (X1, X1E, P1P, P1S, P2S, A1,
   A1 mini, A2L, H2D, H2D Pro, H2S, H2C, X2D) but not yet tested; the setup page says so.
 - **Bambu firmware note:** newer Bambu firmware restricts third-party local access
   ("Authorization Control"). If the controller can't connect after a printer update, LAN
@@ -116,7 +116,7 @@ Bugs: [GitHub issues](https://github.com/brossow/ReBLLED/issues). For the Hubita
 
 [TESTING.md](TESTING.md) is the on-device checklist (with results); [TODO.md](TODO.md) lists what's next.
 
-## Credits and licence
+## Credits and license
 
 ReBLLED is by [brossow](https://github.com/brossow), built on
 [BLLEDController](https://github.com/DutchDevelop/BLLEDController) 2.3.0 by
@@ -127,6 +127,6 @@ community) and [SoftWareCrash](https://github.com/softwarecrash). ReBLLED is an 
 project: it isn't made or endorsed by DutchDevelop or by Bambu Lab, and "Bambu Lab" is their
 trademark.
 
-Same licence as BLLEDController: see [LICENSE](LICENSE) (based on CC BY-NC-SA 4.0:
+Same license as BLLEDController: see [LICENSE](LICENSE) (based on CC BY-NC-SA 4.0:
 non-commercial, share-alike, credit the original). ReBLLED changes the original substantially;
 [CHANGELOG.md](CHANGELOG.md) lists how.

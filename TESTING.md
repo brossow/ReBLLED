@@ -13,7 +13,7 @@ For a new fork build (`2.3.0-br.N`). Everything below needs the real controller,
 
 - [ ] `tools/flash.sh <device-ip>` (or Firmware Update page → upload `.firmware/BLLC_V2.3.0-br.N.bin.ota`).
 - [ ] The page says "Upload complete. Rebooting...", and after the reboot the setup page shows **Firmware Version: 2.3.0-br.N**.
-- [ ] Your settings survived (colours, timers, printer IP/serial).
+- [ ] Your settings survived (colors, timers, printer IP/serial).
 - [ ] Web Serial log shows `[MQTT] connected` and the LEDs follow the printer.
 
 ## Security (set a WebUI login first)
@@ -32,14 +32,14 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 ## Reliability
 
 - [ ] **Power-cut recovery:** unplug the router (or turn off the 2.4 GHz WiFi), power-cycle the controller, wait until the `BLLED_AP` hotspot appears (LEDs stay orange), then bring the network back. Within ~1–2 minutes it should restart and reconnect without anyone touching it. While it's still in AP mode, joining `BLLED_AP` should open the setup page (captive portal), and its network list should load (it may take up to ~15 s while a reconnect attempt finishes).
-- [ ] **No freezes:** `python3 tools/ws_timing.py <device-ip> 60` reports ~60 messages and no gaps over 2 s (2.3.0: ~31 messages, a ~6 s gap every ~10 s). With RGB cycle mode on, the colour moves smoothly with no pauses.
+- [ ] **No freezes:** `python3 tools/ws_timing.py <device-ip> 60` reports ~60 messages and no gaps over 2 s (2.3.0: ~31 messages, a ~6 s gap every ~10 s). With RGB cycle mode on, the color moves smoothly with no pauses.
 - [ ] **MQTT back-off:** temporarily enter a wrong access code. Web Serial shows `next attempt in 3 s`, then 6, 12, 24, 30 s (not continuous retries). Put the right code back; it reconnects.
 - [ ] Printer list (WiFi setup page → printer search) still finds the printer.
 
 ## LEDs
 
-- [ ] Colour changes fade over about half a second instead of jumping.
-- [ ] RGB cycle shows saturated colours and respects the brightness slider (try 20% vs 100%).
+- [ ] Color changes fade over about half a second instead of jumping.
+- [ ] RGB cycle shows saturated colors and respects the brightness slider (try 20% vs 100%).
 - [ ] A print start, finish (green) and door interaction behave as before.
 - [ ] With **Control chamber light** on and **inactivity timeout** off: closing the door mid-print does **not** turn the LEDs or the chamber light off.
 - [ ] If an HMS error turns the LEDs red, they return to normal when the error clears, with both debug-logging options off.
@@ -48,7 +48,7 @@ On the WiFi setup page, enter a WebUI username and password and save (the device
 ## Added in br.2
 
 - [ ] **Door quick-tap is off by default:** a quick open-and-close does nothing special (the strip just stays on).
-- [ ] **Door quick-tap (opt-in):** set "Door Quick Open/Close Toggles LEDs" to 4 and save. With the strip on, open and close the door within ~4 s: the strip goes **off and stays off**. Tap again: it comes **back on** and stays on (no switch-off a moment later). A normal, slower open still turns it on. While the "finished" colour shows, any door use (quick or slow) means "seen it": back to white, never off.
+- [ ] **Door quick-tap (opt-in):** set "Door Quick Open/Close Toggles LEDs" to 4 and save. With the strip on, open and close the door within ~4 s: the strip goes **off and stays off**. Tap again: it comes **back on** and stays on (no switch-off a moment later). A normal, slower open still turns it on. While the "finished" color shows, any door use (quick or slow) means "seen it": back to white, never off.
 - [ ] Set it back to 0 afterwards: a quick tap no longer toggles.
 - [ ] **Finish ending:** after a print, try each of *door*, *timer* and *whichever comes first* (a short timer, like 1 minute, makes this quick).
 - [ ] **Rhythms:** finished = slow green pulse; a pause = blue pulse; an error = red blink (an easy one: pause the print, or pull the filament for a runout). Turning "Blink Errors, Pulse Pause / Finish" off makes them steady.
@@ -76,10 +76,10 @@ The settings file changes format on the first boot (the old one is kept on the d
 - [ ] Web Serial shows `[MQTT] connected`, and **no** "Access code not sent" line. (This is the
       real test of the certificate check: the X1C's certificate passed on the Mac, but the
       device's TLS library is a different version.)
-- [ ] During boot the strip goes cyan while it connects, then to its normal colour.
+- [ ] During boot the strip goes cyan while it connects, then to its normal color.
 - [ ] Status bar: "Printer connected", a status sentence, and a strip preview that matches the
-      real strip's colour.
-- [ ] Your settings came across: Look is **Custom** with your own colours (purple runout, green
+      real strip's color.
+- [ ] Your settings came across: Look is **Custom** with your own colors (purple runout, green
       finish); idle and finish timing as before; HMS ignore list kept.
 
 ### Your strip and printer
@@ -104,13 +104,13 @@ The settings file changes format on the first boot (the old one is kept on the d
 - [ ] Mode **Off**, **Always on**, **Follow the printer**: each applies at once, says "Saved",
       and the status bar explains it.
 - [ ] Brightness: the strip follows while you drag; reload and it stuck.
-- [ ] Status colors: **Preview** each row: 5 seconds in that colour and rhythm, then back.
-- [ ] Color cycle: smooth, no pauses. Wi-Fi strength: a colour and the dBm in the status. Stop
+- [ ] Status colors: **Preview** each row: 5 seconds in that color and rhythm, then back.
+- [ ] Color cycle: smooth, no pauses. Wi-Fi strength: a color and the dBm in the status. Stop
       returns to normal each time.
 - [ ] Door: quick open-and-close does nothing special. After the strip has gone idle (or set the
       idle time to 5 min to wait less), opening the door wakes it.
 - [ ] Idle: the status counts down ("8 min left"), then "Off: no activity for 10 min".
-- [ ] A print: preparing steps off (or your colours), printing white, finished = slow green pulse
+- [ ] A print: preparing steps off (or your colors), printing white, finished = slow green pulse
       until the door opens. A pause = blue pulse.
 - [ ] Settings stick through a restart (unplug and replug).
 - [ ] No freezes: `python3 tools/ws_timing.py <device-ip> 60` → ~60 messages, no gap over 2 s.
@@ -152,7 +152,7 @@ The settings file changes format on the first boot (the old one is kept on the d
 Upload `BLLC_V2.3.0-br.2.bin.ota` (Firmware update page or `tools/flash.sh`), then **restore
 the backup you downloaded** (Back up and restore). br.2 reads the Wi-Fi and printer settings
 from the new file but not the LED settings: it reads their absence as brightness 0 and no
-colours, so without the restore the strip stays dark. The restore is required, not optional.
+colors, so without the restore the strip stays dark. The restore is required, not optional.
 
 ### Results
 
@@ -165,15 +165,15 @@ colours, so without the restore the strip stays dark. The restore is required, n
 | Model detected | ⚠️ the X1C announces `BL-P001`, not `3DPrinter-X1-Carbon`; mapping added after br.3 |
 | Look up | ✅ printer answered, signed by Bambu Lab, right serial; the printer stayed connected during it (two TLS sessions at once) |
 | Modes, brightness, previews, tools | ✅ (author) |
-| Door, idle, print colours | ✅ test print (author). Door opens → printer light on; it goes off with the strip at idle (10 min), as designed |
+| Door, idle, print colors | ✅ test print (author). Door opens → printer light on; it goes off with the strip at idle (10 min), as designed |
 | Restart keeps settings | ✅ (author) |
 | No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
 | Other pages (br.4) | ✅ (author) |
 | br.5 flashed (through the logged-in browser tab) | ✅ back in 19 s, settings intact, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s) |
 | br.6 flashed (through the tab) | ✅ back in ~25 s, connected and verified; Wi-Fi page shows the saved network with "no password" locked off, login ticked |
 | ReBLLED 1.0.0 flashed (through the tab) | ✅ back in ~25 s, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s); page and footer show ReBLLED 1.0.0 |
-| br.7 flashed (through the tab) | ✅ back in ~24 s, connected and verified; the author's Custom colours unchanged |
-| Camera exposure (X1C) | ✅ fixed by settings: white (the printing colour) for "Cleaning the nozzle" and "Leveling the bed", off for the lidar steps. The camera sets its exposure at print start; with the strip off then it locked on a dark chamber |
+| br.7 flashed (through the tab) | ✅ back in ~24 s, connected and verified; the author's Custom colors unchanged |
+| Camera exposure (X1C) | ✅ fixed by settings: white (the printing color) for "Cleaning the nozzle" and "Leveling the bed", off for the lidar steps. The camera sets its exposure at print start; with the strip off then it locked on a dark chamber |
 | Cross-site protection | ✅ without the header, a logged-in request to `/api/wifi-rescan` gets 403; without a login, the change endpoints get 401 |
 
 ## If something goes wrong
@@ -196,14 +196,14 @@ Flashed over the network (upload ~19 s, back in ~13 s); settings carried over un
 | MQTT back-off | ✅ `Connection Failed (-2)` → `next attempt in 30 s` while the printer was unreachable |
 | Printer IP follow (SSDP) | ✅ followed a DHCP change and then a reservation change, each after the 2-minute guard |
 | Fades | ✅ smooth ~0.5 s fade in both directions |
-| RGB cycle | ✅ saturated colours, smooth, dims with the brightness slider |
+| RGB cycle | ✅ saturated colors, smooth, dims with the brightness slider |
 | Door open/close | ✅ each event handled within a second (LEDs on, idle timer reset) |
 | Door quick-toggle (open+close < 2 s) | ⚠️ works but rarely fires: door state arrives via ~1 s printer reports, so the 2 s window is hard to hit. **Unchanged from 2.3.0.** Candidate fix: widen to ~4 s. |
 | Login protects everything | ✅ all 12 pages, `/update`, `/configrestore` and the Web Serial socket return 401 without it; refused uploads cause no restart |
 | Web Serial behind the login | ✅ Chrome and Safari |
 | Cold boot (unplug/replug) | ✅ back and connected to the printer in ~26 s |
 | Power-cut recovery | ✅ Wi-Fi unavailable at boot → `BLLED_AP` up; retried once a minute for ~9 h; rejoined, restarted and reconnected 54 s after Wi-Fi returned |
-| HMS colour clears without debug logging | ⏳ not testable on demand; waiting for a real HMS error |
-| Print start / finish colours | ⏳ next real print |
+| HMS color clears without debug logging | ⏳ not testable on demand; waiting for a real HMS error |
+| Print start / finish colors | ⏳ next real print |
 
 Found during testing (hardware, not firmware): the strip's red and green wires were swapped; fixed by rewiring.
