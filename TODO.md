@@ -17,6 +17,12 @@
   2. **Delete and recreate `brossow/ReBLLED`** from this clean history, so the pre-scrub
      commits GitHub still keeps as unreachable objects are gone for good. Push `main`, the
      tags (`v1.0.0`, `v2.3.0-br.1`, and DutchDevelop's `Release`, `Release_V_2.3.0`).
+     **Before pushing anything, turn Actions off on the new repo**
+     (`gh api -X PUT repos/brossow/ReBLLED/actions/permissions -F enabled=false`): the
+     `v1.0.0` tag still contains DutchDevelop's flasher workflows (removed from `main` later),
+     and a release runs the workflows at its tag, so they would fire on step 3 and try to push
+     ReBLLED firmware into DutchDevelop's flasher repos (they fail without the token, and
+     each one emails a failure).
   3. **Recreate the v1.0.0 release** from the saved copy (the exact verified files and notes,
      kept outside the repo with the other controller backups), not from a rebuild: every
      build embeds its compile time, so a rebuild wouldn't match the published checksums.
