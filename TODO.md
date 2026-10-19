@@ -45,6 +45,6 @@
   works for this controller.
 - **X2D.** Its MQTT messages may differ (stage codes, door bit, dual-nozzle HMS). When it
   arrives, capture its messages with *MQTT debug* on before relying on the controller.
-- **Upstream.** Done 2026-10-19: the security fixes went upstream as
-  DutchDevelop/BLLEDController#83 (merged the same day; no upstream release yet). Not
+- **Upstream.** Done: the security fixes went upstream as
+  DutchDevelop/BLLEDController#83 (merged; no upstream release yet). Not
   included there: the printer certificate check (offered as a follow-up PR if they want it).

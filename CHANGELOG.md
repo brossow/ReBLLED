@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 (2026-10-18): ReBLLED
+## 1.0.0: ReBLLED
 
 The first release under the ReBLLED name, built on BLLEDController 2.3.0 by DutchDevelop. Fork
 builds `2.3.0-br.3` to `br.7` led up to it; design and decisions in
@@ -29,7 +29,7 @@ builds `2.3.0-br.3` to `br.7` led up to it; design and decisions in
 - **Under the hood:** a JSON API for the page (and for future integrations), fades off the web
   and MQTT tasks, a second test suite for the certificate check; 129 host tests.
 
-## 2.3.0-br.2 (fork build, 2026-10-17)
+## 2.3.0-br.2 (fork build)
 
 - **Door quick open-and-close toggles the LEDs reliably.** In 2.3.0 a toggle-off was undone within the same printer message, and opening the door relit the strip before the toggle decided, so it could only ever end "off". It now flips the state from before the door opened (except while the "finished" colour shows: then door use just acknowledges it), It is now **off by default** (a hidden gesture surprised people) and opt-in via "Door Quick Open/Close Toggles LEDs" (seconds; 2.3.0 always had it at a fixed 2 s, hard to hit because door state arrives in ~1 s printer reports). The planned UI redesign replaces it with a visible lights on/off control.
 - **Finish colour ends on the door, a timer, or whichever comes first.** Timer mode no longer treats the first minutes after any boot as a finished print.
@@ -39,7 +39,7 @@ builds `2.3.0-br.3` to `br.7` led up to it; design and decisions in
 - **Room to grow.** Built for a partition layout with 1.875 MB firmware slots (was 1.25 MB). Switching a device to it needs one USB flash ([docs/USB-MIGRATION.md](docs/USB-MIGRATION.md)); until then builds still install over the air while they fit the old slot, and every build says whether they do.
 - **Tests.** The real LED and MQTT code compiles and runs on a Mac (`pio test -e native`): 54 tests drive printer states and real-shaped MQTT messages and check what the LEDs would do.
 
-## 2.3.0-br.1 (fork build, 2026-10-17)
+## 2.3.0-br.1 (fork build)
 
 - **Login actually protects the device.** When a WebUI username/password is set, every settings, upload, scan and log endpoint requires it (in 2.3.0, `/config.json`, `/submitWiFi`, `/update` and `/configrestore` did not). Stored secrets (WiFi password, printer access code, WebUI password) are never sent back to the browser: on the WiFi setup page, leave those fields blank to keep the saved value, and clear the username to remove the login. Forgot the password? Sending the Wi-Fi setup over USB serial again (the web flasher's setup step) clears the login.
 - **Recovers after a power cut.** If the saved WiFi isn't reachable at boot, the device keeps the `BLLED_AP` setup hotspot up (now with a working captive portal) but tries your network for 15 seconds every minute and restarts into normal mode once it's back (2.3.0 stayed in AP mode until power-cycled).

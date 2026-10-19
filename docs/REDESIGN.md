@@ -1,6 +1,6 @@
 # Setup page and behaviour redesign
 
-Status: **released as ReBLLED 1.0.0** (2026-10-18), after the device checks in
+Status: **released as ReBLLED 1.0.0**, after the device checks in
 [TESTING.md](../TESTING.md) passed on an X1 Carbon. Built in stages: settings and migration (1),
 the LED rules (2), the web API (3), the setup page (4), model detection, serial lookup and the
 certificate check (5), review and device test (6), then the other pages and fixes (fork builds
@@ -56,7 +56,7 @@ Instead:
 | Timing | `offlineOffSeconds` | seconds before the strip turns off when the printer is unreachable (was a fixed 30 s) | hidden constant |
 | Printer's light | `lightOnAtPrintStart`, `lightOnWhenDoorOpens`, `lightOffWhenIdle`, `lightOffWhenFinishTimerEnds` | on/off each | the single "Control Chamber Light" switch |
 | LED strip | `stripType` | `rgbww` (RGB + warm + cool white), `rgbw` (RGB + one white), `rgb`, `wwcw` (warm + cool white only), `w` (single white) | nothing (every colour assumed all five channels) |
-| LED strip | `channelMap` | which controller output (R, G, B, WW, CW) drives each strip channel; set by the wiring check | rewiring (red/green swapped on the author's strip, 2026-10-17) |
+| LED strip | `channelMap` | which controller output (R, G, B, WW, CW) drives each strip channel; set by the wiring check | rewiring (red/green swapped on the author's strip) |
 | Printer | `model` | `auto` (default: use the model the printer reports in its network discovery message) or a model chosen by hand: X1, X1 Carbon, X1E, P1P, P1S, P2S, A1, A1 mini, H2D, H2S, X2D, Not listed. Only the X1 Carbon is tested; the rest say so. | "P1 printer" (did nothing in firmware) and "lidar in use" (did nothing) |
 | Advanced | `hmsIgnore`, `debug`, `mqttLog` | | same |
 
@@ -99,7 +99,7 @@ them, and the wires aren't always in that order.
 - **The status line** always states a reason, e.g. "Off: idle for 10 min, open the door to
   wake", "Green, slow pulse: print finished, waiting for the door".
 
-## Decided (2026-10-17)
+## Decided
 
 - **Autosave:** every change applies at once and saves itself, with a brief "Saved" message.
 - **Off** lasts until you choose another mode.
@@ -186,7 +186,7 @@ the prototype, and why:
 
 - **Model and name** come from the printer's discovery message (`DevModel.bambu.com`,
   `DevName.bambu.com`, `src/blled/printerModels.h`). `DevModel` is the printer's `model_id` from
-  Bambu Studio's printer profiles (`resources/profiles/BBL/machine/*.json`, read 2026-10-18):
+  Bambu Studio's printer profiles (`resources/profiles/BBL/machine/*.json`):
   `BL-P001` X1 Carbon (confirmed on the author's), `BL-P002` X1, `C13` X1E, `C11` P1P, `C12` P1S,
   `N7` P2S, `N2S` A1, `N1` A1 mini, `N9` A2L, `O1D` H2D, `O1E` H2D Pro, `O1S` H2S, `O1C2` H2C,
   `N6` X2D. A newer code passes through as it is, and the page treats it as unknown (every
@@ -194,8 +194,7 @@ the prototype, and why:
   gives the code. Capabilities (door sensor, lidar) for anything but the X1 Carbon are from
   specs or assumed, and the page says so.
 - **The certificate check** (`src/blled/printerCert.h`). The author's X1 Carbon presents a certificate
-  issued to its serial and signed by Bambu Lab's own authority, "BBL CA" (valid 2022-2032;
-  checked 2026-10-18). The controller embeds that public CA certificate and, before sending the
+  issued to its serial and signed by Bambu Lab's own authority, "BBL CA" (valid 2022-2032). The controller embeds that public CA certificate and, before sending the
   access code, opens TLS itself and checks both: signed by BBL CA, issued to the configured serial.
   Dates are ignored (the controller has no clock). If the check fails the code isn't sent, the
   strip shows dim red and the status says "couldn't prove it's your printer". This also closes
@@ -209,7 +208,7 @@ the prototype, and why:
   `test_cert` against real mbedtls with generated certificates (`pio test -e native_tls`, needs
   `brew install mbedtls`; separate so the other tests don't).
 
-## Independent review before the device test (stage 6, 2026-10-18)
+## Independent review before the device test (stage 6)
 
 No blockers. Fixed before flashing:
 
@@ -253,7 +252,7 @@ setup page's design. All pages share `/ui.css` (split out of the setup page); `s
 - **Names, one style everywhere** (sentence case): "Wi-Fi and printer connection", "Firmware
   update", "Back up and restore" (verb form; the file is "a backup"), "Log". The current page
   heading is "Backup & Restore" with the title "BLLED Config Backup".
-- **Backup file name with a timestamp,** e.g. `blled-backup-2026-10-18-1655.json`, not the
+- **Backup file name with a timestamp,** e.g. `blled-backup-YYYY-MM-DD-HHMM.json`, not the
   generic `blledconfig.json`. The controller has no clock, so the page builds the name from the
   browser's time (fetch `/configfile.json`, save it under that name). Keep the server's
   `Content-Disposition` as the fallback.
@@ -285,7 +284,7 @@ What was built:
   download (`blled-log-….txt`), clear; keeps the last 3,000 lines; reconnects by itself. The
   unused command box is gone.
 
-## Preparing defaults (br.7, 2026-10-18)
+## Preparing defaults (br.7)
 
 Standard and White only now keep the strip lit (neutral white, the printing colour) while the
 nozzle is cleaned and the bed levelled, and off for the lidar steps (extrusion calibration, bed
@@ -297,7 +296,7 @@ any other v1 colours migrate to Custom as before.
 
 ## Open questions for review
 
-- The author's strip is RGBW (2026-10-17): which output is its white wired to? The wiring check
+- The author's strip is RGBW: which output is its white wired to? The wiring check
   answers this.
 
 ## Language
