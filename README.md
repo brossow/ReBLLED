@@ -1,4 +1,9 @@
-# ReBLLED
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+    <img src="docs/logo-light.png" width="320" alt="ReBLLED: an LED strip lit red, white and green on a dark tile, beside the word ReBLLED">
+  </picture>
+</h1>
 
 **Alternative firmware for [BLLED controllers](https://www.dutchdevelop.com/blled)**: the ESP32 LED controller for Bambu Lab
 printers. It lights your printer's chamber when that's useful and turns it off when it isn't,
