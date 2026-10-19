@@ -270,6 +270,11 @@ What was built:
   it waits for the restart, or says where to find the controller when the network changed.
 - **Open networks** now work: the page sends `open=1` for a network without a password, and the
   controller no longer treats an empty password as "not set up" at boot.
+- **No meaning hidden in empty fields (br.6).** A blank password always means "keep the saved
+  one". "This network has no password" is a checkbox: set and locked from the scan for a listed
+  network, yours to set for a hidden or typed one (covers a network that dropped its password).
+  Likewise "Require a login for these pages": unticking it is how the login is removed (the
+  fields hide and a note says so); with it ticked, a blank username is an error, not a removal.
 - **Firmware update:** shows the installed version, checks the file is firmware (`.ota`, starts
   with 0xE9) before uploading, progress, then waits for the restart and shows the new version.
 - **Back up and restore:** timestamped download `blled-backup-YYYY-MM-DD-HHMM.json` (browser

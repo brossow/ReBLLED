@@ -141,6 +141,12 @@ The settings file changes format on the first boot (the old one is kept on the d
       with a login set (403 without one).
 - [ ] `tools/flash.sh` prints the version before and after (it used a removed endpoint).
 
+### br.6
+
+- [ ] Wi-Fi and login: "This network has no password" is locked to what the scan says for a
+      listed network, and free for "Another network". "Require a login" is ticked; blanking the
+      username shows "Enter a username" instead of removing the login.
+
 ### Going back to br.2
 
 Upload `BLLC_V2.3.0-br.2.bin.ota` (Firmware update page or `tools/flash.sh`), then **restore
@@ -164,6 +170,7 @@ colours, so without the restore the strip stays dark. The restore is required, n
 | No freezes | ✅ 61 status pushes in 60 s, max gap 1.05 s |
 | Other pages (br.4) | |
 | br.5 flashed (2026-10-18, through the logged-in browser tab) | ✅ back in 19 s, settings intact, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s) |
+| br.6 flashed (through the tab) | ✅ back in ~25 s, connected and verified; Wi-Fi page shows the saved network with "no password" locked off, login ticked |
 | Cross-site protection | ✅ without the header, a logged-in request to `/api/wifi-rescan` gets 403; without a login, the change endpoints get 401 |
 
 ## If something goes wrong
