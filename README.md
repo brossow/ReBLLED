@@ -53,14 +53,15 @@ in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
-**From BLLED 2.3.0 (DutchDevelop's firmware):**
+**From BLLED (DutchDevelop's firmware):**
 
 1. On the controller's setup page, **download a backup** of your configuration (Backup &
    Restore).
 2. Open its **firmware update** page and upload `ReBLLED_V1.0.0.bin.ota` from the
    [release](https://github.com/brossow/ReBLLED/releases).
 3. It restarts into ReBLLED. Your Wi-Fi, printer and login carry over, and your LED settings
-   are converted (the original file is kept on the controller). Then, under **Your LED strip**,
+   are converted (the original file is kept on the controller); a setting your BLLED version
+   didn't have gets ReBLLED's default. Then, under **Your LED strip**,
    pick your strip type and run the wiring check.
 
 **On a new controller:** flash DutchDevelop's firmware with the
@@ -69,9 +70,10 @@ hotspot to connect it to your network, then install ReBLLED as above. (Or write 
 `ReBLLED_V1.0.0.bin` over USB; that erases the controller, see
 [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md).)
 
-**Going back:** upload DutchDevelop's `BLLC_V2.3.0.bin.ota` on ReBLLED's firmware update page,
-then restore the backup you downloaded. The restore matters: BLLED 2.3.0 can't read ReBLLED's
-LED settings and would start with a dark strip.
+**Going back:** upload a BLLED `.bin.ota` from
+[DutchDevelop's releases](https://github.com/DutchDevelop/BLLEDController/releases) on ReBLLED's
+firmware update page, then restore the backup you downloaded. The restore matters: BLLED can't
+read ReBLLED's LED settings and would start with a dark strip.
 
 The controller keeps the names it had (the `BLLED_AP` setup hotspot, `BLLED.local`), so
 existing setups and bookmarks keep working.
