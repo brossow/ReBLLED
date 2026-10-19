@@ -1,6 +1,6 @@
 # ReBLLED
 
-**Alternative firmware for BLLED controllers**: the ESP32 LED controller for Bambu Lab
+**Alternative firmware for [BLLED controllers](https://www.dutchdevelop.com/blled)**: the ESP32 LED controller for Bambu Lab
 printers. It lights your printer's chamber when that's useful and turns it off when it isn't,
 with no switch to flip, and shows at a glance when a print needs you. It runs on the same
 hardware as [BLLEDController](https://github.com/DutchDevelop/BLLEDController) by DutchDevelop,
@@ -40,9 +40,10 @@ in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## What you need
 
-- A **BLLED controller**: an ESP32 with the five-channel LED driver and an LED strip, as for
-  [BLLEDController](https://github.com/DutchDevelop/BLLEDController) (see its project for the
-  hardware).
+- A **BLLED controller** and an LED strip. DutchDevelop sells the controller (an ESP32 board
+  with a five-channel LED driver): see the [BLLED controller page](https://www.dutchdevelop.com/blled).
+  ReBLLED runs on the same hardware as their
+  [BLLEDController](https://github.com/DutchDevelop/BLLEDController) firmware.
 - A **Bambu Lab printer** on your network, and its **access code** (on the printer: Settings →
   Network). Tested on the X1 Carbon. Other models are recognised (X1, X1E, P1P, P1S, P2S, A1,
   A1 mini, A2L, H2D, H2D Pro, H2S, H2C, X2D) but not yet tested; the setup page says so.
