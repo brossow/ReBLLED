@@ -49,7 +49,7 @@ Instead:
 | Tools (not saved) | color test, color cycle, Wi-Fi strength | run until Stop or a restart | three of the old modes |
 | Lights | `brightness` | 0–100 % | same |
 | Looks | per state: `printing`, `idle`, `preparing`, `attention`, `error`, `finished` | color (`warm`, `neutral`, `cool`, `off`, or a custom RGB) + rhythm (`steady`, `pulse`, `slow`, `blink`) | ~15 RGB+WW+CW triplets, statusAnimations |
-| Looks (advanced) | per-stage overrides under *preparing* (nozzle cleaning, bed levelling, extrusion calibration, bed scan, first-layer inspection, lidar calibration) and per-error overrides under *error* (filament runout, front cover, nozzle temp, bed temp, serious HMS, fatal HMS) | color, or "same as group" | the per-stage/per-error triplets |
+| Looks (advanced) | per-stage overrides under *preparing* (nozzle cleaning, bed leveling, extrusion calibration, bed scan, first-layer inspection, lidar calibration) and per-error overrides under *error* (filament runout, front cover, nozzle temp, bed temp, serious HMS, fatal HMS) | color, or "same as group" | the per-stage/per-error triplets |
 | Follow the printer | `followChamberLight` | on/off: the strip is off whenever the printer's own light is off | "Replicate State" |
 | Timing | `idleOffMinutes` | 0 (never) or minutes; never during a print | inactivity timeout (+ its door-close coupling, removed) |
 | Timing | `finishEnds` + `finishMinutes` | `door`, `timer`, `either` | finish exit |
@@ -287,9 +287,9 @@ What was built:
 ## Preparing defaults (br.7)
 
 Standard and White only now keep the strip lit (neutral white, the printing color) while the
-nozzle is cleaned and the bed levelled, and off for the lidar steps (extrusion calibration, bed
+nozzle is cleaned and the bed leveled, and off for the lidar steps (extrusion calibration, bed
 scan, first-layer inspection, lidar calibration). Upstream had it off throughout, with a dim blue
-for levelling. Reason: the X1C camera sets its exposure at print start; with the strip off then
+for leveling. Reason: the X1C camera sets its exposure at print start; with the strip off then
 it locked on a dark chamber and overexposed the rest of the print. Confirmed on the author's X1C.
 A v1 config still on upstream's default colors migrates to Standard (so it gets this);
 any other v1 colors migrate to Custom as before.
@@ -303,5 +303,5 @@ any other v1 colors migrate to Custom as before.
 
 All page text goes in one string table. US English is the default (the original page uses US
 spelling); the page switches to British English (color, gray, …) when the browser's language
-is `en-GB`, and the table leaves room for other languages later. The prototype isn't localised
+is `en-GB`, and the table leaves room for other languages later. The prototype isn't localized
 yet.

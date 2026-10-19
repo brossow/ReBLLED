@@ -12,7 +12,7 @@ builds `2.3.0-br.3` to `br.7` led up to it; design and decisions in
   files; Wi-Fi page with explicit "no password" and "require a login" checkboxes.
 - **New LED logic:** one rule set decides what the strip shows; status rhythms; Looks
   (Standard, White only, Custom); per-step and per-error colors with previews; the strip lit
-  for nozzle cleaning and bed levelling by default (camera exposure), off for lidar steps.
+  for nozzle cleaning and bed leveling by default (camera exposure), off for lidar steps.
 - **No hidden behavior:** the door quick-toggle gesture is gone; each way the controller
   switches the printer's own light is a separate setting; modes Follow / Always on / Off.
 - **Strip types and wiring check:** RGB+WW+CW, RGB+W, RGB, WW+CW, W; swapped wires corrected in
