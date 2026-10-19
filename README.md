@@ -44,6 +44,39 @@ Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white 
 The full design and every decision behind it: [docs/REDESIGN.md](docs/REDESIGN.md). What changed
 in each version: [CHANGELOG.md](CHANGELOG.md).
 
+## Screenshots
+
+Taken from the test mock (`tools/mock_device.py`), so the printers and network are made up.
+
+**The setup page during a print**, with the status line on top (it follows your light or dark
+mode), and the same page on a phone:
+
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/setup-printing-dark.webp">
+    <img src="docs/screenshots/setup-printing-light.webp" width="420" alt="The ReBLLED setup page. At the top, a status card reads Printer connected, Neutral white, steady, Printing. Below it, the Lights section with the mode set to Follow the printer, the look set to Standard colors, and a brightness slider at 100 percent, then folded sections for status colors, timing, the printer's own light, the LED strip and the printer, each with a one-line summary.">
+  </picture>
+  <img src="docs/screenshots/phone.webp" width="194" alt="The same setup page at phone width: the status card, then the three mode choices stacked in a single column, the look choices and the brightness slider.">
+</p>
+
+**First-run setup**, four steps. Step 1 lists the printers found on the network:
+
+<img src="docs/screenshots/first-run-setup.webp" width="480" alt="Setup dialog, step 1 of 4, Connect to your printer. It shows Wi-Fi connected, two printers found on the network with their model, serial ending and address, an option to enter an address by hand, a printer access code field, and Finish later and Next buttons.">
+
+**Your LED strip**: pick the strip type, then the wiring check lights each output in turn and
+asks what you see:
+
+<img src="docs/screenshots/strip-wiring.webp" width="480" alt="The Your LED strip section. Five strip types to choose from, from RGB plus warm and cool white down to one white only. Below, a wiring table mapping each light on the strip to a controller output, and a running wiring check: Output 1 of 5, R is on by itself, what do you see on the strip, with buttons for red, green, blue, white, warm white, cool white and nothing.">
+
+**Status colors**: a color and a rhythm for each printer state, with a live preview:
+
+<img src="docs/screenshots/status-colors.webp" width="480" alt="The Status colors section. For Printing and for Idle, a Preview button, a row of color choices (warm, neutral or cool white, a custom color, or off) and a row of rhythms (steady, pulse, slow pulse, blink), with a short description of each state.">
+
+**Wi-Fi and login**: the network list with signal strength, the controller's name, and an
+optional login:
+
+<img src="docs/screenshots/wifi.webp" width="480" alt="The Wi-Fi and login page. A list of networks with signal strength, an option for a hidden network, a password field, the controller's name on the network, the printer it follows, a checkbox to require a login, and Save and restart and Cancel buttons.">
+
 ## What you need
 
 - A **BLLED controller** and an LED strip. DutchDevelop sells the controller (an ESP32 board
