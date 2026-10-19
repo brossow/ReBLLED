@@ -39,12 +39,12 @@ The USB flash erases everything, settings included. This backup is how they come
 **Browser (no tools to install):**
 
 1. Build on the Mac (`pio run -e esp32dev`), or take the files from the release. You need the
-   **full image** `.firmware/BLLC_V<version>.bin` (4 MB), *not* the `.bin.ota`.
+   **full image** `.firmware/ReBLLED_V<version>.bin` (4 MB), *not* the `.bin.ota`.
 2. Plug the controller into the computer over USB.
 3. Open Espressif's web flasher, <https://espressif.github.io/esptool-js/>, and click
    **Connect**. Choose the serial port that appears when the board is plugged in.
 4. Click **Erase Flash** and wait for it to finish.
-5. Under *Program*, set the flash address to **`0x0`**, choose the `BLLC_V<version>.bin`
+5. Under *Program*, set the flash address to **`0x0`**, choose the `ReBLLED_V<version>.bin`
    file, and click **Program**.
 6. When it's done, unplug and replug the board (or press its EN/RST button).
 

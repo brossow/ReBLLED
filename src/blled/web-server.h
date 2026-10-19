@@ -533,7 +533,7 @@ void setupWebserver()
             return refuseForeign(request);
         }
         if (!configUploadOk) {
-            request->send(400, "text/plain", "Config file rejected (not valid BLLED JSON). Nothing was changed.");
+            request->send(400, "text/plain", "That file isn't a ReBLLED or BLLED backup. Nothing was changed.");
             return;
         }
         request->send(200, "text/plain", "Config uploaded. Restarting...");

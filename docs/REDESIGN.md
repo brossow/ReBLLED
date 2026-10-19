@@ -1,9 +1,10 @@
-# Setup page and behaviour redesign (draft)
+# Setup page and behaviour redesign
 
-Status: **built on `main`, not yet tested on a device.** Settings and migration (stage 1), the LED
-rules (2), the web API (3), the setup page (4, `src/www/setupPage.html`) and model detection,
-serial lookup and the printer certificate check (5) are in. Stage 6 is the device test. The clickable prototype stays in
-`prototype/setup-v2.html`.
+Status: **released as ReBLLED 1.0.0** (2026-10-18), after the device checks in
+[TESTING.md](../TESTING.md) passed on an X1 Carbon. Built in stages: settings and migration (1),
+the LED rules (2), the web API (3), the setup page (4), model detection, serial lookup and the
+certificate check (5), review and device test (6), then the other pages and fixes (fork builds
+br.4 to br.7). The clickable prototype stays in `prototype/setup-v2.html`.
 
 ## Principles
 
