@@ -32,6 +32,7 @@ Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white 
   certificate is issued to its serial and signed by Bambu Lab). With a login set, every page
   needs it; secrets are never sent back to the browser; other websites can't change settings
   from your browser.
+- **Smart-home ready.** A JSON API and a companion [Hubitat driver](#hubitat).
 - **Steady.** No freezes, recovers by itself after a power cut, gentle reconnects, and 129
   automated tests of the real code.
 
@@ -77,6 +78,17 @@ read ReBLLED's LED settings and would start with a dark strip.
 
 The controller keeps the names it had (the `BLLED_AP` setup hotspot, `BLLED.local`), so
 existing setups and bookmarks keep working.
+
+## Hubitat
+
+A companion [Hubitat driver](https://github.com/brossow/hubitat-drivers/tree/main/reblled)
+shows the controller's live status on your hub (what the strip shows and why, printing,
+paused, finished, door, errors) and switches the strip and sets its brightness, for rules
+like "strip on with the shop lights" or "announce when a print finishes". It installs
+through Hubitat Package Manager or by importing the driver code.
+
+ReBLLED's JSON API (`/api/status`, `/api/settings`, the status push on `/ws`) is described
+in [docs/REDESIGN.md](docs/REDESIGN.md) for anyone connecting another system.
 
 ## Working on ReBLLED
 
