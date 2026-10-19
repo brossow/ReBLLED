@@ -28,6 +28,7 @@
           <input type="password" id="pass" autocomplete="new-password" maxlength="63" aria-describedby="passHint">
           <p class="hint" id="passHint"></p>
           <p class="err" id="passErr" hidden>Enter the password for this network.</p></div>
+        <label class="check"><input type="checkbox" id="noPass" aria-describedby="noPassHint"><span>This network has no password</span><span class="d" id="noPassHint"></span></label>
         <div class="field"><label for="host">Controller name on the network</label>
           <input type="text" id="host" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="hostHint">
           <p class="hint" id="hostHint">Letters, numbers and hyphens. The page is then also at http://<span id="hostEcho">BLLED</span>.local/</p>
@@ -60,13 +61,16 @@
     <section aria-labelledby="h-login">
       <h2 id="h-login">Login for these pages</h2>
       <div class="card">
-        <p class="hint">Anyone on your network can open these pages unless a login is set.</p>
-        <div class="field"><label for="webUser">Username</label><input type="text" id="webUser" maxlength="39" autocomplete="username" spellcheck="false"></div>
-        <div class="field"><label for="webPass">Password</label>
-          <input type="password" id="webPass" maxlength="39" autocomplete="new-password" aria-describedby="webPassHint">
-          <p class="hint" id="webPassHint"></p>
-          <p class="err" id="webPassErr" hidden>Enter a password for the new login.</p></div>
-        <p class="warn" id="loginOffNote" hidden>With no username, the login is removed when you save.</p>
+        <label class="check"><input type="checkbox" id="loginOn"><span>Require a login for these pages</span><span class="d">Without one, anyone on your network can open them and change the settings.</span></label>
+        <div id="loginFields" class="field">
+          <div class="field"><label for="webUser">Username</label><input type="text" id="webUser" maxlength="39" autocomplete="username" spellcheck="false">
+            <p class="err" id="webUserErr" hidden>Enter a username.</p></div>
+          <div class="field"><label for="webPass">Password</label>
+            <input type="password" id="webPass" maxlength="39" autocomplete="new-password" aria-describedby="webPassHint">
+            <p class="hint" id="webPassHint"></p>
+            <p class="err" id="webPassErr" hidden>Enter a password for the new login.</p></div>
+        </div>
+        <p class="warn" id="loginOffNote" hidden>The login is removed when you save.</p>
       </div>
     </section>
 
@@ -126,18 +130,42 @@
   function chosenNet() {
     const r = document.querySelector("input[name=net]:checked");
     if (!r) return null;
-    return r.value === "other" ? { ssid: $("ssidOther").value.trim(), bssid: "", open: false } : { ssid: r.dataset.ssid, bssid: r.dataset.bssid, open: !!r.dataset.open };
+    // open: from the scan for a listed network (it says whether it has a password); from the
+    // checkbox for a typed one.
+    return r.value === "other" ? { ssid: $("ssidOther").value.trim(), bssid: "", listed: false, open: $("noPass").checked }
+                               : { ssid: r.dataset.ssid, bssid: r.dataset.bssid, listed: true, open: !!r.dataset.open };
   }
   function syncNet() {
     $("otherRow").hidden = !$("netOther").checked;
     const n = chosenNet(), same = n && n.ssid && n.ssid === C.ssid;
-    $("passHint").textContent = n && n.open ? "This network has no password." : same && C.hasPass ? "Saved. Leave blank to keep it." : n && n.ssid ? "The password for this network." : "";
-    $("pass").disabled = !!(n && n.open);
+    // A blank password keeps the saved one; "no password" is said with the checkbox, never by
+    // leaving the field empty.
+    const listed = !!(n && n.listed);
+    if (listed) $("noPass").checked = n.open;
+    $("noPass").disabled = listed;
+    $("noPassHint").textContent = listed ? (n.open ? "The network says it has no password." : "The network says it needs one.") : "For a hidden or typed network.";
+    const open = $("noPass").checked;
+    $("pass").disabled = open;
+    if (open) $("pass").value = "";
+    $("passHint").textContent = open ? "" : same && C.hasPass ? "Leave blank to keep the saved password." : n && n.ssid ? "The password for this network." : "";
   }
-  $("form").addEventListener("change", e => { if (e.target.name === "net") { syncNet(); if (e.target.value === "other") $("ssidOther").focus(); } });
+  $("form").addEventListener("change", e => {
+    if (e.target.name !== "net") return;
+    if (e.target.value === "other") $("noPass").checked = false;   // don't carry over a listed network's answer
+    syncNet();
+    if (e.target.value === "other") $("ssidOther").focus();
+  });
   $("ssidOther").addEventListener("input", syncNet);
+  $("noPass").addEventListener("change", syncNet);
   $("host").addEventListener("input", () => { $("hostEcho").textContent = $("host").value.trim() || "BLLED"; });
-  $("webUser").addEventListener("input", () => { $("loginOffNote").hidden = !!$("webUser").value.trim() || !C.webUser; });
+  // Removing the login is said with the checkbox, never by leaving the username empty.
+  function syncLogin() {
+    const on = $("loginOn").checked;
+    $("webUser").disabled = $("webPass").disabled = !on;
+    $("loginFields").hidden = !on;
+    $("loginOffNote").hidden = on || !C.webUser;
+  }
+  $("loginOn").addEventListener("change", () => { syncLogin(); if ($("loginOn").checked) $("webUser").focus(); });
 
   // ---- save ----
   function err(input, errEl, bad) { input.setAttribute("aria-invalid", String(bad)); errEl.hidden = !bad; return bad; }
@@ -160,7 +188,8 @@
     e.preventDefault();
     const n = chosenNet() || { ssid: "", bssid: "" };
     const host = $("host").value.trim() || "BLLED";
-    const pass = $("pass").value, user = $("webUser").value.trim(), wpass = $("webPass").value;
+    const loginOn = $("loginOn").checked;
+    const pass = $("pass").value, user = loginOn ? $("webUser").value.trim() : "", wpass = loginOn ? $("webPass").value : "";
     const ssidChanged = n.ssid !== C.ssid;
     const ap = C.isAPMode;
     const ip = $("printerIP").value.trim(), serial = $("printerSerial").value.trim().toUpperCase(), code = $("accessCode").value.trim();
@@ -171,7 +200,8 @@
       [ap && err($("printerIP"), $("ipErr"), !!ip && !IP_RE.test(ip)), $("printerIP")],
       [ap && err($("printerSerial"), $("serialErr"), !!serial && !/^[A-Z0-9]{1,15}$/.test(serial)), $("printerSerial")],
       [ap && err($("accessCode"), $("codeErr"), !!code && code.length !== 8), $("accessCode")],
-      [err($("webPass"), $("webPassErr"), !!user && !wpass && !(C.hasWebPass && user === C.webUser)), $("webPass")],
+      [loginOn && err($("webUser"), $("webUserErr"), !user), $("webUser")],
+      [loginOn && err($("webPass"), $("webPassErr"), !wpass && !(C.hasWebPass && user === C.webUser)), $("webPass")],
     ].find(([bad]) => bad);
     if (firstBad) { firstBad[1].focus(); return; }
     const body = new URLSearchParams({ ssid: n.ssid, pass: n.open ? "" : pass, bssid: n.bssid, host, webUser: user, webPass: wpass });
@@ -199,7 +229,9 @@
       if (C.hasAccessCode) { $("accessCode").placeholder = "Saved (leave blank to keep it)"; }
     }
     $("webUser").value = C.webUser || "";
-    $("webPassHint").textContent = C.hasWebPass ? "Saved. Leave blank to keep it." : "";
+    $("webPassHint").textContent = C.hasWebPass ? "Leave blank to keep the saved password." : "";
+    $("loginOn").checked = !!C.webUser;
+    syncLogin();
     syncNet();
     scan();
   })();
