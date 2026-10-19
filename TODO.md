@@ -10,8 +10,18 @@
   `/api/status` via Homepage's custom-API widget (basic auth if a login is set).
 - **Near-finish cue.** A gentle pulse in the last few percent of a print. Needs
   `mc_percent` added to the MQTT filter in `ParseCallback()`.
-- **Name and 1.0.0 release.** Rename (the author's call), version 1.0.0, README for the new
-  product, GitHub release, credit DutchDevelop.
+- **Go public** (1.0.0 is released privately; the history is scrubbed of personal details).
+  When it's time:
+  1. Re-run the scrub scan over `main` and the tags (name, home network names, printer serial,
+     home addresses, personal email): it must find nothing.
+  2. **Delete and recreate `brossow/ReBLLED`** from this clean history, so the pre-scrub
+     commits GitHub still keeps as unreachable objects are gone for good. Push `main`, the
+     tags (`v1.0.0`, `v2.3.0-br.1`, and DutchDevelop's `Release`, `Release_V_2.3.0`).
+  3. **Recreate the v1.0.0 release** from the saved copy (the exact verified files and notes,
+     kept outside the repo with the other controller backups), not from a rebuild: every
+     build embeds its compile time, so a rebuild wouldn't match the published checksums.
+  4. Make it public, check the About link on the setup page resolves, then announce it (for
+     example the Bambu forum's BLLED thread).
 
 ## Watch-outs
 
