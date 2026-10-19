@@ -95,6 +95,13 @@ through Hubitat Package Manager or by importing the driver code.
 ReBLLED's JSON API (`/api/status`, `/api/settings`, the status push on `/ws`) is described
 in [docs/REDESIGN.md](docs/REDESIGN.md) for anyone connecting another system.
 
+## Questions and feedback
+
+Questions, setups and results on other printer models: the
+[ReBLLED thread on the Bambu Lab forum](https://forum.bambulab.com/t/reblled-alternative-firmware-for-blled-chamber-light-controllers-x1c-tested/261265).
+Bugs: [GitHub issues](https://github.com/brossow/ReBLLED/issues). For the Hubitat driver, its
+[Hubitat community thread](https://community.hubitat.com/t/release-reblled-led-controller-status-and-control-for-blled-chamber-lights-on-bambu-lab-printers/166906).
+
 ## Working on ReBLLED
 
 | Task | Command |
