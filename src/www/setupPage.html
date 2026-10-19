@@ -587,7 +587,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
   // Live status: pushed every second on the web socket; polled if the socket isn't working.
   let lastHeard = 0, ws = null, pollTimer = null;
-  function heard(st) { ST = st; if (st.firmware) { $("fwVersion").textContent = `ReBLLED ${st.firmware}, firmware for BLLED controllers. Based on BLLEDController by DutchDevelop. `; const a = el("a", null, "About"); a.href = "https://github.com/brossow/ReBLLED"; $("fwVersion").appendChild(a); } lastHeard = Date.now(); $("lostBanner").hidden = true; renderStatus(); applyModel(); summaries(); }
+  function heard(st) { ST = st; if (st.firmware) { $("fwVersion").textContent = `ReBLLED ${st.firmware}, firmware for BLLED controllers. Based on BLLEDController by DutchDevelop. `; const a = el("a", null, "About"); a.href = "https://github.com/brossow/ReBLLED"; a.target = "_blank"; a.rel = "noopener"; a.setAttribute("aria-label", "About ReBLLED (opens in a new tab)"); $("fwVersion").appendChild(a); } lastHeard = Date.now(); $("lostBanner").hidden = true; renderStatus(); applyModel(); summaries(); }
   async function poll() { try { heard(await getJSON("/api/status")); } catch (e) {} }
   function pollSoon() { setTimeout(poll, 150); }
   function openSocket() {
