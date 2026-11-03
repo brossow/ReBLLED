@@ -147,7 +147,7 @@ Bugs: [GitHub issues](https://github.com/brossow/ReBLLED/issues). For the Hubita
 | Log the printer's stages with times (for example, to line up a print start with the camera) | `python3 tools/stage_log.py <device-ip> [minutes]` |
 | Switch a device to the larger partition layout | [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md) |
 
-[TESTING.md](TESTING.md) is the on-device checklist (with results); [TODO.md](TODO.md) lists what's next.
+[TESTING.md](TESTING.md) is the on-device checklist (with results).
 
 ## Credits and license
 
