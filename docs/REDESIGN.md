@@ -95,7 +95,8 @@ them, and the wires aren't always in that order.
 - **Start-up and connection colors** (shown before the printer is reachable) are listed in
   Help, not hidden: white = starting, red = loading settings, orange = joining Wi-Fi,
   pink = no Wi-Fi configured (setup hotspot `BLLED_AP` is on), blue = Wi-Fi connected,
-  cyan = connecting to the printer, dim red = printer rejected the access code.
+  cyan = connecting to the printer, dim red = printer rejected the access code, or the device at its
+  address couldn't prove it's the printer.
 - **The status line** always states a reason, e.g. "Off: idle for 10 min, open the door to
   wake", "Green, slow pulse: print finished, waiting for the door".
 

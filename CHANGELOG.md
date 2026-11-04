@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1
+
+- **Help:** the start-up color list now gives both reasons for a steady dim red: the printer
+  rejected the access code, or the device at its address couldn't prove it's your printer.
+  Firmware behavior is unchanged.
+- **README:** explains steady dim red, and adds screenshots and where to ask questions.
+
 ## 1.0.0: ReBLLED
 
 The first release under the ReBLLED name, built on BLLEDController 2.3.0 by DutchDevelop. Fork

@@ -11,7 +11,7 @@ with no switch to flip, and shows at a glance when a print needs you. It runs on
 hardware as [BLLEDController](https://github.com/DutchDevelop/BLLEDController) by DutchDevelop,
 which it's built on.
 
-Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white strip.
+Current version: **1.0.1**. Tested on a Bambu Lab X1 Carbon with an RGB + white strip.
 
 ## What it does
 
@@ -25,7 +25,9 @@ Current version: **1.0.0**. Tested on a Bambu Lab X1 Carbon with an RGB + white 
   time). Rhythms mean you don't have to tell colors apart.
 - **It says why.** The setup page's status line always explains what the strip shows ("Off: no
   activity for 15 min. Open the door or start a print to wake it."). Nothing hidden: no secret
-  door gestures.
+  door gestures. A steady dim red isn't a dead strip: it means the printer rejected the access
+  code, or the device at the printer's address couldn't prove it's your printer. The status
+  line says which, and **Run setup again** fixes either one.
 - **One setup page, autosaved.** Mode, look (standard colors, white only, or your own) and
   brightness up front; everything else folded away. A four-step setup on first use. Works on a
   phone, in light and dark mode, with a keyboard or a screen reader.
@@ -96,7 +98,7 @@ optional login:
 
 1. On the controller's setup page, **download a backup** of your configuration (Backup &
    Restore).
-2. Open its **firmware update** page and upload `ReBLLED_V1.0.0.bin.ota` from the
+2. Open its **firmware update** page and upload `ReBLLED_V1.0.1.bin.ota` from the
    [release](https://github.com/brossow/ReBLLED/releases).
 3. It restarts into ReBLLED. Your Wi-Fi, printer and login carry over, and your LED settings
    are converted (the original file is kept on the controller); a setting your BLLED version
@@ -106,7 +108,7 @@ optional login:
 **On a new controller:** flash DutchDevelop's firmware with the
 [BLLED web flasher](https://dutchdevelop.github.io/Universal-Flasher/), join its `BLLED_AP` Wi-Fi
 hotspot to connect it to your network, then install ReBLLED as above. (Or write the full image
-`ReBLLED_V1.0.0.bin` over USB; that erases the controller, see
+`ReBLLED_V1.0.1.bin` over USB; that erases the controller, see
 [docs/USB-MIGRATION.md](docs/USB-MIGRATION.md).)
 
 **Going back:** upload a BLLED `.bin.ota` from

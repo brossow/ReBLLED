@@ -695,7 +695,7 @@ button:disabled { opacity: .55; cursor: not-allowed; }
   // ---------- start-up colours ----------
   const LEGEND = [["#ffffff", "White", "Starting up."], ["#ff0000", "Red", "Loading settings."], ["#ffa500", "Orange", "Joining Wi-Fi (also shown while looking for the strongest access point)."],
     ["#ff00ff", "Pink", "No Wi-Fi configured. Join the BLLED_AP hotspot to set it up."], ["#0000ff", "Blue", "Wi-Fi connected."], ["#00ffff", "Cyan", "Connecting to the printer."],
-    ["#800000", "Dim red", "The printer rejected the access code. Check it with Run setup again."]];
+    ["#800000", "Dim red", "The printer rejected the access code, or the device at its address couldn't prove it's your printer. The status line says which. Fix either with Run setup again."]];
   for (const [hex, name, what] of LEGEND) {
     const li = el("li"), sw = el("span", "swatch"); sw.setAttribute("aria-hidden", "true"); sw.style.background = hex;
     li.append(sw, el("b", null, name), el("span", null, what)); $("legend").appendChild(li);

@@ -172,6 +172,7 @@ colors, so without the restore the strip stays dark. The restore is required, no
 | br.5 flashed (through the logged-in browser tab) | ✅ back in 19 s, settings intact, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s) |
 | br.6 flashed (through the tab) | ✅ back in ~25 s, connected and verified; Wi-Fi page shows the saved network with "no password" locked off, login ticked |
 | ReBLLED 1.0.0 flashed (through the tab) | ✅ back in ~25 s, connected and verified, model X1C, 61 pushes/min (max gap 1.04 s); page and footer show ReBLLED 1.0.0 |
+| ReBLLED 1.0.1 flashed (through the tab) | ✅ back in ~27 s, settings intact, connected and verified, model X1C, status pushes steady (max gap 1.05 s); page footer shows 1.0.1, Help lists both dim red causes |
 | br.7 flashed (through the tab) | ✅ back in ~24 s, connected and verified; the author's Custom colors unchanged |
 | Camera exposure (X1C) | ✅ fixed by settings: white (the printing color) for "Cleaning the nozzle" and "Leveling the bed", off for the lidar steps. The camera sets its exposure at print start; with the strip off then it locked on a dark chamber |
 | Cross-site protection | ✅ without the header, a logged-in request to `/api/wifi-rescan` gets 403; without a login, the change endpoints get 401 |
